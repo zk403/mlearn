@@ -1,2 +1,2 @@
-# mlearn
-Machine learning tools for business data analysis project 
+# binarymodels
+binary models tools for business project
