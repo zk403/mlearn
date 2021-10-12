@@ -70,7 +70,7 @@ setup(
                       'scipy',
                       'category_encoders',
                       'lightgbm>=3.3.0', 
-                      'patsy'],  # Optional
+                      'patsy>=0.5.2'],  # Optional
     #package_data={'scorecardpy': ['data/*.csv']},
     # data_files=[('scorecardpy': ['data/*.csv'])],  # Optional
     #project_urls={  # Optional
