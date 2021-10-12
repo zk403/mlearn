@@ -135,7 +135,7 @@ class selection_pre(TransformerMixin):
         
         if X_categoty.columns.size:
             X_categoty_encode=OrdinalEncoder().fit_transform(X_categoty).sub(1)
-            X_new=pd.concat([X_numeric,X_categoty_encode],1)
+            X_new=pd.concat([X_numeric,X_categoty_encode],axis=1)
 
             lgb=LGBMClassifier(
                 boosting_type='gbdt',
@@ -304,7 +304,6 @@ class selection_corr(TransformerMixin):
         X:训练数据
         """
         corr_limit=self.corr_limit
-        corr_method=self.corr_method
         
         #计算IV
         finalbindf=pd.concat(self.bins)
@@ -312,7 +311,6 @@ class selection_corr(TransformerMixin):
         fimp=finalbindf.groupby('variable')[['bin_iv']].sum()
         
         self.var_keep=[]
-        var_del=None
         count=0
         while (X.corr().abs()>corr_limit).sum().sum()>X.columns.size or count==0: #相关系数矩阵中所有特征的相关系数需小于阈值时才停止迭代(非自身)
             count=count+1
@@ -321,7 +319,7 @@ class selection_corr(TransformerMixin):
             corrtable=X.corr(method=self.corr_method)
             var_corr_max=corrtable.apply(lambda x:x[x.index!=x.name].abs().max())
             var_highcorr=var_corr_max[var_corr_max>corr_limit].index.tolist()
-            var_lowcorr=var_corr_max[var_corr_max<=corr_limit].index.tolist()
+            #var_lowcorr=var_corr_max[var_corr_max<=corr_limit].index.tolist()
 
             self.var_del=[]
             
@@ -329,6 +327,6 @@ class selection_corr(TransformerMixin):
                 pairs=fimp.join(corrtable[i][corrtable[i]>corr_limit],how='right').sort_values(i,ascending=False).head(2) #变量与其corr最高的变量
                 self.var_del.append(pairs[pairs.bin_iv.eq(pairs['bin_iv'].min())].index[0]) #选择IV较大的那个
             
-            X=X.drop(self.var_del,1)
+            X=X.drop(self.var_del,axis=1)
         
         self.var_keep=X.columns.tolist()

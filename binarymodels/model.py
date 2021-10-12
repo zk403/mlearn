@@ -75,7 +75,7 @@ class Stepwise(BaseEstimator):
         --
         X:woe编码数据,pd.DataFrame对象,需与训练数据woe编码具有相同的特征
         '''        
-        return X[self.logit_model.params.index.ravel()[1:]]
+        return X[self.logit_model.params.index.tolist()[1:]]
           
     def fit(self,X,y):
         '''
