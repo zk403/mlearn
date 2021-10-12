@@ -60,6 +60,7 @@ setup(
     keywords='credit scorecard, woe binning, performace evaluation',  # Optional
     packages=['binarymodels'],  # Required
     install_requires=['numpy',
+                      'fastparquet>=0.7.1'
                       'pandas>=1.3.3',
                       'statsmodels>=0.13.0',
                       'scorecardpy>=1.9.2',
