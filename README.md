@@ -1,2 +1,6 @@
 # binarymodels
-binary models tools for business project
+
+model tools for building scorecard
+
+pip install git+https://github.com/zk403/mlearn.git
+
