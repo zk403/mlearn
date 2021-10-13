@@ -96,7 +96,7 @@ class getColmuns(TransformerMixin):
 
 class getReport(BaseEstimator):
     
-    def __init__(self,categorical_col=None,numeric_col=None,miss_value=[np.nan,'nan']):
+    def __init__(self,categorical_col=None,numeric_col=None,miss_value=[np.nan,'nan'],is_nacorr=False,out_path=None):
         """ 
         产生数据质量报告
         Params:
@@ -104,48 +104,54 @@ class getReport(BaseEstimator):
             categorical_col:list,类别特征列名
             numeric_col:list,连续特征列名
             miss_value:list,缺失值指代值
+            is_nacorr:bool,是否输出缺失率相关性报告
+            out_path:str or None,将数据质量报告输出到本地工作目录的str文件夹下，None代表不输出            
         
         Attributes:
         -------
-            num_info:pd.DataFrame,连续特征质量报告
-            char_info:pd.DataFrame,分类特征质量报告
-            nan_info:pd.DataFrame,单特征缺失率报告
+            num_report:pd.DataFrame,连续特征质量报告
+            char_report:pd.DataFrame,分类特征质量报告
+            na_report:pd.DataFrame,单特征缺失率报告
+            nacorr_report:pd.DataFrame,缺失率相关性报告
         """
         self.categorical_col = categorical_col
         self.numeric_col = numeric_col
         self.miss_value=miss_value
+        self.is_nacorr=is_nacorr
+        self.out_path=out_path
         
     def fit(self, X, y=None):
+        
+        #填充缺失值
         self.X=X.copy().replace(self.miss_value,np.nan)   
+        
+        #产生报告
+        self.num_report=self.num_info()
+        self.char_report=self.char_info()
+        self.na_report=self.nan_info()        
+        if self.is_nacorr:
+            self.nacorr_report=self.nan_corr()
+        
+        #输出报告    
+        if self.out_path != None:            
+            if self.out_path not in os.listdir():
+                os.mkdir(self.out_path)
+            
+            now=time.strftime('%Y%m%d%H%M',time.localtime(time.time()))
+            writer = pd.ExcelWriter(self.out_path+'/data_report'+now+'.xlsx')
+
+            self.num_report.to_excel(writer,sheet_name='NUM')
+            self.char_report.to_excel(writer,sheet_name='CHAR')        
+            self.na_report.to_excel(writer,sheet_name='NAN')
+            if self.is_nacorr:
+                self.nacorr_report.to_excel(writer,sheet_name='NAN_corr')
+        
+            writer.save()     
+            print('to_excel done')                
+                                    
         return self
     
-    def to_excel(self,out_path='reports'):
-        """ 
-        数据质量报告输出为excel
-        Parameters:
-        ----------
-            out_path:str,输出目录,默认工作目录下的reports路径,若没有则需要先创建        
-        """
-        num_report=self.num_info
-        char_report=self.char_info
-        na_report=self.nan_info   
-        nacorr_report=self.nan_corr
-        ## 输出
-        if out_path not in os.listdir():
-            os.mkdir(out_path)
-        
-        now=time.strftime('%Y%m%d%H%M',time.localtime(time.time()))
-        writer = pd.ExcelWriter(out_path+'/data_report'+now+'.xlsx')
-
-        num_report.to_excel(writer,sheet_name='NUM')
-        char_report.to_excel(writer,sheet_name='CHAR')        
-        na_report.to_excel(writer,sheet_name='NAN')
-        nacorr_report.to_excel(writer,sheet_name='NAN_corr')
-        
-        writer.save()     
-        print('to_excel done')
-    
-    @property
+    #@property
     def num_info(self):
         
         """ 数据质量报告-数值特征
@@ -166,7 +172,7 @@ class getReport(BaseEstimator):
         
         return report
     
-    @property    
+    #@property    
     def char_info(self):
         """ 数据质量报告-分类特征
         """
@@ -192,7 +198,7 @@ class getReport(BaseEstimator):
         
         return report
     
-    @property    
+    #@property    
     def nan_info(self):
         """ 数据质量报告-缺失特征
         """        
@@ -213,7 +219,7 @@ class getReport(BaseEstimator):
     
         return report
     
-    @property     
+    #@property     
     def nan_corr(self):
         """ 数据质量报告-缺失特征相关性
         """        

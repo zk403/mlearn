@@ -235,7 +235,7 @@ class Stepwise(BaseEstimator):
             show_high_vif_only=False:True时仅输出vif大于10的特征,False时将输出所有特征的vif
         '''
         vif = pd.DataFrame()
-        variables_stepwise=logit_model.params.index.ravel()[1:]
+        variables_stepwise=logit_model.params.index.tolist()[1:]
         vif["VIF Factor"] = [variance_inflation_factor(X[variables_stepwise].values, i) for i in range(X[variables_stepwise].shape[1])]
         vif["features"] = variables_stepwise
         if show_high_vif_only:

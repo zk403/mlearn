@@ -19,7 +19,7 @@ class featureCluster(BaseEstimator):
     
     def __init__(self,n_clusters=5,distance_threshold=None,linkage='average',distance_metrics='pearson',scale=True):
         '''
-        评分转换
+        变量聚类
         Parameters:
         --
             n_clusters=5:int,聚类数量

@@ -184,6 +184,12 @@ class selection_iv(TransformerMixin):
         Attribute:
         ----------
             features_info:dict,每一步筛选的特征进入记录
+            iv_info:pd.Series,细分箱后所有特征的iv统计结果
+            keep_col:list,经细分箱及指定ivlimit筛选后保留的特征名列表
+            breaks_list:dict,细分箱产生的切分点信息列表
+            finebin:所有特征细分箱明细dict(经iv筛选后)
+            finebin_nonmonotonic:dict,非单调特征细分箱明细dict(经iv筛选后)
+            finebin_monotonic:dict,单调特征细分箱明细dict(经iv筛选后)
         """
         self.ivlimit=ivlimit
         self.y=y
@@ -224,6 +230,7 @@ class selection_iv(TransformerMixin):
         self.iv_info=pd.concat([Numfinbindf.groupby('variable')['bin_iv'].sum().rename('iv'),Facfinbindf.groupby('variable')['bin_iv'].sum().rename('iv')])
         self.keep_col=self.iv_info[self.iv_info>=ivlimit].index.tolist()
         self.finebin={column:finebin.get(column) for column in self.keep_col}
+        self.finebin_monotonic,self.finebin_nonmonotonic=self.checkMonotonicFeature(self.finebin,ivlimit)
         
         return self
     
@@ -263,6 +270,29 @@ class selection_iv(TransformerMixin):
             breaklist[faccol]=charcol_drop.unique()
                 
         return breaklist
+    
+    def checkMonotonicFeature(self,varbin,ivlimit):
+        """
+        检查细分箱后特征的分箱woe是否单调
+        Parameters:
+        --
+        Attribute:
+        --
+            finebin_nonmonotonic:dict,非单调特征dict
+            finebin_monotonic:dict,单调特征dict
+        """        
+        varbin_monotonic={}
+        varbin_nonmonotonic={}
+        for column in varbin.keys():
+            var_woe=varbin[column].query('bin!="missing"').woe
+            if var_woe.is_monotonic_decreasing or var_woe.is_monotonic_increasing:
+                if varbin[column].total_iv[0]>ivlimit:
+                    varbin_monotonic[column]=varbin[column]    
+            else:
+                if varbin[column].total_iv[0]>ivlimit:
+                    varbin_nonmonotonic[column]=varbin[column]
+                    
+        return(varbin_monotonic,varbin_nonmonotonic)
     
 
 class selection_corr(TransformerMixin):
