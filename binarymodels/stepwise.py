@@ -68,14 +68,17 @@ class Stepwise(BaseEstimator):
         pred=self.logit_model.predict(X)
         return pred
     
-    def transform(self,X,y=None):     
+    def transform(self,X,y=None,raw=False):     
         '''
         使用逐步回归进行特征筛选,返回逐步法筛选后的训练数据
         Parameters:
         --
         X:woe编码数据,pd.DataFrame对象,需与训练数据woe编码具有相同的特征
         '''        
-        return X[self.logit_model.params.index.tolist()[1:]]
+        if raw:            
+            return X[self.logit_model.params.index.tolist()[1:]]
+        else:
+            return X[[i[0:-4] for i in self.logit_model.params.index.tolist()[1:]]]
           
     def fit(self,X,y):
         '''
