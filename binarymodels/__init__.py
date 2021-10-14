@@ -4,7 +4,7 @@ from binarymodels.cleanData import OutliersTransformer
 from binarymodels.featureCluster import featureCluster
 from binarymodels.featureSelection import selection_pre,selection_iv,selection_corr
 from binarymodels.getReport import getColmuns,getReport
-from binarymodels.stepwieselogit import getWOE,Stepwise,getCreditScore
+from binarymodels.stepwise import getWOE,Stepwise,getCreditScore
 from binarymodels.searchBayesian import searchBayesianXGB,searchBayesianLGBM
 
 
