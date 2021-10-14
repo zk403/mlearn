@@ -57,21 +57,15 @@ class searchBayesianXGB(BaseEstimator):
         pred = self.xgb_refit.predict_proba(X)[:,1]        
         return pred
     
-    def transform(self,X,y=None):     
-        '''
-        使用逐步回归进行特征筛选,返回逐步法筛选后的训练数据
-        Parameters:
-        --
-        X:woe编码数据,pd.DataFrame对象,需与训练数据woe编码具有相同的特征
-        '''        
+    def transform(self,X,y=None):            
         return self
           
     def fit(self,X,y):
         '''
-        拟合逐步回归
+        进行贝叶斯优化
         Parameters:
         --
-        X:woe编码训练数据,pd.DataFrame对象
+        X:pd.DataFrame对象
         y:目标变量,pd.Series对象
         '''   
         
@@ -137,7 +131,7 @@ class searchBayesianXGB(BaseEstimator):
             XGBClassifier(seed=123,use_label_encoder=False,verbosity=0),para_space,cv=self.cv,
             scoring=scorer,error_score=0).fit(self.X,self.y)
         
-        print(cv_res.cv_results_['mean_test_score'])
+        #print(cv_res.cv_results_['mean_test_score'])
         val_score = cv_res.cv_results_['mean_test_score'][0]
         print(' Stopped after %d iterations with val-%s = %f' % (n_estimators,self.scoring,val_score))
         return(val_score)    
@@ -171,6 +165,9 @@ class searchBayesianXGB(BaseEstimator):
         return(np.nanmean(lift))
     
     def cvresult_to_df(self):
+        '''
+        输出交叉验证结果
+        '''   
 
         ParaDf_all=pd.DataFrame()
     
@@ -216,7 +213,7 @@ class searchBayesianLGBM(BaseEstimator):
         
     def predict_proba(self,X,y=None):
         '''
-        最优参数下的xgboost模型的预测
+        最优参数下的lgbm模型的预测
         Parameters:
         --
         X:pd.DataFrame对象
@@ -225,20 +222,15 @@ class searchBayesianLGBM(BaseEstimator):
         return pred
     
     def transform(self,X,y=None):     
-        '''
-        使用逐步回归进行特征筛选,返回逐步法筛选后的训练数据
-        Parameters:
-        --
-        X:woe编码数据,pd.DataFrame对象,需与训练数据woe编码具有相同的特征
-        '''        
+        
         return self
           
     def fit(self,X,y):
         '''
-        拟合逐步回归
+        进行贝叶斯优化
         Parameters:
         --
-        X:woe编码训练数据,pd.DataFrame对象
+        X: pd.DataFrame对象
         y:目标变量,pd.Series对象
         '''   
         
@@ -258,7 +250,7 @@ class searchBayesianLGBM(BaseEstimator):
         #交叉验证结果保存
         self.cv_result=self.cvresult_to_df()
         
-        print (self.para_space)
+        #print (self.para_space)
         self.lgbm_refit = LGBMClassifier(
             boosting_type=self.para_space['boosting_type'],
             n_estimators=self.params_best['n_estimators'],
@@ -305,7 +297,7 @@ class searchBayesianLGBM(BaseEstimator):
             LGBMClassifier(seed=123,min_child_weight=None),para_space,cv=self.cv,
             scoring=scorer,error_score=0).fit(self.X,self.y)
         
-        print(cv_res.cv_results_['mean_test_score'])
+        #print(cv_res.cv_results_['mean_test_score'])
         val_score = cv_res.cv_results_['mean_test_score'][0]
         print(' Stopped after %d iterations with val-%s = %f' % (n_estimators,self.scoring,val_score))
         return(val_score)    
@@ -339,6 +331,9 @@ class searchBayesianLGBM(BaseEstimator):
         return(np.nanmean(lift))
     
     def cvresult_to_df(self):
+        '''
+        输出交叉验证结果
+        '''   
 
         ParaDf_all=pd.DataFrame()
     
