@@ -68,7 +68,7 @@ class Stepwise(BaseEstimator):
         pred=self.logit_model.predict(X)
         return pred
     
-    def transform(self,X,y=None,raw=False):     
+    def transform(self,X,y=None,raw=True):     
         '''
         使用逐步回归进行特征筛选,返回逐步法筛选后的训练数据
         Parameters:
