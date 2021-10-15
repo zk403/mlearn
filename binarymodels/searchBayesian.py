@@ -27,6 +27,24 @@ class searchBayesianXGB(BaseEstimator):
             init_points:int,贝叶斯优化起始搜索点的个数
             scoring:str,寻优准则,可选'auc','ks','lift'
             cv:int,交叉验证的折数
+            
+            """参数空间写法
+        
+            para_space={
+                 'n_estimators': (80, 150),
+                 'learning_rate': (0.05, 0.2),
+                 'max_depth': (3, 10),
+                 'gamma': (0, 20),
+                 'min_child_weight': (0, 10),
+                 'max_delta_step': (0, 0),
+                 'scale_pos_weight': (11,11),
+                 'subsample': (0.5, 1),
+                 'colsample_bytree': (0.5, 1),
+                 'reg_lambda': (0, 10)
+                           }
+            
+            """
+             
         
         Attribute:    
         --
@@ -193,6 +211,26 @@ class searchBayesianLGBM(BaseEstimator):
             init_points:int,贝叶斯优化起始搜索点的个数
             scoring:str,寻优准则,可选'auc','ks','lift'
             cv:int,交叉验证的折数
+            
+            """参数空间写法        
+        
+            para_space={
+                     'boosting_type':'gbdt', 
+                     'n_estimators':(30,120),
+                     'learning_rate':(0.05,0.2), 
+                    
+                     'max_depth':(2,4),
+                     'min_split_gain': (0,20),
+                     'min_sum_hessian_in_leaf': (0,20),
+                     
+                     'scale_pos_weight':(1,1),
+                     'subsample':(0.5,1),
+                     'colsample_bytree' :(0.5,1),
+                     'reg_lambda':(0,10), 
+                     }
+            
+              """
+        
         
         Attribute:    
         --

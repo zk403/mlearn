@@ -29,7 +29,7 @@ class getWOE(TransformerMixin):
         self.varbin=varbin
         return self
 
-class Stepwise(BaseEstimator):
+class stepwise(BaseEstimator):
     
     def __init__(self,custom_column=None,target='target',p_value_enter=.05,criterion='aic',normalize=False,show_step=False,show_high_vif_only=False):
         '''
