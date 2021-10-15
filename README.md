@@ -14,7 +14,7 @@
 - binarymodels.getCreditScore:基于回归制作评分卡
 - binarymodels.searchGirdCV:网格优化与随机优化的xgb或lgbm
 - binarymodels.searchBayesianXGB:贝叶斯优化的xgboost
-- binarymodels.searchBayesianXGB:贝叶斯优化的lightgbm
+- binarymodels.searchBayesianLGBM:贝叶斯优化的lightgbm
     
 所有的功能都基于sklearn.base的TransformerMixin与BaseEstimator进行构建,因此可以进行sklearn的pipline操作
 
