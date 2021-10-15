@@ -176,6 +176,8 @@ class searchBayesianXGB(BaseEstimator):
             ParaDf['val_'+self.scoring]=self.Optimize.res[i]['target']    
             ParaDf_all=pd.concat([ParaDf,ParaDf_all],ignore_index=True)
         
+        ParaDf_all['booster']='gbtree'
+        
         return ParaDf_all
     
 
@@ -196,7 +198,7 @@ class searchBayesianLGBM(BaseEstimator):
         --
             Optimize:贝叶斯优化迭代器,需先使用fit
             params_best:最优参数组合,需先使用fit
-            xgb_refit:最优参数下的xgboost模型,需先使用fit
+            xgb_refit:最优参数下的lgbm模型,需先使用fit
         
         Examples
         --
@@ -260,7 +262,8 @@ class searchBayesianLGBM(BaseEstimator):
             min_sum_hessian_in_leaf=self.params_best['min_sum_hessian_in_leaf'],
             subsample=self.params_best['subsample'],
             colsample_bytree=self.params_best['colsample_bytree'],
-            class_weight=self.para_space['class_weight'],
+            #class_weight=self.para_space['class_weight'],
+            scale_pos_weight=self.params_best['scale_pos_weight'],
             reg_lambda=self.params_best['reg_lambda']
             ).fit(X,y)      
         
@@ -268,7 +271,7 @@ class searchBayesianLGBM(BaseEstimator):
     
     
     def LGBM_CV(self,n_estimators,learning_rate,max_depth,
-               min_split_gain,min_sum_hessian_in_leaf,subsample,colsample_bytree,
+               min_split_gain,min_sum_hessian_in_leaf,subsample,colsample_bytree,scale_pos_weight,
                reg_lambda
               ):
                
@@ -280,6 +283,7 @@ class searchBayesianLGBM(BaseEstimator):
                       'min_sum_hessian_in_leaf':[min_sum_hessian_in_leaf],        
                       'subsample' : [subsample],
                       'colsample_bytree' : [colsample_bytree],
+                      'scale_pos_weight' : [scale_pos_weight],
                       'reg_lambda':[reg_lambda]
                       }       
         
@@ -343,7 +347,6 @@ class searchBayesianLGBM(BaseEstimator):
             ParaDf_all=pd.concat([ParaDf,ParaDf_all],ignore_index=True)
         
         ParaDf_all['boosting_type']=self.para_space['boosting_type']    
-        ParaDf_all['class_weight']=self.para_space['class_weight']
         
         return ParaDf_all    
     
