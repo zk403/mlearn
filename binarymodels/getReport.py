@@ -187,7 +187,7 @@ class getReport(BaseEstimator):
         report=pd.DataFrame()
         for Col in category_col:
 
-            ColTable=data[Col].value_counts().rename('Freq').reset_index() \
+            ColTable=data[Col].value_counts().sort_index().rename('Freq').reset_index() \
                 .rename(columns={'index':'Levels'}).assign(VarName=Col)[['VarName','Levels','Freq']]
 
             ColTable['Percent']=ColTable.Freq/data[Col].size #占比

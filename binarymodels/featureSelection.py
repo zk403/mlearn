@@ -5,6 +5,7 @@ from category_encoders.ordinal import OrdinalEncoder
 import numpy as np
 import pandas as pd
 import scorecardpy as sc
+import toad
 
 class selection_pre(TransformerMixin):
     
@@ -14,17 +15,20 @@ class selection_pre(TransformerMixin):
                  variance=0,
                  chi2_pvalue=0.05,
                  oneway_pvalue=0.05,
-                 tree_imps=0):
+                 tree_imps=0,
+                 tree_size=100
+                 ):
         """ 
         预筛选,适用于二分类模型
         Parameters:
         ----------
-            na_pct:float,(0,1),默认0.99,缺失率高于na_pct的列将被筛除
-            unique_pct:float,(0,1),默认0.99,唯一值占比高于unique_pct的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入
-            variance:float,默认0,方差低于variance的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入
-            chi2_pvalue:float,(0,1),默认0.05,大于chi2_pvalue的列将被剔除,缺失值将被视为单独一类,chi2_pvalue与oneway_pvalue需同时输入
-            oneway_pvalue:float,(0,1),默认0.05,缺失值将被填补为接近正负inf,将计算两次,两次结果中都较大于oneway_pvalue的列将被剔除,此外,该函数默认方差是齐性的,chi2_pvalue与oneway_pvalue需同时输入
-            tree_imps:float,lightgbm树的梯度gain小于等于tree_imps的列将被剔除,默认0
+            na_pct:float,(0,1),默认0.99,缺失率高于na_pct的列将被筛除，设定为None将跳过此步骤
+            unique_pct:float,(0,1),默认0.99,唯一值占比高于unique_pct的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，设定为None将跳过此步骤
+            variance:float,默认0,方差低于variance的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，设定为None将跳过此步骤
+            chi2_pvalue:float,(0,1),默认0.05,大于chi2_pvalue的列将被剔除,缺失值将被视为单独一类,chi2_pvalue与oneway_pvalue需同时输入，设定为None将跳过此步骤
+            oneway_pvalue:float,(0,1),默认0.05,缺失值将被填补为接近正负inf,将计算两次,两次结果中都较大于oneway_pvalue的列将被剔除,此外,该函数默认方差是齐性的,chi2_pvalue与oneway_pvalue需同时输入，设定为None将跳过此步骤
+            tree_imps:float,lightgbm树的梯度gain小于等于tree_imps的列将被剔除,默认0，设定为None将跳过此步骤
+            tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
             
         Attribute:
         ----------
@@ -36,6 +40,7 @@ class selection_pre(TransformerMixin):
         self.chi2_pvalue=chi2_pvalue #
         self.oneway_pvalue=oneway_pvalue #
         self.tree_imps=tree_imps #
+        self.tree_size=tree_size
         
     def transform(self,X,y=None):
         """ 
@@ -50,21 +55,38 @@ class selection_pre(TransformerMixin):
         #开始筛选
         self.features_info['1.orgin']=X.columns.tolist()
         print('1.start_____________________________________complete')
-        if self.na_pct>0 and self.na_pct<1:
-            self.features_info['2.filterbyNA']=self.filterByNA(X[self.features_info[max(list(self.features_info.keys()))]])
-        print('2.filterbyNA________________________________complete')
         
-        if self.variance>=0 and self.unique_pct>=0 and self.unique_pct<1:
+        if self.na_pct is None:
+            pass
+        elif self.na_pct<1 and self.na_pct>0:
+            self.features_info['2.filterbyNA']=self.filterByNA(X[self.features_info[max(list(self.features_info.keys()))]])
+            print('2.filterbyNA________________________________complete')
+        else:
+            raise IOError("na_pct in (0,1)")
+        
+
+        
+        if self.variance is None or self.unique_pct is None:
+            pass        
+        elif self.variance>=0 and self.unique_pct>=0 and self.unique_pct<1:
             self.features_info['3.filterbyVariance']=self.filterByUnique(X[self.features_info[max(list(self.features_info.keys()))]])+self.fliterByVariance(X[self.features_info[max(list(self.features_info.keys()))]])
-        print('3.filterbyVariance_________________________complete')
+            print('3.filterbyVariance_________________________complete')
+        else:
+            raise IOError("variance in [0,inf) and unique_pct in [0,1)")                          
+        
         
         if self.chi2_pvalue and self.oneway_pvalue:
-            self.features_info['4.filterbyChi2Oneway']=self.filterByChisquare(X[self.features_info[max(list(self.features_info.keys()))]],y)+self.filterByOneway(X[self.features_info[max(list(self.features_info.keys()))]],y) 
-        print('4.filterbyChi2Oneway______________________complete')
+            self.features_info['4.filterbyChi2Oneway']=self.filterByChisquare(X[self.features_info[max(list(self.features_info.keys()))]],y)+self.filterByOneway(X[self.features_info[max(list(self.features_info.keys()))]],y)         
+            print('4.filterbyChi2Oneway______________________complete')
             
-        if self.tree_imps>=0:
+        if self.tree_imps is None:
+            pass
+        elif self.tree_imps>=0:            
             self.features_info['5.filterbyTrees']=self.filterByTrees(X[self.features_info[max(list( self.features_info.keys()))]],y)
-        print('5.filterbyTrees_____________________________complete')
+            print('5.filterbyTrees_____________________________complete')
+        else:
+            raise IOError("tree_imps in [0,inf)")         
+
         print('Done_______________________________________________')        
         
         return self
@@ -141,7 +163,7 @@ class selection_pre(TransformerMixin):
                 boosting_type='gbdt',
                 objective = 'binary',
                 learning_rate=0.1,
-                n_estimators=500,
+                n_estimators=self.tree_size,
                 subsample=0.7,
                 colsample_bytree=1,
             ).fit(X_new,y,categorical_feature=X_categoty_encode.columns.tolist())         
@@ -156,7 +178,7 @@ class selection_pre(TransformerMixin):
                 boosting_type='gbdt',
                 objective = 'binary',
                 learning_rate=0.1,
-                n_estimators=500,
+                n_estimators=self.tree_size,
                 subsample=0.7,
                 colsample_bytree=1,
             ).fit(X_numeric,y)         
@@ -212,8 +234,7 @@ class selection_iv(TransformerMixin):
         self.breaks_list=self.getBreakslistFinbin(X,y)
         
         #进行细分箱
-        finebin=sc.woebin(df,y=self.y,check_cate_num=False,
-                      breaks_list=self.breaks_list)
+        finebin=sc.woebin(df,y=self.y,check_cate_num=False,count_distr_limit=0.01,bin_num_limit=self.bin_num,breaks_list=self.breaks_list)
 
         #筛选合适变量
         FacCol=df.select_dtypes(exclude='number').columns.tolist()
@@ -297,66 +318,65 @@ class selection_iv(TransformerMixin):
 
 class selection_corr(TransformerMixin):
     
-    def __init__(self,bins,corr_limit=0.8,corr_method='pearson'):
+    def __init__(self,y='target',corr_limit=0.8):
         """ 
         相关系数筛选
         Parameters:
         ----------
-            bins:sc.woebin产生的分箱对象,用于计算IV
-            corr_limit:float,相关系数阈值,当两个特征相关性高于该阈值,将剔除掉IV较低的一个
-            corr_method:str,相关性计算方式,默认pearson,可选spearman        
+            corr_limit:float,相关系数阈值,当两个特征相关性高于该阈值,将剔除掉IV较低的一个       
         Attribute:
         ----------
             features_info:dict,每一步筛选的特征进入记录
         """
-        self.bins=bins
+        self.y=y
         self.corr_limit=corr_limit
-        self.corr_method=corr_method
         
     def transform(self,X,y=None):
         return X[self.var_keep]
           
-    def fit(self,X):
+    def fit(self,X,y):
         """ 
         变量筛选
         Parameters:
         ----------
             varbin:分箱结果,计算特征IV使用,由sc.woebin产生      
-        """      
-        self.filterByCorr(X)
+        """          
+        self.filterByCorr(X,y)
+        
         return self
     
-    def filterByCorr(self,X):
+    def filterByCorr(self,X,y):
         """
         特征共线性检查,将剔除共线性较强但iv较低的特征,保留共线性较强但iv较高的特征 
         Parameters:
         ----------      
         X:训练数据
-        """
-        corr_limit=self.corr_limit
-        
-        #计算IV
-        finalbindf=pd.concat(self.bins)
-        finalbindf['variable']=finalbindf.variable+'_woe'
-        fimp=finalbindf.groupby('variable')[['bin_iv']].sum()
-        
-        self.var_keep=[]
-        count=0
-        while (X.corr().abs()>corr_limit).sum().sum()>X.columns.size or count==0: #相关系数矩阵中所有特征的相关系数需小于阈值时才停止迭代(非自身)
-            count=count+1
-            
-            #相关性系数
-            corrtable=X.corr(method=self.corr_method)
-            var_corr_max=corrtable.apply(lambda x:x[x.index!=x.name].abs().max())
-            var_highcorr=var_corr_max[var_corr_max>corr_limit].index.tolist()
-            #var_lowcorr=var_corr_max[var_corr_max<=corr_limit].index.tolist()
+        """        
+#         #递归式剔除,速度较慢        
+#         iv_t=toad.quality(X.join(y),target=self.y,iv_only=True)[['iv']]
 
-            self.var_del=[]
+#         self.var_keep=[]
+#         count=0
+#         while (X.corr().abs()>corr_limit).sum().sum()>X.columns.size or count==0: #相关系数矩阵中所有特征的相关系数需小于阈值时才停止迭代(非自身)
+#             print(X.columns.size)
+#             count=count+1
             
-            for i in var_highcorr:
-                pairs=fimp.join(corrtable[i][corrtable[i]>corr_limit],how='right').sort_values(i,ascending=False).head(2) #变量与其corr最高的变量
-                self.var_del.append(pairs[pairs.bin_iv.eq(pairs['bin_iv'].min())].index[0]) #选择IV较大的那个
+#             #相关性系数
+#             corrtable=X.corr()
+#             var_corr_max=corrtable.apply(lambda x:x[x.index!=x.name].abs().max())
+#             var_highcorr=var_corr_max[var_corr_max>corr_limit].index.tolist()
+#             #var_lowcorr=var_corr_max[var_corr_max<=corr_limit].index.tolist()
+
+#             self.var_del=[]
             
-            X=X.drop(self.var_del,axis=1)
+#             for i in var_highcorr:                
+#                 pairs=iv_t.join(corrtable[i][corrtable[i]>corr_limit],how='right').sort_values(i) #变量与其corr最高的变量
+#                 #self.var_del.append(pairs[0:1].index[0]) #剔除IV较小的那个
+#                 var_del=pairs[0:1].index[0]
+            
+#             X=X.drop(var_del,axis=1)
         
-        self.var_keep=X.columns.tolist()
+        #使用toad
+        X_drop=toad.selection.drop_corr(X.join(y),target=self.y,threshold=self.corr_limit).drop(self.y,axis=1)
+    
+        self.var_keep=X_drop.columns.tolist()

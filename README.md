@@ -1,6 +1,6 @@
 # binarymodels
 
-适用于常见商业数据分析数据挖掘场景下，中小数据量(建议n_sample<10w,n_cols<5000)的二分类模型的建模工具,将流行的二分类建模工具进行了集成,使之更加适合实际项目场景与工程化,集成的工具包括sklearn,xgboost,lightgbm,statsmodels,scorecardpy等。基本涵盖了数据清洗、数据探索、特征工程、评分卡、模型评估、统计学逐步回归、机器学习模型及其参数优化等内容,具体包括:
+适用于常见商业数据分析数据挖掘场景下，中小数据量(建议n_sample<10w,n_cols<5000)的二分类模型的建模工具,将流行的二分类建模工具进行了集成,使之更加适合实际项目场景与工程化,集成的工具包括sklearn,xgboost,lightgbm,statsmodels,scorecardpy,toad等。基本涵盖了数据清洗、数据探索、特征工程、评分卡、模型评估、统计学逐步回归、机器学习模型及其参数优化等内容,具体包括:
 
 - binarymodels.getColmuns:规范化原始数据的数据类型
 - binarymodels.getReport:EDA阶段的数据质量报告
