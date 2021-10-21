@@ -1,10 +1,10 @@
-# binarymodels-0.0.3
+# binarymodels-0.0.4
 
 适用于常见商业数据分析数据挖掘场景下，中小数据量(建议n_sample<10w,n_cols<5000)的二分类模型的建模工具包:
 
 + 涵盖数据清洗、数据探索、特征工程、评分卡、模型评估、统计学逐步回归、机器学习模型及其参数优化等内容
 + 集成的工具包括sklearn,xgboost,lightgbm,statsmodels,scorecardpy,toad等
-+ 所有的功能都基于sklearn.base的TransformerMixin与BaseEstimator进行构建,因此可以进行sklearn的pipline操作
++ 部分功能都基于sklearn.base的TransformerMixin与BaseEstimator进行构建
 
 功能介绍:
 
@@ -14,6 +14,7 @@
 - binarymodels.selection_pre:集成了多种方法的特征粗筛
 - binarymodels.selection_iv:特征分箱与IV筛选
 - binarymodels.selection_corr:使用相关性分析进行特征筛选
+- binarymodels.selection_optbin:最优分箱
 - binarymodels.featureCluster:变量聚类
 - binarymodels.getWOE:WOE编码
 - binarymodels.stepwise:基于经典统计学(statsmodels)的逐步回归
