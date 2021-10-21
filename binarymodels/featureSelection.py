@@ -380,3 +380,245 @@ class selection_corr(TransformerMixin):
         X_drop=toad.selection.drop_corr(X.join(y),target=self.y,threshold=self.corr_limit).drop(self.y,axis=1)
     
         self.var_keep=X_drop.columns.tolist()
+
+        
+        
+class selection_optbin(TransformerMixin):
+    
+    def __init__(self,y='target',method='dt',n_bins=10,min_samples=0.05,iv_limit=0.02):
+        """ 
+        最优分箱与交互分箱
+        Parameters:
+        ----------
+            corr_limit:float,相关系数阈值,当两个特征相关性高于该阈值,将剔除掉IV较低的一个       
+        Attribute:
+        ----------
+            features_info:dict,每一步筛选的特征进入记录
+        """
+        self.target=y
+        self.method=method
+        self.n_bins=n_bins
+        self.min_samples=min_samples
+        self.iv_limit=iv_limit
+        
+        
+    def transform(self,X,y=None):
+        
+        return X[self.keep_col]
+              
+    def fit(self,X,y):
+        """ 
+        最优分箱
+        """          
+        self.X=X.copy()
+        self.y=y.copy()
+        
+        #使用toad进行最优分箱
+        self.break_list_toad=toad.transform.Combiner().fit(self.X.join(self.y),y = self.target,\
+                                              method = self.method, n_bins=self.n_bins,min_samples=self.min_samples)
+        
+            
+        self.break_list_sc,colname_list=self.get_Breaklist_sc(self.break_list_toad.export())
+        
+        #使用scorecardpy进行分箱结果输出
+        self.optimalbin=sc.woebin(self.X[colname_list].join(self.y),y=self.target,breaks_list=self.break_list_sc,check_cate_num=False)
+        
+        #最优分箱的特征iv统计值
+        self.iv_info=pd.concat(self.optimalbin).groupby('variable')['bin_iv'].sum().rename('iv')
+
+        #IV筛选特征
+        self.keep_col=self.iv_info[self.iv_info>=self.iv_limit].index.tolist()
+        
+        #将单调与不单调特征进行分开
+        self.optimalbin_monotonic,self.optimalbin_nonmonotonic=self.checkMonotonicFeature(self.optimalbin,self.iv_limit)        
+        
+        return self
+
+    def get_Breaklist_sc(self,break_list_toad):
+        
+        """
+        将toad的breaklist结构转化为scorecardpy可用的结构
+        """      
+        
+        cate_colname=self.X.select_dtypes(exclude='number')
+        num_colname=self.X.select_dtypes(include='number')
+        
+        break_list_sc=dict()
+        colname_list=list()
+        
+        #将toad的breaklist转化为scorecardpy的breaklist
+        for key in break_list_toad.keys():
+            if key in cate_colname and break_list_toad[key]:#防止分箱结果为空
+
+                bin_value_list=[]
+                for value in break_list_toad[key]:
+                    #if 'nan' in value:
+                    #    value=pd.Series(value).replace('nan','missing').tolist()
+                    bin_value_list.append('%,%'.join(value))
+
+                break_list_sc[key]=bin_value_list
+                colname_list.append(key)
+
+            elif key in num_colname and break_list_toad[key]:#防止分箱结果为空
+                break_list_sc[key]=break_list_toad[key]
+                colname_list.append(key)
+                
+        return break_list_sc,colname_list
+    
+    def checkMonotonicFeature(self,varbin,iv_limit):
+        """
+        检查细分箱后特征的分箱woe是否单调
+        Parameters:
+        --
+        Attribute:
+        --
+            finebin_nonmonotonic:dict,非单调特征dict
+            finebin_monotonic:dict,单调特征dict
+        """        
+        varbin_monotonic={}
+        varbin_nonmonotonic={}
+        for column in varbin.keys():
+            var_woe=varbin[column].query('bin!="missing"').woe
+            if var_woe.is_monotonic_decreasing or var_woe.is_monotonic_increasing:
+                if varbin[column].total_iv[0]>iv_limit:
+                    varbin_monotonic[column]=varbin[column]    
+            else:
+                if varbin[column].total_iv[0]>iv_limit:
+                    varbin_nonmonotonic[column]=varbin[column]
+                    
+        return(varbin_monotonic,varbin_nonmonotonic)
+    
+    
+    def adjustBin(self,bins=None,only_nonmonotonic_var=True):
+        """
+        调整分箱，需先运行fit
+        plt.rcParams["figure.figsize"] = [10, 5]
+        """          
+        
+        if not bins and only_nonmonotonic_var is True:
+            
+            break_list_adj=sc.woebin_adj(
+                dt=self.X[self.keep_col].join(self.y),
+                y=self.target,
+                adj_all_var=True,
+                count_distr_limit=0.05,
+                bins=self.optimalbin_nonmonotonic,
+                method=self.method
+            )
+            
+            adjustedbin_nonmonotonic=sc.woebin(self.X[self.keep_col].join(self.y),
+                                       y=self.target,breaks_list=break_list_adj)
+            
+            self.adjustedbin=self.optimalbin_monotonic.update(adjustedbin_nonmonotonic)
+            
+        elif not bins and only_nonmonotonic_var is False:
+            
+            break_list_adj=sc.woebin_adj(
+                dt=self.X[self.keep_col].join(self.y),
+                y=self.target,
+                adj_all_var=True,
+                count_distr_limit=0.05,
+                bins=self.optimalbin,
+                method=self.method
+            )
+            self.adjustedbin=sc.woebin(self.X[self.keep_col].join(self.y),
+                                y=self.target,breaks_list=break_list_adj)
+            
+        else:            
+            break_list_adj=sc.woebin_adj(
+                dt=self.X[self.keep_col].join(self.y),
+                y=self.target,
+                adj_all_var=True,
+                count_distr_limit=0.05,
+                bins=bins,
+                method=self.method
+            ) 
+            self.adjustedbin=sc.woebin(self.X[self.keep_col].join(self.y),
+                                y=self.target,breaks_list=break_list_adj)
+                       
+        return self
+    
+    
+
+class getWOE(TransformerMixin):
+    
+    def __init__(self):
+        pass
+        
+    def transform(self,X,y):
+        """ 
+        变量筛选
+        """
+        X_woe=pd.DataFrame(index=X.index).join(sc.woebin_ply(dt=X.join(y),bins=self.varbin,no_cores=None))
+        return X_woe[X_woe.columns[X_woe.columns.str.contains('_woe')]]
+          
+    def fit(self,varbin):
+        self.varbin=varbin
+        return self       
+        
+    
+    
+# class getEncoding(TransformerMixin):
+    
+#     def __init__(self,varbin,combiner_toad,method='woe_toad'):
+#         '''
+#         进行数据编码       
+#         Params:
+#         ------
+#         varbin:sc.woebin_bin产生的分箱信息dict
+#         combiner_toad:toad分箱后产生的toad.transform.Combiner类        
+#         method:可选"woe_toad","woe_sc"
+#             + woe_toad:使用toad完成编码,注意toad的woe编码对不支持X中存在np.nan
+#             + woe_sc:使用scorecardpy完成编码
+ 
+#         Attributes
+#         ------
+#         X_bins_toad:method='woe_toad'时产生的toad的分箱中间数据
+        
+#         Examples
+#         ------      
+        
+#         '''        
+        
+#         self.method=method
+#         self.varbin_sc=varbin         
+#         self.combiner_toad=combiner_toad
+        
+#     def transform(self,X,y):
+#         """ 
+#         变量筛选
+#         """
+#         if self.method=="woe_sc":
+            
+#             out=self.X_woe=[self.X_woe.columns[self.X_woe.columns.str.contains('_woe')]]
+            
+#         elif self.method=="woe_toad":
+            
+#             out=self.woe_ply_toad.transform(X,y)
+            
+#         else:
+#             raise IOError('method in ("woe_toad","woe_sc")')
+        
+#         return out
+          
+#     def fit(self,X,y):  
+        
+#         if self.method=="woe_sc":
+            
+#             X_woe_raw=sc.woebin_ply(dt=X.join(y),bins=self.varbin,no_cores=None)
+            
+#             self.X_woe=pd.DataFrame(index=X.index).join(X_woe_raw)                                   
+            
+#         elif self.method=="woe_toad":
+            
+#             self.woe_ply_toad = toad.transform.WOETransformer()
+
+#             self.X_bins_toad=self.varbin.transform(X.join(y),labels=False)
+            
+#             self.woe_ply_toad.fit(self.X_bins_toad,y)
+        
+#         else:
+#             raise IOError('method in ("woe_toad","woe_sc")')
+        
+#         return self        
+                

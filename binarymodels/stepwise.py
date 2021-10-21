@@ -13,22 +13,6 @@ import pandas as pd
 import scorecardpy as sc
 
 
-class getWOE(TransformerMixin):
-    
-    def __init__(self):
-        pass
-        
-    def transform(self,X,y):
-        """ 
-        变量筛选
-        """
-        X_woe=pd.DataFrame(index=X.index).join(sc.woebin_ply(dt=X.join(y),bins=self.varbin,no_cores=None))
-        return X_woe[X_woe.columns[X_woe.columns.str.contains('_woe')]]
-          
-    def fit(self,varbin):
-        self.varbin=varbin
-        return self
-
 class stepwise(BaseEstimator):
     
     def __init__(self,custom_column=None,target='target',p_value_enter=.05,criterion='aic',normalize=False,show_step=False,show_high_vif_only=False):
@@ -131,11 +115,11 @@ class stepwise(BaseEstimator):
             '''
             criterion_list = ['bic', 'aic']
             if criterion not in criterion_list:
-                raise IOError('请输入正确的criterion, 必须是以下内容之一：', '\n', criterion_list)
+                raise IOError('criterion must in', '\n', criterion_list)
 
             direction_list = ['both']
             if direction not in direction_list:
-                raise IOError('请输入正确的direction, 必须是以下内容之一：', '\n', direction_list)
+                raise IOError('请direction must in：', '\n', direction_list)
 
             # 默认p_enter参数    
             p_enter = {'bic':0.0, 'aic':0.0}
