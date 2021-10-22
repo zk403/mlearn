@@ -59,7 +59,7 @@ setup(
     ],
     keywords='credit scorecard, woe binning, performace evaluation',  # Optional
     packages=['binarymodels'],  # Required
-    install_requires=['numpy>=1.21.2',
+    install_requires=['numpy>=1.18.5',
                       'fastparquet>=0.7.1',
                       'pandas>=1.3.3',
                       'statsmodels>=0.13.0',
@@ -70,6 +70,7 @@ setup(
                       'scipy>=1.5.0',
                       'category_encoders',
                       'lightgbm>=3.3.0', 
+                      'toad>=0.1.0',
                       'patsy>=0.5.2',
                       'bayesian-optimization>=1.2.0'
                      ],  # Optional
