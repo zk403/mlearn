@@ -1,0 +1,1 @@
+from sklearn.base import BaseEstimatorclass RFECVSelector(BaseEstimator):        def __init__(self):        pass            def transform(self,X,y):        """         变量筛选        """        return self              def fit(self,X,y):        return self           

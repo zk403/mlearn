@@ -5,6 +5,7 @@ Created on Tue Sep 15 16:19:07 2020
 
 @author: kezeng
 """
+
 from sklearn.base import TransformerMixin,BaseEstimator
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import statsmodels.formula.api as smf
@@ -13,7 +14,7 @@ import pandas as pd
 import scorecardpy as sc
 
 
-class stepwise(BaseEstimator):
+class stepLogit(BaseEstimator):
     
     def __init__(self,custom_column=None,target='target',p_value_enter=.05,criterion='aic',normalize=False,show_step=False,show_high_vif_only=False):
         '''
@@ -230,7 +231,9 @@ class stepwise(BaseEstimator):
         else:
             return(vif)    
 
-class getCreditScore(TransformerMixin):
+
+
+class cardScorer(TransformerMixin):
     
     def __init__(self,logit_model,varbin,odds0=1/100,pdo=50,points0=600):
         '''
@@ -265,5 +268,11 @@ class getCreditScore(TransformerMixin):
         return self
     
     def transform(self,X):
+        
         score=sc.scorecard_ply(X,self.scorecard,only_total_score=False)
+        
         return score
+    
+    
+    
+    

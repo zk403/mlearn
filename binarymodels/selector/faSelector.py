@@ -15,7 +15,7 @@ from scipy.stats import pearsonr,spearmanr
 from sklearn.base import BaseEstimator
 from sklearn.decomposition import PCA
 
-class featureCluster(BaseEstimator):
+class faSelector(BaseEstimator):
     
     def __init__(self,n_clusters=5,distance_threshold=None,linkage='average',distance_metrics='pearson',scale=True):
         '''

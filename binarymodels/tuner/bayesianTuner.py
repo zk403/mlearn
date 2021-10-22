@@ -15,7 +15,7 @@ from bayes_opt import BayesianOptimization
 import numpy as np
 import pandas as pd
 
-class searchBayesianXGB(BaseEstimator):
+class BayesianXGBTuner(BaseEstimator):
     
     def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5):
         '''
@@ -199,7 +199,7 @@ class searchBayesianXGB(BaseEstimator):
         return ParaDf_all
     
 
-class searchBayesianLGBM(BaseEstimator):
+class BayesianLgbmTuner(BaseEstimator):
     
     def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5):
         '''

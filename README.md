@@ -1,6 +1,7 @@
 # binarymodels-0.0.4
 
-适用于常见商业数据分析数据挖掘场景下，中小数据量(建议n_sample<10w,n_cols<5000)的二分类模型的建模工具包:
+binarymodels是适用于常见商业数据分析数据挖掘场景下，中小数据量(建议n_sample<10w,n_cols<5000)的二分类模型的建模工具包。
+本模组将集成商业分析场景中二分类模型中常用的模型，并使之能够兼顾开发效率、报告制作与模型自动化。
 
 + 涵盖数据清洗、数据探索、特征工程、评分卡、模型评估、统计学逐步回归、机器学习模型及其参数优化等内容
 + 集成的工具包括sklearn,xgboost,lightgbm,statsmodels,scorecardpy,toad等
@@ -8,17 +9,22 @@
 
 功能介绍:
 
-- binarymodels.getColmuns:规范化原始数据的数据类型
-- binarymodels.getReport:EDA阶段的数据质量报告
+- binarymodels.dtpypeAllocator:特征规范化
+- binarymodels.EDAReport:数据质量报告
+- binarymodels.businessReport:业务分析报告
+- binarymodels.nanTransformer:缺失值处理
 - binarymodels.outliersTransformer:异常值处理
-- binarymodels.selection_pre:集成了多种方法的特征粗筛
-- binarymodels.selection_iv:特征分箱与IV筛选
-- binarymodels.selection_corr:使用相关性分析进行特征筛选
-- binarymodels.selection_optbin:最优分箱
-- binarymodels.featureCluster:变量聚类
-- binarymodels.getWOE:WOE编码
-- binarymodels.stepwise:基于经典统计学(statsmodels)的逐步回归
-- binarymodels.getCreditScore:基于回归制作评分卡
+- binarymodels.preSelector:特征预筛
+- binarymodels.finbinSelector:细分箱筛选器
+- binarymodels.optbinSelector:最优分箱筛选器
+- binarymodels.corrSelector:相关性分析筛选器
+- binarymodels.faSelector:变量聚类筛选器
+- binarymodels.RFECVSelector:包装法筛选器
+- binarymodels.stepLogit:逐步回归筛选器
+- binarymodels.lassoSelector:lasso筛选器
+- binarymodels.sequentialSelector:sequential筛选器
+- binarymodels.woeTransformer:WOE编码
+- binarymodels.cardScorer:制作评分卡
 - binarymodels.searchGirdCV:网格优化与随机优化的xgb或lgbm
 - binarymodels.searchBayesianXGB:贝叶斯优化的xgboost
 - binarymodels.searchBayesianLGBM:贝叶斯优化的lightgbm
