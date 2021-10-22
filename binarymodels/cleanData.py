@@ -44,7 +44,6 @@ class getColmuns(TransformerMixin):
         self.numeric_col = numeric_col
         self.time_col = time_col
         self.id_col = id_col
-        self.drop_date = drop_date
         self.num_as_float32 = num_as_float32
         self.category_as_str = category_as_str
         
@@ -77,8 +76,10 @@ class getColmuns(TransformerMixin):
             num_data=None
         
         #时间列            
-        if self.time_col and not self.drop_date:
+        if self.time_col:
             time_data=X[self.time_col].replace('[^0-9]','',regex=True).astype('datetime64')              
+        elif self.drop_date:
+            time_data=None
         else:
             time_data=None
         
@@ -95,12 +96,9 @@ class getColmuns(TransformerMixin):
             cate_data=None        
         
         #index    
-        if self.id_col:
-            full_data=pd.concat([pd.DataFrame(),time_data,cate_data,num_data,id_data],axis=1).set_index(self.id_col) #合并数据
-        else:
-            full_data=pd.concat([pd.DataFrame(),time_data,cate_data,num_data,id_data],axis=1) #合并数据
+        full_data=pd.concat([pd.DataFrame(),time_data,cate_data,num_data,id_data],axis=1) #合并数据
             
-        return full_data
+        return full_data.set_index(X.index)
 
     def fit(self,X,y=None):
         
