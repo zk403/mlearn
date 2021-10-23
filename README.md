@@ -25,7 +25,7 @@ binarymodels是适用于常见商业数据分析数据挖掘场景下，中小�
 - binarymodels.sequentialSelector:sequential筛选器
 - binarymodels.woeTransformer:WOE编码
 - binarymodels.cardScorer:制作评分卡
-- binarymodels.girdTunner:网格优化与随机优化的xgb或lgbm
+- binarymodels.girdTuner:网格优化与随机优化的xgb或lgbm
 - binarymodels.BayesianXGBTuner:贝叶斯优化的xgboost
 - binarymodels.BayesianLgbmTuner:贝叶斯优化的lightgbm
 

@@ -102,7 +102,7 @@ class preSelector(TransformerMixin):
         """ 
         唯一值处理-分类变量
         """     
-        X_categoty=X.select_dtypes(exclude='number')
+        X_categoty=X.select_dtypes(include='object')
         if X_categoty.columns.size:
             unique_pct=X_categoty.apply(lambda x:x.value_counts().div(X_categoty.shape[0]).max())    
             return unique_pct[unique_pct<self.unique_pct].index.tolist()
@@ -126,7 +126,7 @@ class preSelector(TransformerMixin):
         特征选择-分类变量:卡方值
         """
         
-        X_categoty=X.select_dtypes(exclude='number')
+        X_categoty=X.select_dtypes(include='object')
         if X_categoty.columns.size:      
             X_categoty_encode=OrdinalEncoder().fit_transform(X_categoty.replace(np.nan,'NAN'))
             p_values=chi2(X_categoty_encode,y)[1]
