@@ -1,15 +1,15 @@
 # -*- coding:utf-8 -*- 
 
-from binarymodels.cleaner.cleaner import outliersTransformer,dtpypeAllocator,nanTransformer
-from binarymodels.report.report import businessReport,EDAReport
-from binarymodels.selector.binSelector import finbinSelector,optbinSelector
-from binarymodels.selector.faSelector import faSelector
-from binarymodels.selector.logtitSelector import stepLogit,cardScorer
-from binarymodels.selector.simpleSelector import preSelector,corrSelector
-from binarymodels.selector.wrapperSelector import RFECVSelector
-from binarymodels.selector.embededSelector import lassoSelector,sequentialSelector
-from binarymodels.encoder.woeEncoder import woeTransformer
-from binarymodels.tuner.girdcvTuner import girdTunner
+from binarymodels.cleaner_cleaner import outliersTransformer,dtpypeAllocator,nanTransformer
+from binarymodels.report_report import businessReport,EDAReport
+from binarymodels.selector_bin import finbinSelector,optbinSelector
+from binarymodels.selector_fa import faSelector
+from binarymodels.selector_logtit import stepLogit,cardScorer
+from binarymodels.selector_simple import preSelector,corrSelector
+from binarymodels.selector_wrapper import RFECVSelector
+from binarymodels.selector_embeded import lassoSelector,sequentialSelector
+from binarymodels.encoder_woe import woeTransformer
+from binarymodels.tuner_bayesian import girdTuner
 from binarymodels.tuner.bayesianTuner import BayesianXGBTuner,BayesianLgbmTuner
 
 
@@ -17,8 +17,7 @@ from binarymodels.tuner.bayesianTuner import BayesianXGBTuner,BayesianLgbmTuner
 
 __version__ = '0.0.5'
 
-__all__ = (
-    
+__all__ = (    
     outliersTransformer,
     dtpypeAllocator,
     nanTransformer,
@@ -35,7 +34,7 @@ __all__ = (
     lassoSelector,
     sequentialSelector,
     woeTransformer,
-    girdTunner,
+    girdTuner,
     BayesianXGBTuner,
     BayesianLgbmTuner
     

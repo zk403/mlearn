@@ -14,7 +14,7 @@ from lightgbm import LGBMClassifier
 import numpy as np
 import pandas as pd
 
-class girdTunner(BaseEstimator):
+class girdTuner(BaseEstimator):
     
     def __init__(self,Estimator,para_space,method='random_gird',n_iter=10,scoring='auc',cv=5):
         '''
