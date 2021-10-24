@@ -234,11 +234,6 @@ class businessReport(TransformerMixin):
                 self.ptable.columns.names=[None]+rename_columns
 
             
-            #输出报告    
-            if self.out_path: 
-                
-                self.writeExcel()
-            
                                     
         return self
     
@@ -282,7 +277,7 @@ class businessReport(TransformerMixin):
 
 class varReport(TransformerMixin):
     
-    def __init__(self,breaks_list_dict,special_values=[np.nan],apply_dt=None,psi_base_mon='latest',out_path=None,sheet_name='_in_sample'):
+    def __init__(self,breaks_list_dict,special_values=[np.nan],apply_dt=None,psi_base_mon='latest',out_path=None,sheet_name=''):
         """ 
         产生业务报告
         Params:
@@ -300,7 +295,9 @@ class varReport(TransformerMixin):
         
         Attributes:
         -------
-            ptable:pd.DataFrame,业务透视表
+            var_report_dict:dict,特征分析报告字典
+            var_report_dict_simplified:dict,apply_dt非None时产生的简化版特征分析报告
+            var_psi_report_dict:dict,apply_dt非None时产生的特征分析报告
         """
         self.breaks_list_dict = breaks_list_dict
         self.special_values=special_values
@@ -441,7 +438,7 @@ class varReport(TransformerMixin):
                   
                     
                 #汇总所有表             
-                self.var_report_dict[col]=pd.concat(var_report_dict_interval) 
+                self.var_report_dict[col]=pd.concat(var_report_dict_interval,axis=1) 
                 self.var_report_dict_simplified[col]=pd.concat(var_report_dict_interval_simplified,axis=1)
                 self.var_psi_report_dict[col]=dis_mon_psi_all   
             
@@ -452,7 +449,7 @@ class varReport(TransformerMixin):
                 var_bin=pd.concat([var_bin,y],axis=1)
             
                 #print var_bin
-                rename_aggfunc=dict(zip(['count','sum','mean'],['#','bad#','bad#%']))
+                rename_aggfunc=dict(zip(['count','sum','mean'],['#','#bad','#bad%']))
                 result=pd.pivot_table(var_bin,index=col,values=y.name,
                                   #columns=apply_dt.name,
                                   margins=False,
