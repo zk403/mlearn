@@ -6,18 +6,20 @@ Created on Fri Oct 22 21:10:13 2021
 @author: zengke
 """
 import pandas as pd
-from sklearn.base import TransformerMixin,BaseEstimator
+from sklearn.base import TransformerMixin
 import numpy as np
 #import time
+from pandas.api.types import is_string_dtype
+from pandas.api.types import is_numeric_dtype
 from glob import glob
+from itertools import product
 import os
 import warnings
 
 
-
-class EDAReport(BaseEstimator):
+class EDAReport(TransformerMixin):
     
-    def __init__(self,categorical_col=None,numeric_col=None,miss_value=[np.nan,'nan'],is_nacorr=False,out_path=None):
+    def __init__(self,categorical_col=None,numeric_col=None,miss_value=[np.nan,'nan'],is_nacorr=False,out_path="report"):
         """ 
         产生数据质量报告
         Params:
@@ -55,22 +57,9 @@ class EDAReport(BaseEstimator):
                 self.nacorr_report=self.nan_corr()
             
             #输出报告    
-            if self.out_path:            
-                if not glob(self.out_path):
-                    os.mkdir(self.out_path)
+            if self.out_path: 
                 
-                #now=time.strftime('%Y%m%d%H%M',time.localtime(time.time()))
-                #writer = pd.ExcelWriter(self.out_path+'/data_report'+now+'.xlsx')
-                writer = pd.ExcelWriter(self.out_path+'/EDAReport.xlsx')
-    
-                self.num_report.to_excel(writer,sheet_name='NUM')
-                self.char_report.to_excel(writer,sheet_name='CHAR')        
-                self.na_report.to_excel(writer,sheet_name='NAN')
-                if self.is_nacorr:
-                    self.nacorr_report.to_excel(writer,sheet_name='NAN_corr')
-            
-                writer.save()     
-                print('to_excel done')   
+                self.writeExcel()                
                                     
         return self
     
@@ -163,8 +152,37 @@ class EDAReport(BaseEstimator):
         nan_info=data.isnull().sum()
         nan_corr_table=data[nan_info[nan_info>0].index].isnull().corr()
         return nan_corr_table
+    
+    def writeExcel(self):
+        
+        if not glob(self.out_path):
+            
+            os.mkdir(self.out_path)
+                
+        if not glob(self.out_path+"/model_report.xlsx"):
+            
+            #print(self.out_path+"/model_report.xlsx")
+            
+            writer = pd.ExcelWriter(self.out_path+"/model_report.xlsx")       
+            pd.DataFrame(None).to_excel(writer,sheet_name='summary')
+            writer.save()                    
+            
+        writer=pd.ExcelWriter(self.out_path+'/model_report.xlsx',
+                              mode='a',
+                              if_sheet_exists='replace',
+                              #engine_kwargs={'mode':'a','if_sheet_exists':'replace'},
+                              engine='openpyxl')
+    
+        self.num_report.to_excel(writer,sheet_name='1.EDA_num')
+        self.char_report.to_excel(writer,sheet_name='1.EDA_char')        
+        self.na_report.to_excel(writer,sheet_name='1.EDA_nan')
+        if self.is_nacorr:
+            self.nacorr_report.to_excel(writer,sheet_name='1.EDA_nancorr')
+            
+        writer.save()     
+        print('to_excel done')  
 
-
+        
 
 class businessReport(TransformerMixin):
     
@@ -217,19 +235,10 @@ class businessReport(TransformerMixin):
 
             
             #输出报告    
-            if self.out_path:            
+            if self.out_path: 
                 
-                if not glob(self.out_path):
-                    
-                    os.mkdir(self.out_path)
-                
-                #now=time.strftime('%Y%m%d%H%M',time.localtime(time.time()))
-                #writer = pd.ExcelWriter(self.out_path+'/BusinessReport'+now+'.xlsx')   
-                writer = pd.ExcelWriter(self.out_path+'/BusinessReport.xlsx')                   
-                self.ptable.to_excel(writer,sheet_name='BusinessReport')
+                self.writeExcel()
             
-                writer.save()     
-                print('to_excel done')                       
                                     
         return self
     
@@ -244,5 +253,286 @@ class businessReport(TransformerMixin):
             warnings.warn('0 rows in input X,return None')
 
             return pd.DataFrame(None)
+    
+    
+    def writeExcel(self):
+        
+        if not glob(self.out_path):
+            
+            os.mkdir(self.out_path)
+                
+        if not glob(self.out_path+"model_report.xlsx"):
+            
+            writer = pd.ExcelWriter('model_report.xlsx')            
+            pd.DataFrame(None).to_excel(writer,sheet_name='summary')
+            writer.save()                    
+            
+        writer=pd.ExcelWriter(self.out_path+'/model_report.xlsx',
+                              mode='a',
+                              if_sheet_exists='replace',
+                              #engine_kwargs={'mode':'a','if_sheet_exists':'replace'},
+                              engine='openpyxl')
+
+        self.ptable.to_excel(writer,sheet_name='2.Businessreport')
+            
+        writer.save()     
+        print('to_excel done') 
 
 
+
+class varReport(TransformerMixin):
+    
+    def __init__(self,breaks_list_dict,special_values=[np.nan],apply_dt=None,psi_base_mon='latest',out_path=None,sheet_name='_in_sample'):
+        """ 
+        产生业务报告
+        Params:
+        ------
+            breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy的breaks_list，后续将支持toad
+            special_values:list,缺失值指代值
+            apply_dt:pd.Series,用于标示X的时期的字符型列且需要能转化为int
+                + eg:pd.Series(['202001','202002‘...],name='apply_mon',index=X.index)
+            psi_base_mon:str,当apply_dt非空时,psi计算的基准,可选earliest和latest，也可用户自定义
+                + earliest:选择apply_dt中最早的时期的分布作为psi基准
+                + latest:选择apply_dt中最晚的时期的分布作为psi基准
+                + str:在apply_dt中任选一个时期的分布作为psi基准  
+            out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
+            sheet_name:str,out_path非None时，输出到模型Excel报告的sheet_name后缀,例如"_in_sample"
+        
+        Attributes:
+        -------
+            ptable:pd.DataFrame,业务透视表
+        """
+        self.breaks_list_dict = breaks_list_dict
+        self.special_values=special_values
+        self.apply_dt = apply_dt
+        self.psi_base_mon=psi_base_mon
+        self.out_path = out_path
+        self.sheet_name=sheet_name
+        
+    def fit(self, X, y=None):
+        
+
+        if X.size:
+            
+            self.report_all=self.getVarReport(X,y)
+            
+            #输出报告    
+            if self.out_path: 
+                
+                self.writeExcel()
+            
+                                    
+        return self
+    
+    def transform(self, X):     
+        
+        if X.size:
+            
+            return X
+        
+        else:
+            
+            warnings.warn('0 rows in input X,return None')
+
+            return pd.DataFrame(None)
+        
+    
+    def getVarReport(self,X,y):
+    
+        breaks_list_dict=self.breaks_list_dict
+        apply_dt=self.apply_dt
+        self.var_report_dict={}
+        self.var_report_dict_simplified={}
+        self.var_psi_report_dict={}
+
+
+        for col in X.columns:
+            
+            #处理缺失值
+            var_fillna=X[col].replace(self.special_values,np.nan)
+            
+            breaklist_var=list(breaks_list_dict[col])
+            
+            if is_numeric_dtype(var_fillna):
+                
+                #按照分箱sc的breaklist的区间进行分箱
+                var_cut=pd.cut(var_fillna,[-np.inf]+breaklist_var+[np.inf],
+                       right=False)
+                
+                var_bin=pd.Series(np.where(var_cut.isnull(),'missing',var_cut),
+                          index=var_cut.index,
+                          name=col)
+            
+            elif is_string_dtype(var_fillna):    
+                
+                var_cut=pd.Series(np.where(var_fillna.isnull(),'missing',var_fillna),
+                          index=var_fillna.index,
+                          name=var_fillna.name)
+                
+                #转换字原始符映射到分箱sc的breaklist的字符映射
+                var_code_raw=var_cut.unique().tolist()
+                
+                #目前只支持scorecardpy的breaklist,后续将支持toad
+                if True:
+                    map_codes=self.raw_to_bin_sc(var_code_raw,breaklist_var)
+                
+                var_bin=var_cut.map(map_codes)
+                
+            
+            if apply_dt is not None:                
+                
+                var_bin=pd.concat([var_bin,y],axis=1).join(apply_dt)
+                
+                var_report_dict_interval={} #每期的特征报告字典
+                
+                var_report_dict_interval_simplified={} #每期的简化特征报告字典
+                
+                psi_ts_var={} ##每期的PSI报告字典
+                            
+                #定义的psi计算的基准月份
+                if self.psi_base_mon=='earliest':
+                    
+                    psi_base_mon=min(apply_dt.unique().tolist())
+                    
+                elif self.psi_base_mon=='latest':
+                    
+                    psi_base_mon=max(apply_dt.unique().tolist())
+                
+                elif self.psi_base_mon.isdigit():
+                    
+                    psi_base_mon=self.psi_base_mon
+                    
+                else:
+                    
+                    raise ValueError("psi_base_mon in ('earliest','latest' or user-defined)")
+                
+                #计算所有指标
+                for mon in apply_dt.unique().tolist():
+                
+                    var_bin_mon=var_bin[var_bin[apply_dt.name].eq(mon)]
+                    rename_aggfunc=dict(zip(['count','sum','mean'],['#','#bad','#bad%']))
+                    result=pd.pivot_table(var_bin_mon,index=col,values=y.name,
+                                      margins=False,
+                                      aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0) 
+                    #print(result)
+                    
+                    if result.size:
+                        
+                        #全部指标
+                        var_report_dict_interval[mon]=self.getVarReport_ks(result,col) 
+                        
+                        #简化版，简化版指标在这里定义
+                        var_report_dict_interval_simplified[mon]=var_report_dict_interval[mon].reset_index().set_index('bin')[['#','#bad%','IV','KS','KS_max']]
+                        
+                        #PSI指标
+                        psi_ts_var[mon]=var_report_dict_interval[mon].reset_index().set_index('bin')['#_dis']
+
+                    else:
+                        
+                        var_report_dict_interval[mon]=None
+
+                #计算PSI
+                dis_mon=pd.concat(psi_ts_var,axis=1).fillna(0)
+                
+                dis_mon_psi=dis_mon.apply(lambda x:self.psi(dis_mon[psi_base_mon],x),0)
+                dis_mon_psi.columns=dis_mon_psi.columns+'_psi'
+                dis_mon_psi=pd.concat([dis_mon_psi,pd.DataFrame(dis_mon_psi.sum().rename('All')).T],axis=0)
+                dis_mon_psi_all=dis_mon.join(dis_mon_psi,how='right')
+                  
+                    
+                #汇总所有表             
+                self.var_report_dict[col]=pd.concat(var_report_dict_interval) 
+                self.var_report_dict_simplified[col]=pd.concat(var_report_dict_interval_simplified,axis=1)
+                self.var_psi_report_dict[col]=dis_mon_psi_all   
+            
+            
+            #若只计算全量数据则只输出全量的特征分析报告
+            else:
+                
+                var_bin=pd.concat([var_bin,y],axis=1)
+            
+                #print var_bin
+                rename_aggfunc=dict(zip(['count','sum','mean'],['#','bad#','bad#%']))
+                result=pd.pivot_table(var_bin,index=col,values=y.name,
+                                  #columns=apply_dt.name,
+                                  margins=False,
+                                  aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0)
+
+                self.var_report_dict[col]=self.getVarReport_ks(result,col)   
+
+            
+    def getVarReport_ks(self,var_ptable,col):
+        
+        var_ptable['#_dis']=var_ptable['#'].div(var_ptable['#'].sum())
+        var_ptable['#good']=var_ptable['#'].sub(var_ptable['#bad'])
+        var_ptable['#good_dis']=var_ptable['#good'].div(var_ptable['#good'].sum())
+        var_ptable['#bad_dis']=var_ptable['#bad'].div(var_ptable['#bad'].sum())
+        var_ptable['bin_IV']=var_ptable['#bad_dis'].sub(var_ptable['#good_dis']).mul(
+            (var_ptable["#bad_dis"]+1e-10).div((var_ptable["#good_dis"]+1e-10)).apply(np.log)
+        )
+        var_ptable['IV']=var_ptable['bin_IV'].sum()
+        var_ptable['WOE']=(var_ptable["#bad_dis"]+1e-10).div((var_ptable["#good_dis"]+1e-10)).apply(np.log)
+        var_ptable['KS']=var_ptable['#good_dis'].sub(var_ptable['#bad_dis']).abs()
+        var_ptable['KS_max']=var_ptable['KS'].max()
+        var_ptable['variable']=col
+        var_ptable.index.name='bin'
+        var_ptable=var_ptable.reset_index()
+        #var_ptable['dtype']=
+        var_ptable=var_ptable[['variable','bin','#','#_dis','#good','#bad','#bad%','#good_dis','#bad_dis','WOE','bin_IV','IV','KS','KS_max']]
+        
+        return var_ptable
+    
+    def raw_to_bin_sc(self,var_code_raw,breaklist_var):
+        
+        map_codes={}
+        
+        for raw,map_code in product(var_code_raw,[i.split('%,%') for i in breaklist_var]):
+            
+            if raw in map_code:
+                
+                map_codes[raw]='%,%'.join(map_code)
+        
+        return map_codes
+    
+    def psi(self,base,col):
+    
+        base=base.replace(0,1e-10)
+        col=col.replace(0,1e-10)   
+        psi_out=base.sub(col).mul(base.div(col).map(np.log))
+
+        return psi_out
+        
+    
+    def writeExcel(self):
+        
+        if not glob(self.out_path):
+            
+            os.mkdir(self.out_path)
+                
+        if not glob(self.out_path+"/model_report.xlsx"):
+            
+            writer = pd.ExcelWriter('/model_report.xlsx')            
+            pd.DataFrame(None).to_excel(writer,sheet_name='summary')
+            writer.save()    
+        
+        sheet_name=self.sheet_name
+            
+        writer=pd.ExcelWriter(self.out_path+'/model_report.xlsx',
+                              mode='a',
+                              if_sheet_exists='replace',
+                              #engine_kwargs={'mode':'a','if_sheet_exists':'replace'},
+                              engine='openpyxl')
+        
+        if self.apply_dt is not None:
+        
+            pd.concat(self.var_report_dict).to_excel(writer,sheet_name='4.bin_M'+sheet_name)
+            pd.concat(self.var_report_dict_simplified).to_excel(writer,sheet_name='4.bin_MS'+sheet_name)
+            pd.concat(self.var_psi_report_dict).to_excel(writer,sheet_name='4.psi_M'+sheet_name)
+        
+        else:
+            
+            pd.concat(self.var_report_dict).to_excel(writer,sheet_name='4.bin'+sheet_name)            
+        
+            
+        writer.save()     
+        print('to_excel done') 

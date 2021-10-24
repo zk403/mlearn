@@ -12,6 +12,7 @@ binarymodels是适用于常见商业数据分析数据挖掘场景下，中小�
 - binarymodels.dtpypeAllocator:特征规范化
 - binarymodels.EDAReport:数据质量报告
 - binarymodels.businessReport:业务分析报告
+- binarymodels.varReport:全量及分月的特征分析报告
 - binarymodels.nanTransformer:缺失值处理
 - binarymodels.outliersTransformer:异常值处理
 - binarymodels.preSelector:特征预筛

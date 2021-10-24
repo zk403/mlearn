@@ -5,6 +5,9 @@ from category_encoders.ordinal import OrdinalEncoder
 import numpy as np
 import pandas as pd
 import toad
+import os
+from glob import glob
+
 
 class preSelector(TransformerMixin):
     
@@ -12,22 +15,24 @@ class preSelector(TransformerMixin):
                  na_pct=0.99,
                  unique_pct=0.99,
                  variance=0,
-                 chi2_pvalue=0.05,
-                 oneway_pvalue=0.05,
+                 chif_pvalue=0.05,
                  tree_imps=0,
-                 tree_size=100
+                 tree_size=100,
+                 iv_limit=0.02,
+                 out_path="report"
                  ):
         """ 
-        预筛选,适用于二分类模型
+        线性预筛选,适用于二分类模型
         Parameters:
         ----------
-            na_pct:float,(0,1),默认0.99,缺失率高于na_pct的列将被筛除，设定为None将跳过此步骤
-            unique_pct:float,(0,1),默认0.99,唯一值占比高于unique_pct的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，设定为None将跳过此步骤
-            variance:float,默认0,方差低于variance的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，设定为None将跳过此步骤
-            chi2_pvalue:float,(0,1),默认0.05,大于chi2_pvalue的列将被剔除,缺失值将被视为单独一类,chi2_pvalue与oneway_pvalue需同时输入，设定为None将跳过此步骤
-            oneway_pvalue:float,(0,1),默认0.05,缺失值将被填补为接近正负inf,将计算两次,两次结果中都较大于oneway_pvalue的列将被剔除,此外,该函数默认方差是齐性的,chi2_pvalue与oneway_pvalue需同时输入，设定为None将跳过此步骤
-            tree_imps:float,lightgbm树的梯度gain小于等于tree_imps的列将被剔除,默认0，设定为None将跳过此步骤
+            na_pct:float or None,(0,1),默认0.99,缺失率高于na_pct的列将被筛除，设定为None将跳过此步骤
+            unique_pct:float or None,(0,1),默认0.99,唯一值占比高于unique_pct的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
+            variance:float or None,默认0,方差低于variance的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
+            chif_pvalue:float or None,(0,1),默认0.05,大于chif_pvalue的列将被剔除,缺失值将被视为单独一类,为None将跳过此步骤
+            tree_imps:float or None,lightgbm树的梯度gain小于等于tree_imps的列将被剔除,默认0，设定为None将跳过此步骤
             tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
+            iv_limit:float or None使用toad.quality进行iv快速筛选的iv阈值
+            out_path:str or None,模型报告路径,将预筛选过程每一步的筛选过程输出到模型报告中
             
         Attribute:
         ----------
@@ -36,16 +41,17 @@ class preSelector(TransformerMixin):
         self.na_pct=na_pct
         self.unique_pct=unique_pct #
         self.variance=variance
-        self.chi2_pvalue=chi2_pvalue #
-        self.oneway_pvalue=oneway_pvalue #
+        self.chif_pvalue=chif_pvalue #
         self.tree_imps=tree_imps #
         self.tree_size=tree_size
+        self.iv_limit=iv_limit
+        self.out_path=out_path
         
     def transform(self,X,y=None):
         """ 
         变量筛选
         """ 
-        return X[self.features_info[max(list( self.features_info.keys()))]]
+        return X[self.features_info[max(list(self.features_info.keys()))]]
        
     def fit(self,X,y):
         
@@ -53,41 +59,106 @@ class preSelector(TransformerMixin):
     
         #开始筛选
         self.features_info['1.orgin']=X.columns.tolist()
-        print('1.start_____________________________________complete')
         
-        if self.na_pct is None:
+        print('1.start______________________________________complete')
+        
+        if self.na_pct==None:
+            
             pass
+        
         elif self.na_pct<1 and self.na_pct>0:
-            self.features_info['2.filterbyNA']=self.filterByNA(X[self.features_info[max(list(self.features_info.keys()))]])
-            print('2.filterbyNA________________________________complete')
+            
+            var_pre_na=self.features_info[max(list(self.features_info.keys()))]
+            
+            self.features_info['2.filterbyNA']=self.filterByNA(X[var_pre_na])
+            
+            print('2.filterbyNA_____________________________complete')
+            
         else:
+            
             raise IOError("na_pct in (0,1)")
-        
-
-        
-        if self.variance is None or self.unique_pct is None:
+                
+        if self.variance==None or self.unique_pct==None:            
+            
             pass        
+        
         elif self.variance>=0 and self.unique_pct>=0 and self.unique_pct<1:
-            self.features_info['3.filterbyVariance']=self.filterByUnique(X[self.features_info[max(list(self.features_info.keys()))]])+self.fliterByVariance(X[self.features_info[max(list(self.features_info.keys()))]])
-            print('3.filterbyVariance_________________________complete')
+            
+            var_pre_vari=self.features_info[max(list(self.features_info.keys()))]
+            
+            self.features_info['3.filterbyVariance']=self.filterByUnique(X[var_pre_vari])+self.fliterByVariance(X[var_pre_vari])
+            
+            print('3.filterbyVariance_______________________complete')
+            
         else:
+            
             raise IOError("variance in [0,inf) and unique_pct in [0,1)")                          
         
         
-        if self.chi2_pvalue and self.oneway_pvalue:
-            self.features_info['4.filterbyChi2Oneway']=self.filterByChisquare(X[self.features_info[max(list(self.features_info.keys()))]],y)+self.filterByOneway(X[self.features_info[max(list(self.features_info.keys()))]],y)         
-            print('4.filterbyChi2Oneway______________________complete')
+        if self.chif_pvalue==None:
             
-        if self.tree_imps is None:
             pass
-        elif self.tree_imps>=0:            
-            self.features_info['5.filterbyTrees']=self.filterByTrees(X[self.features_info[max(list( self.features_info.keys()))]],y)
-            print('5.filterbyTrees_____________________________complete')
-        else:
-            raise IOError("tree_imps in [0,inf)")         
-
-        print('Done_______________________________________________')        
         
+        elif self.chif_pvalue>0 and self.chif_pvalue<=1: 
+            
+            var_pre_chi=self.features_info[max(list(self.features_info.keys()))]
+            
+            self.features_info['4.filterbyChi2Oneway']=self.filterByChisquare(X[var_pre_chi],y)+self.filterByOneway(X[var_pre_chi],y)         
+            
+            print('4.filterbyChi2Oneway_____________________complete')
+        
+        else:
+            
+            raise IOError("pvalue in (0,1]") 
+            
+        if self.tree_imps==None:
+            
+            pass
+        
+        elif self.tree_imps>=0:            
+            
+            var_pre_tree=self.features_info[max(list(self.features_info.keys()))]
+            
+            self.features_info['5.filterbyTrees']=self.filterByTrees(X[var_pre_tree],y)
+            
+            print('5.filterbyTrees__________________________complete')
+            
+        else:
+            
+            raise IOError("tree_imps in [0,inf)")         
+   
+        
+        if self.iv_limit==None:   
+            
+            pass
+        
+        elif self.iv_limit>=0:
+            
+            var_pre_iv=self.features_info[max(list(self.features_info.keys()))]
+            
+            self.features_info['6.filterbyIV']=self.filterbyIV(X[var_pre_iv],y)
+            
+            print('6.filterbyIV_____________________________complete')
+            
+        else:
+            
+            raise IOError("iv_limit in [0,inf)")      
+        
+        print('Done_________________________________________________')  
+        
+        #打印筛选汇总信息
+        for key in self.features_info:
+            
+            print('步骤{},保留的特征数:{}'.format(key,len(self.features_info[key])))
+        
+        #输出报告    
+        if self.out_path: 
+            
+            self.preSelector_report=pd.concat([pd.Series(self.features_info[key],name=key) for key in self.features_info.keys()],axis=1)
+                
+            self.writeExcel() 
+        
+                    
         return self
     
     def filterByNA(self,X):
@@ -116,7 +187,7 @@ class preSelector(TransformerMixin):
         X_numeric=X.select_dtypes('number')
         if X_numeric.columns.size:
             support_vars=VarianceThreshold(threshold=self.variance).fit(X_numeric).get_support()        
-            return X.select_dtypes('number').columns[support_vars].tolist()
+            return X_numeric.columns[support_vars].tolist()
         else:
             return []
 
@@ -130,7 +201,7 @@ class preSelector(TransformerMixin):
         if X_categoty.columns.size:      
             X_categoty_encode=OrdinalEncoder().fit_transform(X_categoty.replace(np.nan,'NAN'))
             p_values=chi2(X_categoty_encode,y)[1]
-            return  X_categoty_encode.columns[p_values<self.chi2_pvalue].tolist()#返回满足卡方值要求的列名
+            return  X_categoty_encode.columns[p_values<self.chif_pvalue].tolist()#返回满足卡方值要求的列名
         else:
             return []
     
@@ -143,7 +214,7 @@ class preSelector(TransformerMixin):
         if X_numeric.columns.size:
             p_values_pos=f_oneway(X_numeric.replace(np.nan,1e10),y)[1]
             p_values_neg=f_oneway(X_numeric.replace(np.nan,-1e10),y)[1]        
-            return X_numeric.columns[(p_values_pos<self.oneway_pvalue) | (p_values_neg<self.oneway_pvalue)].tolist() #返回满足方差分析的列名
+            return X_numeric.columns[(p_values_pos<self.chif_pvalue) | (p_values_neg<self.chif_pvalue)].tolist() #返回满足方差分析的列名
         else:
             return []
 
@@ -188,6 +259,39 @@ class preSelector(TransformerMixin):
         
         else:
             return []
+        
+    
+    def filterbyIV(self,X,y):
+        
+        iv_t=toad.quality(X.join(y),target=y.name,iv_only=True)
+
+        return iv_t[iv_t['iv']>self.iv_limit].index.tolist()
+    
+    
+    def writeExcel(self):
+        
+        if not glob(self.out_path):
+            
+            os.mkdir(self.out_path)
+                
+        if not glob(self.out_path+"/model_report.xlsx"):
+            
+            #print(self.out_path+"/model_report.xlsx")
+            
+            writer = pd.ExcelWriter(self.out_path+"/model_report.xlsx")       
+            pd.DataFrame(None).to_excel(writer,sheet_name='summary')
+            writer.save()                    
+            
+        writer=pd.ExcelWriter(self.out_path+'/model_report.xlsx',
+                              mode='a',
+                              if_sheet_exists='replace',
+                              #engine_kwargs={'mode':'a','if_sheet_exists':'replace'},
+                              engine='openpyxl')
+        
+        self.preSelector_report.to_excel(writer,sheet_name='3.preSelect')
+            
+        writer.save()     
+        print('to_excel done') 
     
 
 class corrSelector(TransformerMixin):
