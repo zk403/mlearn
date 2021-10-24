@@ -282,7 +282,7 @@ class varReport(TransformerMixin):
         产生业务报告
         Params:
         ------
-            breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy的breaks_list，后续将支持toad
+            breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
             special_values:list,缺失值指代值
             apply_dt:pd.Series,用于标示X的时期的字符型列且需要能转化为int
                 + eg:pd.Series(['202001','202002‘...],name='apply_mon',index=X.index)
@@ -335,8 +335,11 @@ class varReport(TransformerMixin):
         
     
     def getVarReport(self,X,y):
-    
-        breaks_list_dict=self.breaks_list_dict
+        
+        
+        #将多种break_list格式进行统一
+        breaks_list_dict=self.get_Breaklist_sc(self.breaks_list_dict,X,y)
+         
         apply_dt=self.apply_dt
         self.var_report_dict={}
         self.var_report_dict_simplified={}
@@ -353,8 +356,7 @@ class varReport(TransformerMixin):
             if is_numeric_dtype(var_fillna):
                 
                 #按照分箱sc的breaklist的区间进行分箱
-                var_cut=pd.cut(var_fillna,[-np.inf]+breaklist_var+[np.inf],
-                       right=False)
+                var_cut=pd.cut(var_fillna,[-np.inf]+breaklist_var+[np.inf],duplicates='drop',right=False)
                 
                 var_bin=pd.Series(np.where(var_cut.isnull(),'missing',var_cut),
                           index=var_cut.index,
@@ -368,10 +370,8 @@ class varReport(TransformerMixin):
                 
                 #转换字原始符映射到分箱sc的breaklist的字符映射
                 var_code_raw=var_cut.unique().tolist()
-                
-                #目前只支持scorecardpy的breaklist,后续将支持toad
-                if True:
-                    map_codes=self.raw_to_bin_sc(var_code_raw,breaklist_var)
+                                      
+                map_codes=self.raw_to_bin_sc(var_code_raw,breaklist_var)
                 
                 var_bin=var_cut.map(map_codes)
                 
@@ -498,6 +498,54 @@ class varReport(TransformerMixin):
         psi_out=base.sub(col).mul(base.div(col).map(np.log))
 
         return psi_out
+    
+    def get_Breaklist_sc(self,break_list,X,y):
+        
+        """
+        将toad的breaklist结构转化为scorecardpy可用的结构
+        """      
+        
+        
+        #判断break_list是sc格式还是toad格式
+        count=0
+        for var_list in list(break_list.values()):
+            
+            for value in var_list:
+                if isinstance(value,list):
+                    count=count+1           
+                break
+        
+        #toad格式时转换为sc格式
+        if count>0:
+        
+            cate_colname=X.select_dtypes(exclude='number')
+            num_colname=X.select_dtypes(include='number')
+
+            break_list_sc=dict()
+
+            #将toad的breaklist转化为scorecardpy的breaklist
+            for key in break_list.keys():
+                if key in cate_colname and break_list[key]:#防止分箱结果为空
+
+                    bin_value_list=[]
+                    for value in break_list[key]:
+                        #if 'nan' in value:
+                        #    value=pd.Series(value).replace('nan','missing').tolist()
+                        bin_value_list.append('%,%'.join(value))
+
+                    break_list_sc[key]=bin_value_list
+
+                elif key in num_colname and break_list[key]:#防止分箱结果为空
+                    break_list_sc[key]=break_list[key]
+
+                else:
+
+                    break_list_sc[key]=[-np.inf,np.inf]
+        #sc格式
+        else:   
+            break_list_sc=break_list
+                
+        return break_list_sc
         
     
     def writeExcel(self):

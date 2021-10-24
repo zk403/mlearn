@@ -164,22 +164,24 @@ class finbinSelector(TransformerMixin):
 
 class optbinSelector(TransformerMixin):
     
-    def __init__(self,y='target',method='dt',n_bins=10,min_samples=0.05,iv_limit=0.02):
+    def __init__(self,method='dt',n_bins=10,min_samples=0.05,iv_limit=0.02):
         """ 
         最优分箱与交互分箱
         Parameters:
         ----------
-            corr_limit:float,相关系数阈值,当两个特征相关性高于该阈值,将剔除掉IV较低的一个       
+            method
+            n_bins
+            min_samples
+            iv_limit
+            
         Attribute:
         ----------
             features_info:dict,每一步筛选的特征进入记录
         """
-        self.target=y
         self.method=method
         self.n_bins=n_bins
         self.min_samples=min_samples
         self.iv_limit=iv_limit
-        
         
     def transform(self,X,y=None):
         
@@ -190,7 +192,8 @@ class optbinSelector(TransformerMixin):
         最优分箱
         """          
         self.X=X.copy()
-        self.y=y.copy()
+        self.y=y.copy()      
+        self.target=y.name
         
         #使用toad进行最优分箱
         self.break_list_toad=toad.transform.Combiner().fit(self.X.join(self.y),y = self.target,\
