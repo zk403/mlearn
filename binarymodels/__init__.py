@@ -12,7 +12,7 @@ from binarymodels.encoder_woe import woeTransformer
 from binarymodels.tuner_girdcv import girdTuner
 from binarymodels.tuner_bayesian import BayesianXGBTuner,BayesianLgbmTuner
 
-__version__ = '0.0.5'
+__version__ = '0.0.6'
 
 __all__ = (    
     outliersTransformer,
