@@ -5,6 +5,7 @@ import pandas as pd
 import scorecardpy as sc
 import toad
 from binarymodels.report_report import varReport
+from pandas.api.types import is_numeric_dtype
 
 class finbinSelector(TransformerMixin):
     
@@ -164,7 +165,7 @@ class finbinSelector(TransformerMixin):
 
 class optbinSelector(TransformerMixin):
     
-    def __init__(self,method='dt',n_bins=10,min_samples=0.05,iv_limit=0.02):
+    def __init__(self,method='dt',n_bins=10,min_samples=0.05,iv_limit=0.02,out_path=None,apply_dt=None,psi_base_mon='latest',break_list_adj=None):
         """ 
         最优分箱与交互分箱
         Parameters:
@@ -182,6 +183,10 @@ class optbinSelector(TransformerMixin):
         self.n_bins=n_bins
         self.min_samples=min_samples
         self.iv_limit=iv_limit
+        self.out_path=out_path
+        self.apply_dt=apply_dt
+        self.psi_base_mon=psi_base_mon
+        self.break_list_adj=break_list_adj
         
     def transform(self,X,y=None):
         
@@ -195,131 +200,236 @@ class optbinSelector(TransformerMixin):
         self.y=y.copy()      
         self.target=y.name
         
-        #使用toad进行最优分箱
-        self.break_list_toad=toad.transform.Combiner().fit(self.X.join(self.y),y = self.target,\
-                                              method = self.method, n_bins=self.n_bins,min_samples=self.min_samples)
         
+        #若分箱结果已知,可直接调用并进行分箱与后续woe编码
+        if self.break_list_adj:
+                     
             
-        self.break_list_sc,colname_list=self.get_Breaklist_sc(self.break_list_toad.export())
+            #只选择需要调整分箱的特征进行分箱
+            self.keep_col=list(self.break_list_adj.keys())
+            
+            self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y),y=self.target,breaks_list=self.break_list_adj,check_cate_num=False)
+            
+            #是否输出报告
+            if self.out_path:
+                
+                varReport(breaks_list_dict=self.break_list_adj,out_path=self.out_path,
+                              sheet_name='_adj',apply_dt=None).fit(self.X[self.keep_col],self.y)
         
-        #使用scorecardpy进行分箱结果输出
-        self.optimalbin=sc.woebin(self.X[colname_list].join(self.y),y=self.target,breaks_list=self.break_list_sc,check_cate_num=False)
+                if self.apply_dt is not None:
+                    
+                    varReport(breaks_list_dict=self.break_list_adj,
+                                      out_path=self.out_path,apply_dt=self.apply_dt,
+                                      psi_base_mon=self.psi_base_mon,
+                                      sheet_name='_adj').fit(self.X[self.keep_col],self.y)  
+                                            
+        else:
         
-        #最优分箱的特征iv统计值
-        self.iv_info=pd.concat(self.optimalbin).groupby('variable')['bin_iv'].sum().rename('iv')
+            #使用toad进行最优分箱
+            self.break_list_toad=toad.transform.Combiner().fit(self.X.join(self.y),y = self.target,\
+                                                  method = self.method, n_bins=self.n_bins,min_samples=self.min_samples)            
+                
+            self.break_list_opt=self.get_Breaklist_sc(self.break_list_toad.export(),X,y)
 
-        #IV筛选特征
-        self.keep_col=self.iv_info[self.iv_info>=self.iv_limit].index.tolist()
-        
-        #将单调与不单调特征进行分开
-        self.optimalbin_monotonic,self.optimalbin_nonmonotonic=self.checkMonotonicFeature(self.optimalbin,self.iv_limit)        
-        
+            #最优分箱的特征iv统计值
+            self.optimalbin=varReport(breaks_list_dict=self.break_list_opt,out_path=None).fit(self.X,self.y)
+            
+            self.iv_info=pd.concat(self.optimalbin.var_report_dict.values()).groupby('variable')['bin_IV'].sum().rename('iv')
+    
+            #IV筛选特征
+            self.keep_col=self.iv_info[self.iv_info>=self.iv_limit].index.tolist()  
+            
+            #是否输出报告
+            if self.out_path:
+                
+                varReport(breaks_list_dict=self.break_list_opt,out_path=self.out_path).fit(self.X[self.keep_col],self.y)
+
+                if self.apply_dt is not None:
+             
+                    varReport(breaks_list_dict=self.break_list_opt,
+                                          out_path=self.out_path,apply_dt=self.apply_dt,
+                                          psi_base_mon=self.psi_base_mon,
+                                          sheet_name='_opt').fit(self.X[self.keep_col],self.y)               
+       
         return self
 
-    def get_Breaklist_sc(self,break_list_toad):
+    def get_Breaklist_sc(self,break_list,X,y):
         
         """
         将toad的breaklist结构转化为scorecardpy可用的结构
         """      
         
-        cate_colname=self.X.select_dtypes(exclude='number')
-        num_colname=self.X.select_dtypes(include='number')
         
-        break_list_sc=dict()
-        colname_list=list()
+        #判断break_list是sc格式还是toad格式
+        count=0
+        for var_list in list(break_list.values()):
+            
+            for value in var_list:
+                if isinstance(value,list):
+                    count=count+1           
+                break
+            
+        columns=list(break_list.keys())
         
-        #将toad的breaklist转化为scorecardpy的breaklist
-        for key in break_list_toad.keys():
-            if key in cate_colname and break_list_toad[key]:#防止分箱结果为空
+        #toad格式时转换为sc格式
+        if count>0:
+        
+            cate_colname=X[columns].select_dtypes(exclude='number')
+            num_colname=X[columns].select_dtypes(include='number')
 
-                bin_value_list=[]
-                for value in break_list_toad[key]:
-                    #if 'nan' in value:
-                    #    value=pd.Series(value).replace('nan','missing').tolist()
-                    bin_value_list.append('%,%'.join(value))
+            break_list_sc=dict()
 
-                break_list_sc[key]=bin_value_list
-                colname_list.append(key)
-
-            elif key in num_colname and break_list_toad[key]:#防止分箱结果为空
-                break_list_sc[key]=break_list_toad[key]
-                colname_list.append(key)
+            #将toad的breaklist转化为scorecardpy的breaklist
+            for key in break_list.keys():
                 
-        return break_list_sc,colname_list                    
+                #分类列需调整格式
+                if key in cate_colname and break_list[key]: 
+
+                    bin_value_list=[]
+                    
+                    for value in break_list[key]:
+                        #if 'nan' in value:
+                        #    value=pd.Series(value).replace('nan','missing').tolist()
+                        bin_value_list.append('%,%'.join(value))
+
+                    break_list_sc[key]=bin_value_list
+                
+                #数值列默认
+                elif key in num_colname and break_list[key]:
+                    
+                    break_list_sc[key]=break_list[key]
+                
+                #空breaklist调整格式
+                else:
+
+                    break_list_sc[key]=[-np.inf,np.inf]
+        #sc格式
+        else:   
+            break_list_sc=break_list
+                
+        return break_list_sc                   
         
     
-    def checkMonotonicFeature(self,varbin,iv_limit):
+    def checkMonotonicFeature(self,varbin):
         """
         检查细分箱后特征的分箱woe是否单调
         Parameters:
         --
         Attribute:
         --
-            finebin_nonmonotonic:dict,非单调特征dict
-            finebin_monotonic:dict,单调特征dict
+            finebin_nonmonotonic:dict,非单调特征list
+            finebin_monotonic:dict,单调特征list
         """        
         varbin_monotonic={}
         varbin_nonmonotonic={}
         for column in varbin.keys():
-            var_woe=varbin[column].query('bin!="missing"').woe
+            #var_woe=varbin[column].query('bin!="missing"').woe
+            varbin_col=varbin[column]
+            var_woe=varbin_col[varbin_col['bin'].astype(str)!="missing"]['WOE']
+            
             if var_woe.is_monotonic_decreasing or var_woe.is_monotonic_increasing:
-                if varbin[column].total_iv[0]>iv_limit:
-                    varbin_monotonic[column]=varbin[column]    
+                #if varbin_col['bin_IV'].sum()>ivlimit:
+                #varbin_monotonic.append(column)
+                varbin_monotonic[column]=varbin_col
             else:
-                if varbin[column].total_iv[0]>iv_limit:
-                    varbin_nonmonotonic[column]=varbin[column]
+                #if varbin_col['bin_IV'].sum()>ivlimit:
+                #varbin_nonmonotonic.append(column)
+                varbin_nonmonotonic[column]=varbin_col
                     
         return(varbin_monotonic,varbin_nonmonotonic)
     
     
-    def adjustBin(self,bins=None,only_nonmonotonic_var=True):
+    def fit_adjustBin(self,br_to_adjusted=None,only_nonmonotonic_var=True,out_path=None,apply_dt=None,psi_base_mon='latest',break_list_adj=None):
         """
-        调整分箱，需先运行fit
+        根据最优分箱结果调整分箱，需先运行fit
         plt.rcParams["figure.figsize"] = [10, 5]
+        Parameters:
+        --       
+        br_to_adjusted:
+        only_nonmonotonic_var
+        
+        Return:
+        --
+        adjbin_woe:
+        
         """          
         
-        if not bins and only_nonmonotonic_var is True:
+        #若自定义break_list存在则使用自定义分箱
+        if br_to_adjusted:
             
-            break_list_adj=sc.woebin_adj(
+            self.keep_col=list(br_to_adjusted.keys())
+            
+            
+            bin_sc=sc.woebin(self.X[self.keep_col].join(self.y),
+                      y=self.target,breaks_list=br_to_adjusted)         
+            
+            self.break_list_adj=sc.woebin_adj(
                 dt=self.X[self.keep_col].join(self.y),
                 y=self.target,
                 adj_all_var=True,
                 count_distr_limit=0.05,
-                bins=self.optimalbin_nonmonotonic,
-                method=self.method
-            )
-            
-            adjustedbin_nonmonotonic=sc.woebin(self.X[self.keep_col].join(self.y),
-                                       y=self.target,breaks_list=break_list_adj)
-            
-            self.adjustedbin=self.optimalbin_monotonic.update(adjustedbin_nonmonotonic)
-            
-        elif not bins and only_nonmonotonic_var is False:
-            
-            break_list_adj=sc.woebin_adj(
-                dt=self.X[self.keep_col].join(self.y),
-                y=self.target,
-                adj_all_var=True,
-                count_distr_limit=0.05,
-                bins=self.optimalbin,
-                method=self.method
-            )
-            self.adjustedbin=sc.woebin(self.X[self.keep_col].join(self.y),
-                                y=self.target,breaks_list=break_list_adj)
-            
-        else:            
-            break_list_adj=sc.woebin_adj(
-                dt=self.X[self.keep_col].join(self.y),
-                y=self.target,
-                adj_all_var=True,
-                count_distr_limit=0.05,
-                bins=bins,
-                method=self.method
+                bins=bin_sc,
+                method='chimerge'
             ) 
-            self.adjustedbin=sc.woebin(self.X[self.keep_col].join(self.y),
-                                y=self.target,breaks_list=break_list_adj)
-                       
-        return self
-
-
+            
+            self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y),
+                                y=self.target,breaks_list=self.break_list_adj)
+                        
+            
+        #否则将根据最优分箱结果调整    
+        else:       
+            
+            bin_sc=sc.woebin(self.X[self.keep_col].join(self.y),
+                      y=self.target,breaks_list=self.optimalbin.breaks_list_dict)
+            
+            #将单调与不单调特征进行分开
+            self.optimalbin_monotonic,self.optimalbin_nonmonotonic=self.checkMonotonicFeature(bin_sc)              
+            
+            #只调整最优分箱中的非单调分箱
+            if only_nonmonotonic_var is True:
+                
+                
+                self.break_list_adj=sc.woebin_adj(
+                    dt=self.X[self.keep_col].join(self.y),
+                    y=self.target,
+                    adj_all_var=True,
+                    count_distr_limit=0.05,
+                    bins=self.optimalbin_nonmonotonic,
+                    method='chimerge'
+                )
+                
+                adjustedbin_nonmonotonic=sc.woebin(self.X[self.keep_col].join(self.y),
+                                           y=self.target,breaks_list=self.break_list_adj)
+                
+                self.adjbin_woe=self.optimalbin_monotonic.update(adjustedbin_nonmonotonic)
     
+            #调整全量分箱
+            else:
+                
+                self.break_list_adj=sc.woebin_adj(
+                    dt=self.X[self.keep_col].join(self.y),
+                    y=self.target,
+                    adj_all_var=True,
+                    count_distr_limit=0.05,
+                    bins=bin_sc,
+                    method='chimerge'
+                )
+                
+                self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y),
+                                    y=self.target,breaks_list=self.break_list_adj)
+                 
+        
+        if out_path:
+                
+            varReport(breaks_list_dict=self.break_list_adj,out_path=out_path,
+                              sheet_name='_adj',apply_dt=None).fit(self.X[self.keep_col],self.y)
+        
+            if apply_dt is not None:
+                    
+                varReport(breaks_list_dict=self.break_list_adj,
+                           out_path=out_path,apply_dt=apply_dt,
+                           psi_base_mon=psi_base_mon,
+                           sheet_name='_adj').fit(self.X[self.keep_col],self.y)  
+        
+                      
+        return self   
