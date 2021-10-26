@@ -263,9 +263,10 @@ class preSelector(TransformerMixin):
     
     def filterbyIV(self,X,y):
         
-        iv_t=toad.quality(X.join(y),target=y.name,iv_only=True)
+        iv_t=toad.selection.IV(X,y,n_bins=20).T
 
-        return iv_t[iv_t['iv']>self.iv_limit].index.tolist()
+        return iv_t[iv_t[0]>self.iv_limit].index.tolist()
+
     
     
     def writeExcel(self):
@@ -296,20 +297,25 @@ class preSelector(TransformerMixin):
 
 class corrSelector(TransformerMixin):
     
-    def __init__(self,y='target',corr_limit=0.8):
+    def __init__(self,corr_limit=0.8,by='IV'):
         """ 
         相关系数筛选
         Parameters:
         ----------
-            corr_limit:float,相关系数阈值,当两个特征相关性高于该阈值,将剔除掉IV较低的一个       
+            corr_limit:float,相关系数阈值
+            by:str or pd.Series,
+                + ’IV‘:按照iv筛选
+                + pd.Series:用户自定义权重,要求index为列名，value为权重值
+            
         Attribute:
         ----------
             features_info:dict,每一步筛选的特征进入记录
         """
-        self.y=y
         self.corr_limit=corr_limit
+        self.by=by
         
     def transform(self,X,y=None):
+        
         return X[self.var_keep]
           
     def fit(self,X,y):
@@ -355,7 +361,7 @@ class corrSelector(TransformerMixin):
 #             X=X.drop(var_del,axis=1)
         
         #使用toad
-        X_drop=toad.selection.drop_corr(X.join(y),target=self.y,threshold=self.corr_limit).drop(self.y,axis=1)
+        X_drop=toad.selection.drop_corr(X.join(y),target=y.name,threshold=self.corr_limit,by=self.by).drop(y.name,axis=1)
     
         self.var_keep=X_drop.columns.tolist()
 

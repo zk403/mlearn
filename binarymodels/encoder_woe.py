@@ -9,18 +9,27 @@ import scorecardpy as sc
 
 class woeTransformer(TransformerMixin):
     
-    def __init__(self):
-        pass
+    def __init__(self,varbin):
         
-    def transform(self,X,y):
+        self.varbin=varbin
+        
+        
+    def transform(self,X,y,use_raw=True):
         """ 
-        变量筛选
+        WOE转换
         """
         X_woe=pd.DataFrame(index=X.index).join(sc.woebin_ply(dt=X.join(y),bins=self.varbin,no_cores=None))
-        return X_woe[X_woe.columns[X_woe.columns.str.contains('_woe')]]
+        
+        X_woe=X_woe[X_woe.columns[X_woe.columns.str.contains('_woe')]]
+        
+        if use_raw:
+            
+            X_woe.columns=X_woe.columns.str[0:-4]
+        
+        return X_woe
           
-    def fit(self,varbin):
-        self.varbin=varbin
+    def fit(self):
+   
         return self       
         
     

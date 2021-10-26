@@ -14,10 +14,11 @@ from sklearn.metrics.pairwise import pairwise_distances
 from scipy.stats import pearsonr,spearmanr
 from sklearn.base import BaseEstimator
 from sklearn.decomposition import PCA
+import warnings
 
 class faSelector(BaseEstimator):
     
-    def __init__(self,n_clusters=5,distance_threshold=None,linkage='average',distance_metrics='pearson',scale=True):
+    def __init__(self,n_clusters=5,distance_threshold=None,linkage='average',distance_metrics='pearson',scale=True,method='r2-ratio',varbin=None):
         '''
         变量聚类
         Parameters:
@@ -25,8 +26,14 @@ class faSelector(BaseEstimator):
             n_clusters=5:int,聚类数量
             distance_threshold=None:距离阈值
             linkage='average':层次聚类连接方式     
-            distance_metrics='pearson':距离衡量方式
-            scale=True:聚类前是否进行数据标准化
+            distance_metrics='pearson':距离衡量方式,可选pearson，spearman，r2
+            scale=True:聚类前是否进行数据标准化,
+            method='r2-ratio',聚类后的特征筛选方式
+                + 'r2-ratio':与SAS一致，将筛选每一类特征集中r2-ratio最小的特征
+                + 'iv':筛选每一类特征集中iv最高的特征
+                + 'ks':筛选每一类特征集中ks最高的特征
+            varbin:
+                
         Attribute:    
         --
             components_infos
@@ -39,6 +46,8 @@ class faSelector(BaseEstimator):
         self.n_clusters=n_clusters
         self.distance_threshold=distance_threshold
         self.scale=scale
+        self.method=method
+        self.varbin=varbin
         
     def distance(self):
         custom_distance=self.distance_metrics
@@ -87,7 +96,58 @@ class faSelector(BaseEstimator):
         return self        
     
     def transform(self,X):
-        columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio']).groupby('Cluster').head(1).index 
+        
+        var_bin_dict=self.varbin.copy()    
+        
+        var_bin_df=pd.concat(var_bin_dict.values())
+        
+        if self.method=='r2-ratio':
+        
+            columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio']).groupby('Cluster').head(1).index 
+        
+        elif self.method=='iv':
+
+            iv=var_bin_df.groupby('variable')['bin_iv'].sum().rename('iv')
+            
+            columns=self.rsquare_infos.join(iv).sort_values(['Cluster','iv']).groupby('Cluster').head(1).index             
+        
+        elif self.method=='ks':
+                        
+            #varReport格式的var_bin_dict
+            if 'ks' in var_bin_df.columns.tolist():                
+            
+                ks=var_bin_df.groupby('variable')['ks'].max().rename('ks')
+                
+                columns=self.rsquare_infos.join(ks).sort_values(['Cluster','ks']).groupby('Cluster').head(1).index 
+                
+            #scorecardpy格式的var_bin_dict    
+            else:
+              
+                var_bin_dict_ks={}
+            
+                for colname in list(var_bin_dict.keys()):
+                    
+                    df_var=var_bin_dict[colname]
+            
+                    good_distr=df_var['good'].div(df_var['good'].sum())
+                    bad_distr=df_var['bad'].div(df_var['bad'].sum())    
+                    df_var['ks']=good_distr.sub(bad_distr).abs()
+                    df_var['ks_max']=df_var['ks'].max()
+            
+                    var_bin_dict_ks[colname]=df_var
+                
+                var_bin_df=pd.concat(var_bin_dict_ks.values())
+                
+                ks=var_bin_df.groupby('variable')['ks'].max()
+                
+                columns=self.rsquare_infos.join(ks).sort_values(['Cluster','ks']).groupby('Cluster').head(1).index 
+ 
+        else:
+            
+            warnings.warn('method in (r2-ratio,iv,ks),use r2-ratio instead')  
+            
+            columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio']).groupby('Cluster').head(1).index      
+      
         return X[columns]
     
     def featurecluster(self):
@@ -107,11 +167,14 @@ class faSelector(BaseEstimator):
             raise ValueError('set n_clusters or distance_threshold')
 
         if np.unique(model.labels_).size==1:
+            
             raise ValueError('Only 1 cluster,reset the distance_threshold or n_clusters')
         
         return model
     
-    def plot_dendrogram(self,X):
+    def plot_dendrogram(self):
+        
+        X=self.X
         custom_distance=self.distance()
         linkage=self.linkage
 
@@ -203,7 +266,7 @@ class faSelector(BaseEstimator):
             else:
                 label_components[label]=pd.Series(X[cluster_features[0]].ravel())        
         
-        label_components_df=pd.concat(label_components,1,ignore_index=True)
+        label_components_df=pd.concat(label_components,axis=1,ignore_index=True)
         
         #计算类间,类内差异指标
         #label_neigbor={} #邻近类
@@ -234,7 +297,7 @@ class faSelector(BaseEstimator):
         report=pd.concat(
                     [pd.Series(fclusters,index=X.columns,name='Cluster'),
                      pd.Series(featrues_r2,name='R2_Featrues'),
-                     pd.Series(neigbors_r2,name='R2_Neigbor')],1
+                     pd.Series(neigbors_r2,name='R2_Neigbor')],axis=1
             )
         report['1-R2Ratio']=(1-report['R2_Featrues'])/(1-report['R2_Neigbor']) 
         

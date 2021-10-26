@@ -5,7 +5,7 @@ import pandas as pd
 import scorecardpy as sc
 import toad
 from binarymodels.report_report import varReport
-from pandas.api.types import is_numeric_dtype
+#from pandas.api.types import is_numeric_dtype
 
 class finbinSelector(TransformerMixin):
     
@@ -66,20 +66,26 @@ class finbinSelector(TransformerMixin):
         self.breaks_list=self.getBreakslistFinbin(X,y)
         
         #进行细分箱
-        #finebin=sc.woebin(df,y=self.y,check_cate_num=False,count_distr_limit=0.01,bin_num_limit=self.bin_num,breaks_list=self.breaks_list)
-        
+        if self.out_path:
 
-        bin_res=varReport(breaks_list_dict=self.breaks_list,out_path=self.out_path,
+            bin_res=varReport(breaks_list_dict=self.breaks_list,out_path=self.out_path,special_values=self.special_values,
                           sheet_name='_fin',apply_dt=None).fit(X,y)
         
-        if self.apply_dt is not None:
- 
-            varReport(breaks_list_dict=self.breaks_list,
-                              out_path=self.out_path,apply_dt=self.apply_dt,
-                              psi_base_mon=self.psi_base_mon,
-                              sheet_name='_fin').fit(X,y) 
+            if self.apply_dt is not None:
+     
+                varReport(breaks_list_dict=self.breaks_list,
+                          special_values=self.special_values,
+                          out_path=self.out_path,apply_dt=self.apply_dt,
+                          psi_base_mon=self.psi_base_mon,
+                          sheet_name='_fin').fit(X,y) 
+            
+        else:
+            
+            #速度更快
+            bin_res=sc.woebin(X.join(y),y=y.name,check_cate_num=False,count_distr_limit=0.01,special_values=self.special_values,bin_num_limit=self.bin_num,breaks_list=self.breaks_list)
+        
                   
-
+ 
         #筛选合适变量
         col_cate=X.select_dtypes(include='object').columns.tolist()
         finebindf=pd.concat(bin_res.var_report_dict.values())
@@ -87,8 +93,8 @@ class finbinSelector(TransformerMixin):
         #开始筛选
         Numfinbindf=finebindf[~finebindf.variable.isin(col_cate)] #数值列
         Facfinbindf=finebindf[finebindf.variable.isin(col_cate)] #分类列
-
-        self.iv_info=pd.concat([Numfinbindf.groupby('variable')['bin_IV'].sum().rename('iv'),Facfinbindf.groupby('variable')['bin_IV'].sum().rename('iv')])
+                
+        self.iv_info=pd.concat([Numfinbindf.groupby('variable')['bin_iv'].sum().rename('iv'),Facfinbindf.groupby('variable')['bin_iv'].sum().rename('iv')])
         self.keep_col=self.iv_info[self.iv_info>=ivlimit].index.tolist()
         self.finebin={column:bin_res.var_report_dict.get(column) for column in self.keep_col}
         self.finebin_monotonic,self.finebin_nonmonotonic=self.checkMonotonicFeature(self.finebin,ivlimit)
@@ -149,13 +155,13 @@ class finbinSelector(TransformerMixin):
         for column in varbin.keys():
             #var_woe=varbin[column].query('bin!="missing"').woe
             varbin_col=varbin[column]
-            var_woe=varbin_col[varbin_col['bin'].astype(str)!="missing"]['WOE']
+            var_woe=varbin_col[varbin_col['bin'].astype(str)!="missing"]['woe']
             
             if var_woe.is_monotonic_decreasing or var_woe.is_monotonic_increasing:
-                if varbin_col['bin_IV'].sum()>ivlimit:
+                if varbin_col['bin_iv'].sum()>ivlimit:
                     varbin_monotonic.append(column)
             else:
-                if varbin_col['bin_IV'].sum()>ivlimit:
+                if varbin_col['bin_iv'].sum()>ivlimit:
                     varbin_nonmonotonic.append(column)
                     
         return(varbin_monotonic,varbin_nonmonotonic)
@@ -165,7 +171,7 @@ class finbinSelector(TransformerMixin):
 
 class optbinSelector(TransformerMixin):
     
-    def __init__(self,method='dt',n_bins=10,min_samples=0.05,iv_limit=0.02,out_path=None,apply_dt=None,psi_base_mon='latest',break_list_adj=None):
+    def __init__(self,method='dt',n_bins=10,min_samples=0.05,special_values=[np.nan],iv_limit=0.02,out_path=None,apply_dt=None,psi_base_mon='latest',break_list_adj=None):
         """ 
         最优分箱与交互分箱
         Parameters:
@@ -183,6 +189,7 @@ class optbinSelector(TransformerMixin):
         self.n_bins=n_bins
         self.min_samples=min_samples
         self.iv_limit=iv_limit
+        self.special_values=special_values
         self.out_path=out_path
         self.apply_dt=apply_dt
         self.psi_base_mon=psi_base_mon
@@ -201,28 +208,32 @@ class optbinSelector(TransformerMixin):
         self.target=y.name
         
         
-        #若分箱结果已知,可直接调用并进行分箱与后续woe编码
+        #若给定分箱breaklist已知,可直接调用并进行分箱与后续woe编码
         if self.break_list_adj:
                      
             
             #只选择需要调整分箱的特征进行分箱
             self.keep_col=list(self.break_list_adj.keys())
             
-            self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y),y=self.target,breaks_list=self.break_list_adj,check_cate_num=False)
+            self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y),y=self.target,
+                                      special_values=self.special_values,
+                                      breaks_list=self.break_list_adj,check_cate_num=False)
             
             #是否输出报告
             if self.out_path:
                 
-                varReport(breaks_list_dict=self.break_list_adj,out_path=self.out_path,
-                              sheet_name='_adj',apply_dt=None).fit(self.X[self.keep_col],self.y)
+                varReport(breaks_list_dict=self.break_list_adj,special_values=self.special_values,
+                          out_path=self.out_path,
+                          sheet_name='_adj',apply_dt=None).fit(self.X[self.keep_col],self.y)
         
                 if self.apply_dt is not None:
                     
                     varReport(breaks_list_dict=self.break_list_adj,
-                                      out_path=self.out_path,apply_dt=self.apply_dt,
+                                      out_path=self.out_path,apply_dt=self.apply_dt,special_values=self.special_values,
                                       psi_base_mon=self.psi_base_mon,
                                       sheet_name='_adj').fit(self.X[self.keep_col],self.y)  
-                                            
+                    
+        #若不给定breaklist，则进行最优分箱                                   
         else:
         
             #使用toad进行最优分箱
@@ -232,9 +243,10 @@ class optbinSelector(TransformerMixin):
             self.break_list_opt=self.get_Breaklist_sc(self.break_list_toad.export(),X,y)
 
             #最优分箱的特征iv统计值
-            self.optimalbin=varReport(breaks_list_dict=self.break_list_opt,out_path=None).fit(self.X,self.y)
+            self.optimalbin=sc.woebin(self.X.join(self.y),y=self.target,breaks_list=self.break_list_opt,
+                                      special_values=self.special_values,check_cate_num=False)
             
-            self.iv_info=pd.concat(self.optimalbin.var_report_dict.values()).groupby('variable')['bin_IV'].sum().rename('iv')
+            self.iv_info=pd.concat(self.optimalbin.values()).groupby('variable')['bin_iv'].sum().rename('iv')
     
             #IV筛选特征
             self.keep_col=self.iv_info[self.iv_info>=self.iv_limit].index.tolist()  
@@ -242,14 +254,17 @@ class optbinSelector(TransformerMixin):
             #是否输出报告
             if self.out_path:
                 
-                varReport(breaks_list_dict=self.break_list_opt,out_path=self.out_path).fit(self.X[self.keep_col],self.y)
+                varReport(breaks_list_dict=self.break_list_opt,
+                          special_values=self.special_values,
+                          out_path=self.out_path).fit(self.X[self.keep_col],self.y)
 
                 if self.apply_dt is not None:
              
                     varReport(breaks_list_dict=self.break_list_opt,
-                                          out_path=self.out_path,apply_dt=self.apply_dt,
-                                          psi_base_mon=self.psi_base_mon,
-                                          sheet_name='_opt').fit(self.X[self.keep_col],self.y)               
+                              special_values=self.special_values,
+                              out_path=self.out_path,apply_dt=self.apply_dt,
+                              psi_base_mon=self.psi_base_mon,
+                              sheet_name='_opt').fit(self.X[self.keep_col],self.y)               
        
         return self
 
@@ -319,20 +334,21 @@ class optbinSelector(TransformerMixin):
         --
             finebin_nonmonotonic:dict,非单调特征list
             finebin_monotonic:dict,单调特征list
-        """        
+        """    
+
         varbin_monotonic={}
         varbin_nonmonotonic={}
         for column in varbin.keys():
             #var_woe=varbin[column].query('bin!="missing"').woe
             varbin_col=varbin[column]
-            var_woe=varbin_col[varbin_col['bin'].astype(str)!="missing"]['WOE']
+            var_woe=varbin_col[varbin_col['bin'].astype(str)!="missing"]['woe']
             
             if var_woe.is_monotonic_decreasing or var_woe.is_monotonic_increasing:
-                #if varbin_col['bin_IV'].sum()>ivlimit:
+                #if varbin_col['bin_iv'].sum()>ivlimit:
                 #varbin_monotonic.append(column)
                 varbin_monotonic[column]=varbin_col
             else:
-                #if varbin_col['bin_IV'].sum()>ivlimit:
+                #if varbin_col['bin_iv'].sum()>ivlimit:
                 #varbin_nonmonotonic.append(column)
                 varbin_nonmonotonic[column]=varbin_col
                     
@@ -361,10 +377,13 @@ class optbinSelector(TransformerMixin):
             
             
             bin_sc=sc.woebin(self.X[self.keep_col].join(self.y),
-                      y=self.target,breaks_list=br_to_adjusted)         
+                             special_values=self.special_values,
+                             y=self.target,
+                             breaks_list=br_to_adjusted)
             
             self.break_list_adj=sc.woebin_adj(
                 dt=self.X[self.keep_col].join(self.y),
+                special_values=self.special_values,
                 y=self.target,
                 adj_all_var=True,
                 count_distr_limit=0.05,
@@ -373,14 +392,16 @@ class optbinSelector(TransformerMixin):
             ) 
             
             self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y),
-                                y=self.target,breaks_list=self.break_list_adj)
+                                      special_values=self.special_values,
+                                      y=self.target,breaks_list=self.break_list_adj)
                         
             
         #否则将根据最优分箱结果调整    
         else:       
             
             bin_sc=sc.woebin(self.X[self.keep_col].join(self.y),
-                      y=self.target,breaks_list=self.optimalbin.breaks_list_dict)
+                             special_values=self.special_values,
+                             y=self.target,breaks_list=self.optimalbin.breaks_list_dict)
             
             #将单调与不单调特征进行分开
             self.optimalbin_monotonic,self.optimalbin_nonmonotonic=self.checkMonotonicFeature(bin_sc)              
@@ -399,6 +420,7 @@ class optbinSelector(TransformerMixin):
                 )
                 
                 adjustedbin_nonmonotonic=sc.woebin(self.X[self.keep_col].join(self.y),
+                                                   special_values=self.special_values,
                                            y=self.target,breaks_list=self.break_list_adj)
                 
                 self.adjbin_woe=self.optimalbin_monotonic.update(adjustedbin_nonmonotonic)
@@ -416,17 +438,20 @@ class optbinSelector(TransformerMixin):
                 )
                 
                 self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y),
-                                    y=self.target,breaks_list=self.break_list_adj)
+                                          special_values=self.special_values,
+                                          y=self.target,breaks_list=self.break_list_adj)
                  
         
         if out_path:
                 
             varReport(breaks_list_dict=self.break_list_adj,out_path=out_path,
-                              sheet_name='_adj',apply_dt=None).fit(self.X[self.keep_col],self.y)
+                      special_values=self.special_values,
+                      sheet_name='_adj',apply_dt=None).fit(self.X[self.keep_col],self.y)
         
             if apply_dt is not None:
                     
                 varReport(breaks_list_dict=self.break_list_adj,
+                           special_values=self.special_values,
                            out_path=out_path,apply_dt=apply_dt,
                            psi_base_mon=psi_base_mon,
                            sheet_name='_adj').fit(self.X[self.keep_col],self.y)  

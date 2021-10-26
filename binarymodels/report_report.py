@@ -232,8 +232,11 @@ class businessReport(TransformerMixin):
 
             if rename_columns:
                 self.ptable.columns.names=[None]+rename_columns
-
+                
             
+            if self.out_path:
+                
+                self.writeExcel()                
                                     
         return self
     
@@ -256,9 +259,9 @@ class businessReport(TransformerMixin):
             
             os.mkdir(self.out_path)
                 
-        if not glob(self.out_path+"model_report.xlsx"):
+        if not glob(self.out_path+"/model_report.xlsx"):
             
-            writer = pd.ExcelWriter('model_report.xlsx')            
+            writer = pd.ExcelWriter('/model_report.xlsx')            
             pd.DataFrame(None).to_excel(writer,sheet_name='summary')
             writer.save()                    
             
@@ -354,7 +357,7 @@ class varReport(TransformerMixin):
             breaklist_var=list(breaks_list_dict[col])
             
             if is_numeric_dtype(var_fillna):
-                
+              
                 #按照分箱sc的breaklist的区间进行分箱
                 var_cut=pd.cut(var_fillna,[-np.inf]+breaklist_var+[np.inf],duplicates='drop',right=False)
                 
@@ -374,6 +377,10 @@ class varReport(TransformerMixin):
                 map_codes=self.raw_to_bin_sc(var_code_raw,breaklist_var)
                 
                 var_bin=var_cut.map(map_codes)
+                
+            else:
+                
+                raise IOError('dtypes in X in (number,object),others not support')
                 
             
             if apply_dt is not None:                
@@ -407,10 +414,10 @@ class varReport(TransformerMixin):
                 for mon in apply_dt.unique().tolist():
                 
                     var_bin_mon=var_bin[var_bin[apply_dt.name].eq(mon)]
-                    rename_aggfunc=dict(zip(['count','sum','mean'],['#','#bad','#bad%']))
+                    rename_aggfunc=dict(zip(['count','sum','mean'],['count','bad','badprob']))
                     result=pd.pivot_table(var_bin_mon,index=col,values=y.name,
                                       margins=False,
-                                      aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0) 
+                                      aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(1,1) 
                     #print(result)
                     
                     if result.size:
@@ -419,10 +426,10 @@ class varReport(TransformerMixin):
                         var_report_dict_interval[mon]=self.getVarReport_ks(result,col) 
                         
                         #简化版，简化版指标在这里定义
-                        var_report_dict_interval_simplified[mon]=var_report_dict_interval[mon].reset_index().set_index('bin')[['#','#bad%','IV','KS','KS_max']]
+                        var_report_dict_interval_simplified[mon]=var_report_dict_interval[mon].reset_index().set_index('bin')[['count','badprob','total_iv','ks','ks_max']]
                         
                         #PSI指标
-                        psi_ts_var[mon]=var_report_dict_interval[mon].reset_index().set_index('bin')['#_dis']
+                        psi_ts_var[mon]=var_report_dict_interval[mon].reset_index().set_index('bin')['count_distr']
 
                     else:
                         
@@ -432,8 +439,10 @@ class varReport(TransformerMixin):
                 dis_mon=pd.concat(psi_ts_var,axis=1).fillna(0)
                 
                 dis_mon_psi=dis_mon.apply(lambda x:self.psi(dis_mon[psi_base_mon],x),0)
-                dis_mon_psi.columns=dis_mon_psi.columns+'_psi'
-                dis_mon_psi=pd.concat([dis_mon_psi,pd.DataFrame(dis_mon_psi.sum().rename('All')).T],axis=0)
+                dis_mon=pd.concat([dis_mon,pd.DataFrame(dis_mon_psi.sum().rename('psi')).T],axis=0)
+                
+                dis_mon_psi.columns=dis_mon_psi.columns+'_psi'                
+                dis_mon_psi=pd.concat([dis_mon_psi,pd.DataFrame(dis_mon_psi.sum().rename('psi')).T],axis=0)
                 dis_mon_psi_all=dis_mon.join(dis_mon_psi,how='right')
                   
                     
@@ -449,33 +458,33 @@ class varReport(TransformerMixin):
                 var_bin=pd.concat([var_bin,y],axis=1)
             
                 #print var_bin
-                rename_aggfunc=dict(zip(['count','sum','mean'],['#','#bad','#bad%']))
+                rename_aggfunc=dict(zip(['count','sum','mean'],['count','bad','badprob']))
                 result=pd.pivot_table(var_bin,index=col,values=y.name,
                                   #columns=apply_dt.name,
                                   margins=False,
-                                  aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0)
+                                  aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(1,1) 
 
                 self.var_report_dict[col]=self.getVarReport_ks(result,col)   
 
             
     def getVarReport_ks(self,var_ptable,col):
         
-        var_ptable['#_dis']=var_ptable['#'].div(var_ptable['#'].sum())
-        var_ptable['#good']=var_ptable['#'].sub(var_ptable['#bad'])
-        var_ptable['#good_dis']=var_ptable['#good'].div(var_ptable['#good'].sum())
-        var_ptable['#bad_dis']=var_ptable['#bad'].div(var_ptable['#bad'].sum())
-        var_ptable['bin_IV']=var_ptable['#bad_dis'].sub(var_ptable['#good_dis']).mul(
-            (var_ptable["#bad_dis"]+1e-10).div((var_ptable["#good_dis"]+1e-10)).apply(np.log)
+        var_ptable['count_distr']=var_ptable['count'].div(var_ptable['count'].sum())
+        var_ptable['good']=var_ptable['count'].sub(var_ptable['bad'])
+        var_ptable['good_dis']=var_ptable['good'].div(var_ptable['good'].sum())
+        var_ptable['bad_dis']=var_ptable['bad'].div(var_ptable['bad'].sum())
+        var_ptable['bin_iv']=var_ptable['bad_dis'].sub(var_ptable['good_dis']).mul(
+            (var_ptable["bad_dis"]+1e-10).div((var_ptable["good_dis"]+1e-10)).apply(np.log)
         )
-        var_ptable['IV']=var_ptable['bin_IV'].sum()
-        var_ptable['WOE']=(var_ptable["#bad_dis"]+1e-10).div((var_ptable["#good_dis"]+1e-10)).apply(np.log)
-        var_ptable['KS']=var_ptable['#good_dis'].sub(var_ptable['#bad_dis']).abs()
-        var_ptable['KS_max']=var_ptable['KS'].max()
+        var_ptable['total_iv']=var_ptable['bin_iv'].sum()
+        var_ptable['woe']=(var_ptable["bad_dis"]+1e-10).div((var_ptable["good_dis"]+1e-10)).apply(np.log)
+        var_ptable['ks']=var_ptable['good_dis'].sub(var_ptable['bad_dis']).abs()
+        var_ptable['ks_max']=var_ptable['ks'].max()
         var_ptable['variable']=col
         var_ptable.index.name='bin'
         var_ptable=var_ptable.reset_index()
-        #var_ptable['dtype']=
-        var_ptable=var_ptable[['variable','bin','#','#_dis','#good','#bad','#bad%','#good_dis','#bad_dis','WOE','bin_IV','IV','KS','KS_max']]
+        var_ptable['bin']=var_ptable['bin'].astype('str')
+        var_ptable=var_ptable[['variable', 'bin', 'count', 'count_distr', 'good', 'bad', 'badprob','woe', 'bin_iv', 'total_iv','ks','ks_max']]
         
         return var_ptable
     

@@ -104,8 +104,7 @@ class dtpypeAllocator(TransformerMixin):
             
             warnings.warn('0 rows in input X,return None')  
             
-            return pd.DataFrame(None) 
-    
+            return pd.DataFrame(None)     
     
 
     def fit(self,X,y=None):       
@@ -185,7 +184,7 @@ class nanTransformer(TransformerMixin):
                       indicator=False):
         """ 
         缺失值填补，集成sklearn.impute        
-        注意本模块不支持除字符、数值以外（时间、日期、时间差类）列的填充，请将其设定为pandas的索引或剔除掉
+        注意本模块不支持除字符、数值以外（时间、日期、时间差类）列的填充，请将其设定为pandas的索引、转换为数值型或剔除掉
         Params:
         ------
         method:(str,str)应对连续特征和分类特征的缺失值填补方法,连续可选constant,mean,median,knn,most_frequent,分类特征可选constant,most_frequent

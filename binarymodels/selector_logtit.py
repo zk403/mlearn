@@ -232,7 +232,6 @@ class stepLogit(BaseEstimator):
             return(vif)    
 
 
-
 class cardScorer(TransformerMixin):
     
     def __init__(self,logit_model,varbin,odds0=1/100,pdo=50,points0=600):
