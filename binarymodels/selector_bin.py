@@ -81,8 +81,10 @@ class finbinSelector(TransformerMixin):
             
         else:
             
-            #速度更快
-            bin_res=sc.woebin(X.join(y),y=y.name,check_cate_num=False,count_distr_limit=0.01,special_values=self.special_values,bin_num_limit=self.bin_num,breaks_list=self.breaks_list)
+            #速度更快           
+            bin_res=sc.woebin(X.join(y).replace(self.special_values,np.nan),
+                              y=y.name,check_cate_num=False,count_distr_limit=0.01,
+                              bin_num_limit=self.bin_num,breaks_list=self.breaks_list)
         
                   
  
@@ -215,8 +217,8 @@ class optbinSelector(TransformerMixin):
             #只选择需要调整分箱的特征进行分箱
             self.keep_col=list(self.break_list_adj.keys())
             
-            self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y),y=self.target,
-                                      special_values=self.special_values,
+            self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
+                                      y=self.target,
                                       breaks_list=self.break_list_adj,check_cate_num=False)
             
             #是否输出报告
@@ -243,8 +245,9 @@ class optbinSelector(TransformerMixin):
             self.break_list_opt=self.get_Breaklist_sc(self.break_list_toad.export(),X,y)
 
             #最优分箱的特征iv统计值
-            self.optimalbin=sc.woebin(self.X.join(self.y),y=self.target,breaks_list=self.break_list_opt,
-                                      special_values=self.special_values,check_cate_num=False)
+            self.optimalbin=sc.woebin(self.X.join(self.y).replace(self.special_values,np.nan),
+                                      y=self.target,breaks_list=self.break_list_opt,
+                                      check_cate_num=False)
             
             self.iv_info=pd.concat(self.optimalbin.values()).groupby('variable')['bin_iv'].sum().rename('iv')
     
@@ -376,14 +379,12 @@ class optbinSelector(TransformerMixin):
             self.keep_col=list(br_to_adjusted.keys())
             
             
-            bin_sc=sc.woebin(self.X[self.keep_col].join(self.y),
-                             special_values=self.special_values,
+            bin_sc=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
                              y=self.target,
                              breaks_list=br_to_adjusted)
             
             self.break_list_adj=sc.woebin_adj(
-                dt=self.X[self.keep_col].join(self.y),
-                special_values=self.special_values,
+                dt=self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
                 y=self.target,
                 adj_all_var=True,
                 count_distr_limit=0.05,
@@ -391,16 +392,14 @@ class optbinSelector(TransformerMixin):
                 method='chimerge'
             ) 
             
-            self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y),
-                                      special_values=self.special_values,
+            self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
                                       y=self.target,breaks_list=self.break_list_adj)
                         
             
         #否则将根据最优分箱结果调整    
         else:       
             
-            bin_sc=sc.woebin(self.X[self.keep_col].join(self.y),
-                             special_values=self.special_values,
+            bin_sc=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
                              y=self.target,breaks_list=self.optimalbin.breaks_list_dict)
             
             #将单调与不单调特征进行分开
@@ -419,8 +418,7 @@ class optbinSelector(TransformerMixin):
                     method='chimerge'
                 )
                 
-                adjustedbin_nonmonotonic=sc.woebin(self.X[self.keep_col].join(self.y),
-                                                   special_values=self.special_values,
+                adjustedbin_nonmonotonic=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
                                            y=self.target,breaks_list=self.break_list_adj)
                 
                 self.adjbin_woe=self.optimalbin_monotonic.update(adjustedbin_nonmonotonic)
@@ -437,8 +435,7 @@ class optbinSelector(TransformerMixin):
                     method='chimerge'
                 )
                 
-                self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y),
-                                          special_values=self.special_values,
+                self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
                                           y=self.target,breaks_list=self.break_list_adj)
                  
         

@@ -374,7 +374,7 @@ class varReport(TransformerMixin):
                 #转换字原始符映射到分箱sc的breaklist的字符映射
                 var_code_raw=var_cut.unique().tolist()
                                       
-                map_codes=self.raw_to_bin_sc(var_code_raw,breaklist_var)
+                map_codes=self.raw_to_bin_sc(var_code_raw,breaklist_var,self.special_values)
                 
                 var_bin=var_cut.map(map_codes)
                 
@@ -488,11 +488,15 @@ class varReport(TransformerMixin):
         
         return var_ptable
     
-    def raw_to_bin_sc(self,var_code_raw,breaklist_var):
+    def raw_to_bin_sc(self,var_code_raw,breaklist_var,special_values):
+        
+        breaklist_var_new=[i.replace(special_values,'missing').unique().tolist()
+                                   for i in [pd.Series(i.split('%,%')) 
+                                             for i in breaklist_var]]
         
         map_codes={}
         
-        for raw,map_code in product(var_code_raw,[i.split('%,%') for i in breaklist_var]):
+        for raw,map_code in product(var_code_raw,breaklist_var_new):
             
             if raw in map_code:
                 
