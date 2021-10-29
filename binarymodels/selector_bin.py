@@ -65,10 +65,14 @@ class finbinSelector(TransformerMixin):
         #获取细分箱分箱点
         self.breaks_list=self.getBreakslistFinbin(X,y)
         
+        bin_res=sc.woebin(X.join(y).replace(self.special_values,np.nan),
+                              y=y.name,check_cate_num=False,count_distr_limit=0.01,
+                              bin_num_limit=self.bin_num,breaks_list=self.breaks_list)
+        
         #进行细分箱
         if self.out_path:
 
-            bin_res=varReport(breaks_list_dict=self.breaks_list,out_path=self.out_path,special_values=self.special_values,
+            varReport(breaks_list_dict=self.breaks_list,out_path=self.out_path,special_values=self.special_values,
                           sheet_name='_fin',apply_dt=None).fit(X,y)
         
             if self.apply_dt is not None:
@@ -77,20 +81,12 @@ class finbinSelector(TransformerMixin):
                           special_values=self.special_values,
                           out_path=self.out_path,apply_dt=self.apply_dt,
                           psi_base_mon=self.psi_base_mon,
-                          sheet_name='_fin').fit(X,y) 
-            
-        else:
-            
-            #速度更快           
-            bin_res=sc.woebin(X.join(y).replace(self.special_values,np.nan),
-                              y=y.name,check_cate_num=False,count_distr_limit=0.01,
-                              bin_num_limit=self.bin_num,breaks_list=self.breaks_list)
-        
-                  
- 
+                          sheet_name='_fin').fit(X,y)                        
+
+
         #筛选合适变量
         col_cate=X.select_dtypes(include='object').columns.tolist()
-        finebindf=pd.concat(bin_res.var_report_dict.values())
+        finebindf=pd.concat(bin_res.values())
 
         #开始筛选
         Numfinbindf=finebindf[~finebindf.variable.isin(col_cate)] #数值列
@@ -98,7 +94,7 @@ class finbinSelector(TransformerMixin):
                 
         self.iv_info=pd.concat([Numfinbindf.groupby('variable')['bin_iv'].sum().rename('iv'),Facfinbindf.groupby('variable')['bin_iv'].sum().rename('iv')])
         self.keep_col=self.iv_info[self.iv_info>=ivlimit].index.tolist()
-        self.finebin={column:bin_res.var_report_dict.get(column) for column in self.keep_col}
+        self.finebin={column:bin_res.get(column) for column in self.keep_col}
         self.finebin_monotonic,self.finebin_nonmonotonic=self.checkMonotonicFeature(self.finebin,ivlimit)
         
         return self
@@ -383,7 +379,7 @@ class optbinSelector(TransformerMixin):
                              y=self.target,
                              breaks_list=br_to_adjusted)
             
-            self.break_list_adj=sc.woebin_adj(
+            breaks_str=sc.woebin_adj(
                 dt=self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
                 y=self.target,
                 adj_all_var=True,
@@ -391,6 +387,10 @@ class optbinSelector(TransformerMixin):
                 bins=bin_sc,
                 method='chimerge'
             ) 
+            
+            exec('breaks_dict_raw'+breaks_str)
+            
+            self.break_list_adj={key:np.sort(breaks_dict_raw[key]).tolist() for key in list(breaks_dict_raw.keys())}
             
             self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
                                       y=self.target,breaks_list=self.break_list_adj)

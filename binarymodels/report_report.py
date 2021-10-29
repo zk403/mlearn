@@ -478,7 +478,7 @@ class varReport(TransformerMixin):
         )
         var_ptable['total_iv']=var_ptable['bin_iv'].sum()
         var_ptable['woe']=(var_ptable["bad_dis"]+1e-10).div((var_ptable["good_dis"]+1e-10)).apply(np.log)
-        var_ptable['ks']=var_ptable['good_dis'].sub(var_ptable['bad_dis']).abs()
+        var_ptable['ks']=var_ptable['good_dis'].cumsum().sub(var_ptable['bad_dis'].cumsum()).abs()
         var_ptable['ks_max']=var_ptable['ks'].max()
         var_ptable['variable']=col
         var_ptable.index.name='bin'
