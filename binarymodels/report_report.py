@@ -15,6 +15,7 @@ from glob import glob
 from itertools import product
 import os
 import warnings
+from joblib import Parallel,delayed
 
 
 class EDAReport(TransformerMixin):
@@ -280,7 +281,7 @@ class businessReport(TransformerMixin):
 
 class varReport(TransformerMixin):
     
-    def __init__(self,breaks_list_dict,special_values=[np.nan],apply_dt=None,psi_base_mon='latest',out_path=None,sheet_name=''):
+    def __init__(self,breaks_list_dict,special_values=[np.nan],apply_dt=None,psi_base_mon='latest',out_path=None,sheet_name='',n_jobs=-1,verbose=0):
         """ 
         产生业务报告
         Params:
@@ -290,11 +291,13 @@ class varReport(TransformerMixin):
             apply_dt:pd.Series,用于标示X的时期的字符型列且需要能转化为int
                 + eg:pd.Series(['202001','202002‘...],name='apply_mon',index=X.index)
             psi_base_mon:str,当apply_dt非空时,psi计算的基准,可选earliest和latest，也可用户自定义
-                + earliest:选择apply_dt中最早的时期的分布作为psi基准
-                + latest:选择apply_dt中最晚的时期的分布作为psi基准
-                + str:在apply_dt中任选一个时期的分布作为psi基准  
+                + earliest:选择数据中apply_dt中最早的时期的分布作为psi基准
+                + latest:选择数据中apply_dt中最晚的时期的分布作为psi基准
+                + all: 选择总分布作为psi基准
             out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
             sheet_name:str,out_path非None时，输出到模型Excel报告的sheet_name后缀,例如"_in_sample"
+            n_jobs:int,并行计算job数
+            verbose:int,并行计算信息输出等级
         
         Attributes:
         -------
@@ -308,13 +311,21 @@ class varReport(TransformerMixin):
         self.psi_base_mon=psi_base_mon
         self.out_path = out_path
         self.sheet_name=sheet_name
+        self.n_jobs=n_jobs
+        self.verbose=verbose
         
     def fit(self, X, y=None):
         
 
         if X.size:
             
-            self.report_all=self.getVarReport(X,y)
+            parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+            
+            out_list=parallel(delayed(self.getReport_Single)(X,y,col,self.breaks_list_dict[col],self.apply_dt,self.psi_base_mon,self.special_values) 
+                               for col in list(self.breaks_list_dict.keys())) 
+            
+            self.var_report_dict={col:total for col,total,_ in out_list}
+            self.var_report_psi={col:psi for col,_,psi in out_list}
             
             #输出报告    
             if self.out_path: 
@@ -337,134 +348,145 @@ class varReport(TransformerMixin):
             return pd.DataFrame(None)
         
     
-    def getVarReport(self,X,y):
-        
-        
-        #将多种break_list格式进行统一
-        breaks_list_dict=self.get_Breaklist_sc(self.breaks_list_dict,X,y)
+    def getReport_Single(self,X,y,col,breaklist_var,apply_dt,psi_base_mon,special_values):
          
-        apply_dt=self.apply_dt
-        self.var_report_dict={}
-        self.var_report_dict_simplified={}
-        self.var_psi_report_dict={}
+         #print(col)
+         #global psi_base_mon1,dis_mon
 
-
-        for col in X.columns:
-            
-            #处理缺失值
-            var_fillna=X[col].replace(self.special_values,np.nan)
-            
-            breaklist_var=list(breaks_list_dict[col])
-            
-            if is_numeric_dtype(var_fillna):
-              
-                #按照分箱sc的breaklist的区间进行分箱
-                var_cut=pd.cut(var_fillna,[-np.inf]+breaklist_var+[np.inf],duplicates='drop',right=False)
-                
-                var_bin=pd.Series(np.where(var_cut.isnull(),'missing',var_cut),
-                          index=var_cut.index,
-                          name=col)
-            
-            elif is_string_dtype(var_fillna):    
-                
-                var_cut=pd.Series(np.where(var_fillna.isnull(),'missing',var_fillna),
-                          index=var_fillna.index,
-                          name=var_fillna.name)
-                
-                #转换字原始符映射到分箱sc的breaklist的字符映射
-                var_code_raw=var_cut.unique().tolist()
-                                      
-                map_codes=self.raw_to_bin_sc(var_code_raw,breaklist_var,self.special_values)
-                
-                var_bin=var_cut.map(map_codes)
-                
-            else:
-                
-                raise IOError('dtypes in X in (number,object),others not support')
-                
-            
-            if apply_dt is not None:                
-                
-                var_bin=pd.concat([var_bin,y],axis=1).join(apply_dt)
-                
-                var_report_dict_interval={} #每期的特征报告字典
-                
-                var_report_dict_interval_simplified={} #每期的简化特征报告字典
-                
-                psi_ts_var={} ##每期的PSI报告字典
-                            
-                #定义的psi计算的基准月份
-                if self.psi_base_mon=='earliest':
-                    
-                    psi_base_mon=min(apply_dt.unique().tolist())
-                    
-                elif self.psi_base_mon=='latest':
-                    
-                    psi_base_mon=max(apply_dt.unique().tolist())
-                
-                elif self.psi_base_mon.isdigit():
-                    
-                    psi_base_mon=self.psi_base_mon
-                    
-                else:
-                    
-                    raise ValueError("psi_base_mon in ('earliest','latest' or user-defined)")
-                
-                #计算所有指标
-                for mon in apply_dt.unique().tolist():
-                
-                    var_bin_mon=var_bin[var_bin[apply_dt.name].eq(mon)]
-                    rename_aggfunc=dict(zip(['count','sum','mean'],['count','bad','badprob']))
-                    result=pd.pivot_table(var_bin_mon,index=col,values=y.name,
-                                      margins=False,
-                                      aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(1,1) 
-                    #print(result)
-                    
-                    if result.size:
-                        
-                        #全部指标
-                        var_report_dict_interval[mon]=self.getVarReport_ks(result,col) 
-                        
-                        #简化版，简化版指标在这里定义
-                        var_report_dict_interval_simplified[mon]=var_report_dict_interval[mon].reset_index().set_index('bin')[['count','badprob','total_iv','ks','ks_max']]
-                        
-                        #PSI指标
-                        psi_ts_var[mon]=var_report_dict_interval[mon].reset_index().set_index('bin')['count_distr']
-
-                    else:
-                        
-                        var_report_dict_interval[mon]=None
-
-                #计算PSI
-                dis_mon=pd.concat(psi_ts_var,axis=1).fillna(0)
-                
-                dis_mon_psi=dis_mon.apply(lambda x:self.psi(dis_mon[psi_base_mon],x),0)
-                dis_mon=pd.concat([dis_mon,pd.DataFrame(dis_mon_psi.sum().rename('psi')).T],axis=0)
-                
-                dis_mon_psi.columns=dis_mon_psi.columns+'_psi'                
-                dis_mon_psi=pd.concat([dis_mon_psi,pd.DataFrame(dis_mon_psi.sum().rename('psi')).T],axis=0)
-                dis_mon_psi_all=dis_mon.join(dis_mon_psi,how='right')
-                  
-                    
-                #汇总所有表             
-                self.var_report_dict[col]=pd.concat(var_report_dict_interval,axis=1) 
-                self.var_report_dict_simplified[col]=pd.concat(var_report_dict_interval_simplified,axis=1)
-                self.var_psi_report_dict[col]=dis_mon_psi_all   
-            
-            
-            #若只计算全量数据则只输出全量的特征分析报告
-            else:
-                
-                var_bin=pd.concat([var_bin,y],axis=1)
-            
-                #print var_bin
-                rename_aggfunc=dict(zip(['count','sum','mean'],['count','bad','badprob']))
-                result=pd.pivot_table(var_bin,index=col,values=y.name,
-                                  #columns=apply_dt.name,
-                                  margins=False,
-                                  aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(1,1) 
-
-                self.var_report_dict[col]=self.getVarReport_ks(result,col)   
+         #处理缺失值
+         var_fillna=X[col].replace(special_values,np.nan)
+         
+         #breaklist_var=list(breaks_list_dict[col])
+         
+         #第1步:判断数据类型
+         if is_numeric_dtype(var_fillna):
+           
+             #按照分箱sc的breaklist的区间进行分箱
+             var_cut=pd.cut(var_fillna,[-np.inf]+breaklist_var+[np.inf],duplicates='drop',right=False)
+             
+             var_bin=pd.Series(np.where(var_cut.isnull(),'missing',var_cut),
+                       index=var_cut.index,
+                       name=col)
+         
+         elif is_string_dtype(var_fillna):    
+             
+             var_cut=pd.Series(np.where(var_fillna.isnull(),'missing',var_fillna),
+                       index=var_fillna.index,
+                       name=var_fillna.name)
+             
+             
+             
+             #转换字原始符映射到分箱sc的breaklist的字符映射
+             var_code_raw=var_cut.unique().tolist()
+                                   
+             map_codes=self.raw_to_bin_sc(var_code_raw,breaklist_var,special_values)
+             
+             var_bin=var_cut.map(map_codes)
+             
+         else:
+             
+             raise IOError('dtypes in X in (number,object),others not support')
+             
+         
+         #第2步:判断是否需按月汇总
+         if apply_dt is not None:                
+             
+             var_bin_dt=pd.concat([var_bin,y],axis=1).join(apply_dt)
+             
+             var_report_dict_interval={} #每期的特征报告字典
+             
+             #var_report_dict_interval_simplified={} #每期的简化特征报告字典
+             
+             psi_ts_var={} ##每期的PSI报告字典
+                         
+             #定义的psi计算的基准月份
+             if psi_base_mon=='earliest':
+                 
+                 psi_base_mon=min(apply_dt.unique().tolist())
+                 
+             elif psi_base_mon=='latest':
+                 
+                 psi_base_mon=max(apply_dt.unique().tolist())
+             
+             elif psi_base_mon=='all':
+                 
+                 psi_base_mon=var_bin.value_counts().div(var_bin.size)
+                 psi_base_mon.index.name='bin'
+             
+             #elif isinstance(psi_base_mon,pd.core.series.Series):
+                 
+             #    psi_base_mon=psi_base_mon
+             
+             else:
+                 
+                 raise ValueError("psi_base_mon in ('earliest','latest' or ‘all’)")
+             
+             #计算所有指标
+             for mon in apply_dt.unique().tolist():
+             
+                 var_bin_mon=var_bin_dt[var_bin_dt[apply_dt.name].eq(mon)]
+                 rename_aggfunc=dict(zip(['count','sum','mean'],['count','bad','badprob']))
+                 result=pd.pivot_table(var_bin_mon,index=col,values=y.name,
+                                   margins=False,
+                                   aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(1,1) 
+                 #print(result)
+                 
+                 if result.size:
+                     
+                     #全部指标
+                     var_report_dict_interval[mon]=self.getVarReport_ks(result,col)
+                     
+                     #print(getVarReport_ks(result,col))
+                     
+                     #简化版，简化版指标在这里定义
+                     #var_report_dict_interval_simplified[mon]=var_report_dict_interval[mon][['count','badprob','total_iv','ks','ks_max']]
+                     
+                     #PSI指标
+                     psi_ts_var[mon]=var_report_dict_interval[mon]['count_distr']
+ 
+                 else:
+                     
+                     var_report_dict_interval[mon]=None
+ 
+             #计算PSI
+             dis_mon=pd.concat(psi_ts_var,axis=1).fillna(0)
+             
+             if isinstance(psi_base_mon,str):
+             
+                 dis_mon_psi=dis_mon.apply(lambda x:self.psi(dis_mon[psi_base_mon],x),0)
+                 
+             else:
+                 
+                 dis_mon_psi=dis_mon.apply(lambda x:self.psi(psi_base_mon,x),0)
+             
+             dis_mon=pd.concat([dis_mon,pd.DataFrame(dis_mon_psi.sum().rename('psi')).T],axis=0)
+             dis_mon.index.name='bin'
+             
+             #dis_mon_psi.columns=dis_mon_psi.columns+'_psi'                
+             #dis_mon_psi=pd.concat([dis_mon_psi,pd.DataFrame(dis_mon_psi.sum().rename('psi')).T],axis=0)
+             #dis_mon_psi_all=dis_mon.join(dis_mon_psi,how='right')
+               
+                 
+             #汇总所有表          
+             
+             var_report_df_interval=pd.concat(var_report_dict_interval,axis=1)               
+             #return var_report_df_interval,var_report_df_interval_simplified,dis_mon  
+             return col,var_report_df_interval,dis_mon
+         
+         
+         #若只计算全量数据则只输出全量的特征分析报告
+         else:
+             
+             var_bin=pd.concat([var_bin,y],axis=1)
+         
+             #print var_bin
+             rename_aggfunc=dict(zip(['count','sum','mean'],['count','bad','badprob']))
+             result=pd.pivot_table(var_bin,index=col,values=y.name,
+                               #columns=apply_dt.name,
+                               margins=False,
+                               aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(1,1) 
+ 
+             return col,self.getVarReport_ks(result,col)   
 
             
     def getVarReport_ks(self,var_ptable,col):
@@ -482,9 +504,9 @@ class varReport(TransformerMixin):
         var_ptable['ks_max']=var_ptable['ks'].max()
         var_ptable['variable']=col
         var_ptable.index.name='bin'
-        var_ptable=var_ptable.reset_index()
-        var_ptable['bin']=var_ptable['bin'].astype('str')
-        var_ptable=var_ptable[['variable', 'bin', 'count', 'count_distr', 'good', 'bad', 'badprob','woe', 'bin_iv', 'total_iv','ks','ks_max']]
+        #var_ptable=var_ptable.reset_index()
+        #var_ptable['bin']=var_ptable['bin'].astype('str')
+        var_ptable=var_ptable[['variable', 'count', 'count_distr', 'good', 'bad', 'badprob','woe', 'bin_iv', 'total_iv','ks','ks_max']]
         
         return var_ptable
     
@@ -567,25 +589,32 @@ class varReport(TransformerMixin):
             
             os.mkdir(self.out_path)
                 
-        if not glob(self.out_path+"/model_report.xlsx"):
+        if not glob(self.out_path+"/var_report.xlsx"):
             
-            writer = pd.ExcelWriter('/model_report.xlsx')            
+            writer = pd.ExcelWriter(self.out_path+'/var_report.xlsx')            
             pd.DataFrame(None).to_excel(writer,sheet_name='summary')
             writer.save()    
         
         sheet_name=self.sheet_name
             
-        writer=pd.ExcelWriter(self.out_path+'/model_report.xlsx',
+        writer=pd.ExcelWriter(self.out_path+'/var_report.xlsx',
                               mode='a',
                               if_sheet_exists='replace',
                               #engine_kwargs={'mode':'a','if_sheet_exists':'replace'},
                               engine='openpyxl')
         
         if self.apply_dt is not None:
+            
+            var_report_df=pd.concat(self.var_report_dict)            
+            var_report_psi_df=pd.concat(self.var_report_psi).reset_index().rename(columns={'level_0':'variable'})
         
-            pd.concat(self.var_report_dict).to_excel(writer,sheet_name='4.bin_M'+sheet_name)
-            pd.concat(self.var_report_dict_simplified).to_excel(writer,sheet_name='4.bin_MS'+sheet_name)
-            pd.concat(self.var_psi_report_dict).to_excel(writer,sheet_name='4.psi_M'+sheet_name)
+            var_report_df.to_excel(writer,sheet_name='bin_mon'+sheet_name)
+            
+            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['count'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_c'+sheet_name)
+            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['badprob'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_b'+sheet_name)
+            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['ks_max'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_k'+sheet_name)
+
+            var_report_psi_df.to_excel(writer,sheet_name='psi_mon'+sheet_name)
         
         else:
             

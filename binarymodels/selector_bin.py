@@ -5,6 +5,7 @@ import pandas as pd
 import scorecardpy as sc
 import toad
 from binarymodels.report_report import varReport
+from joblib import Parallel,delayed
 #from pandas.api.types import is_numeric_dtype
 
 class finbinSelector(TransformerMixin):
@@ -63,7 +64,9 @@ class finbinSelector(TransformerMixin):
         ivlimit=self.ivlimit
         
         #获取细分箱分箱点
-        self.breaks_list=self.getBreakslistFinbin(X,y)
+        breaks_list_raw=self.getBreakslistFinbin(X,y)
+        
+        self.breaks_list={i:breaks_list_raw[i].tolist() for i in breaks_list_raw}
         
         bin_res=sc.woebin(X.join(y).replace(self.special_values,np.nan),
                               y=y.name,check_cate_num=False,count_distr_limit=0.01,
@@ -127,12 +130,12 @@ class finbinSelector(TransformerMixin):
                 bin_num_adj=bin_num-1
             else:
                 bin_num_adj=bin_num            
-            breaklist[numcol]=np.unique([round(j,2) for j in numcol_drop.quantile([i/(bin_num_adj) for i in range(1,bin_num_adj)]).unique().tolist()])
+            breaklist[numcol]=np.unique([round(j,2) for j in numcol_drop.quantile([i/(bin_num_adj) for i in range(1,bin_num_adj)]).unique().tolist()]).tolist()
 
         #分类变量则根据类别数直接分箱    
         for faccol in FacCol:
             charcol_drop=df[faccol].drop(df[faccol][df[faccol].isin(self.special_values)].index)
-            breaklist[faccol]=charcol_drop.unique()
+            breaklist[faccol]=charcol_drop.unique().tolist()
                 
         return breaklist
     

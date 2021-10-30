@@ -4,8 +4,10 @@ binarymodels是适用于常见商业数据分析数据挖掘场景下，中小�
 本模组将集成商业分析场景中二分类模型中常用的模型，并使之能够兼顾开发效率、报告制作与模型自动化。
 
 + 涵盖数据清洗、数据探索、特征工程、评分卡、模型评估、统计学逐步回归、机器学习模型及其参数优化等内容
-+ 集成的工具包括sklearn,xgboost,lightgbm,statsmodels,scorecardpy,toad等
-+ 部分功能都基于sklearn.base的TransformerMixin与BaseEstimator进行构建
++ 在准确性和运行效率的前提下集成了诸多流行的三方库，包括sklearn,xgboost,lightgbm,statsmodels,scorecardpy,toad等,
++ 部分功能都基于sklearn.base的TransformerMixin与BaseEstimator进行构建，可支持pipeline
++ 对模块中的涉及apply的部分进行了并行优化
++ 工具包目前还在开发中
 
 功能介绍:
 
