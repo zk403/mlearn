@@ -6,7 +6,7 @@ binarymodels是适用于常见商业数据分析数据挖掘场景下，中小�
 + 涵盖数据清洗、数据探索、特征工程、评分卡、模型评估、统计学逐步回归、机器学习模型及其参数优化等内容
 + 在准确性和运行效率的前提下集成了诸多流行的三方库，包括sklearn,xgboost,lightgbm,statsmodels,scorecardpy,toad等,
 + 部分功能都基于sklearn.base的TransformerMixin与BaseEstimator进行构建，可支持pipeline
-+ 对模块中的涉及apply的部分进行了并行优化
++ 对模块中的部分函数进行了并行优化
 + 工具包目前还在开发中
 
 功能介绍:
@@ -39,6 +39,7 @@ binarymodels是适用于常见商业数据分析数据挖掘场景下，中小�
     - binarymodels.cardScorer:制作评分卡
 
 + 机器学习
+
     - binarymodels.girdTuner:网格优化与随机优化的xgb或lgbm
     - binarymodels.BayesianXGBTuner:贝叶斯优化的xgboost
     - binarymodels.BayesianLgbmTuner:贝叶斯优化的lightgbm

@@ -489,7 +489,7 @@ class varReport(TransformerMixin):
                                margins=False,
                                aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(1,1) 
  
-             return col,self.getVarReport_ks(result,col)   
+             return col,self.getVarReport_ks(result,col),None   
 
             
     def getVarReport_ks(self,var_ptable,col):

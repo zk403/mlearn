@@ -187,7 +187,7 @@ class binAdjusterKmeans(TransformerMixin):
             #定义初始值
             combine_ratio_count=True
             n_clusters=len(breaks_list_sc_var)+1
-            bin_num=10
+            bin_num=999
             iter_times=len(breaks_list_sc_var)+1
             iters=0
             breaks=breaks_list_sc_var

@@ -5,19 +5,23 @@ import pandas as pd
 import scorecardpy as sc
 import toad
 from binarymodels.report_report import varReport
-from joblib import Parallel,delayed
+from binarymodels.selector_bin_fun import binAdjusterKmeans
+#from joblib import Parallel,delayed
 #from pandas.api.types import is_numeric_dtype
 
 class finbinSelector(TransformerMixin):
     
-    def __init__(self,ivlimit=0.02,bin_num=20,special_values=[np.nan],apply_dt=None,out_path=None,psi_base_mon='latest'):
+    def __init__(self,ivlimit=0.02,bin_num=20,bin_num_limit=5,special_values=[np.nan],method='freq',apply_dt=None,out_path=None,psi_base_mon='latest'):
         """ 
         IV预筛选,适用于二分类模型
         Parameters:
         ----------
             ivlimit=0.02:float,IV阈值,IV低于该阈值特征将被剔除
-            y='target':str,目标变量的列名
             bin_num=20:int,连续特征等频分箱的分箱数,默认20,分类特征则将使用其原始类别
+            method='freq',可选'freq'与'freq-kmeans'
+                + 'freq':等频分箱,分箱数由bin_num指定
+                + 'freq-kmeans':基于Kmeans，对等频分箱结果进行自动调整，以将badrate近似的箱进行合并
+            bin_num_limit=10,method='freq-kmeans'时，合并分箱最低限制,bin_num_limit<bin_num时才有效果        
             special_values=[np.nan]:list,特殊值指代,列表,默认
             out_path:str,输出分箱结果报告至指定路径的模型文档中
             
@@ -48,6 +52,8 @@ class finbinSelector(TransformerMixin):
         """
         self.ivlimit=ivlimit
         self.bin_num=bin_num
+        self.method=method
+        self.bin_num_limit=bin_num_limit
         self.special_values=special_values
         self.out_path=out_path
         self.apply_dt=apply_dt
@@ -64,9 +70,19 @@ class finbinSelector(TransformerMixin):
         ivlimit=self.ivlimit
         
         #获取细分箱分箱点
-        breaks_list_raw=self.getBreakslistFinbin(X,y)
-        
-        self.breaks_list={i:breaks_list_raw[i].tolist() for i in breaks_list_raw}
+   
+        if self.method=='freq-kmeans':
+            
+            self.breaks_list=self.getBreakslistFinbin(X,y)
+            self.breaks_list=binAdjusterKmeans(self.breaks_list,bin_limit=self.bin_num_limit,special_values=self.special_values).fit(X,y).breaks_list_adj
+            
+        elif self.method=='freq':
+            
+            self.breaks_list=self.getBreakslistFinbin(X,y)
+            
+        else:
+            raise IOError("method in ('freq','freq-kmeans')")
+            
         
         bin_res=sc.woebin(X.join(y).replace(self.special_values,np.nan),
                               y=y.name,check_cate_num=False,count_distr_limit=0.01,
@@ -98,7 +114,7 @@ class finbinSelector(TransformerMixin):
         self.iv_info=pd.concat([Numfinbindf.groupby('variable')['bin_iv'].sum().rename('iv'),Facfinbindf.groupby('variable')['bin_iv'].sum().rename('iv')])
         self.keep_col=self.iv_info[self.iv_info>=ivlimit].index.tolist()
         self.finebin={column:bin_res.get(column) for column in self.keep_col}
-        self.finebin_monotonic,self.finebin_nonmonotonic=self.checkMonotonicFeature(self.finebin,ivlimit)
+        #self.finebin_monotonic,self.finebin_nonmonotonic=self.checkMonotonicFeature(self.finebin,ivlimit)
         
         return self
     
@@ -115,31 +131,31 @@ class finbinSelector(TransformerMixin):
             y:目标变量列,pd.Series,必须与X索引一致
         """
         df=X.join(y)
-        bin_num=self.bin_num
         
-        FacCol=X.select_dtypes(include='object').columns.tolist() #数值列
-        NumCol=X.select_dtypes(include='number').columns.tolist() #分类列
+        CatCol=X.select_dtypes(include='object').columns.tolist() #分类列
+        NumCol=X.select_dtypes(include='number').columns.tolist() #数值列
 
         breaklist={}
 
         #bin_num下若特征分布过于集中,等频分箱将合并集中的分箱区间为最终分箱区间
         for numcol in NumCol:
-            index_drop=df[numcol][df[numcol].isin(self.special_values)].index
-            numcol_drop=df[numcol].drop(index_drop)           
-            if index_drop.size>0:
-                bin_num_adj=bin_num-1
+            _,breaks=pd.qcut(X[numcol],self.bin_num,duplicates='drop',retbins=True,precision=3)
+            
+            if len(breaks)==2:
+                breaklist[numcol]=breaks.tolist()[:-1]
+            elif len(breaks)==1:
+                breaklist[numcol]=breaks.tolist()
+            elif len(breaks)==0:
+                breaklist[numcol]=X[numcol].dropna().unique().tolist()
             else:
-                bin_num_adj=bin_num            
-            breaklist[numcol]=np.unique([round(j,2) for j in numcol_drop.quantile([i/(bin_num_adj) for i in range(1,bin_num_adj)]).unique().tolist()]).tolist()
-
+                breaklist[numcol]=breaks.tolist()[1:-1]
+            
         #分类变量则根据类别数直接分箱    
-        for faccol in FacCol:
-            charcol_drop=df[faccol].drop(df[faccol][df[faccol].isin(self.special_values)].index)
-            breaklist[faccol]=charcol_drop.unique().tolist()
+        for catcol in CatCol:
+            breaklist[catcol]=df[catcol].unique().tolist()
                 
         return breaklist
-    
-    
+        
     
     def checkMonotonicFeature(self,varbin,ivlimit):
         """
