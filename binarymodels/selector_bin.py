@@ -393,6 +393,7 @@ class optbinSelector(TransformerMixin):
             
             exec('breaks_dict_raw'+breaks_str)
             
+            #此处语法检查有误正常
             self.break_list_adj={key:np.sort(breaks_dict_raw[key]).tolist() for key in list(breaks_dict_raw.keys())}
             
             self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),

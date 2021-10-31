@@ -17,7 +17,7 @@ import pandas as pd
 
 class BayesianXGBTuner(BaseEstimator):
     
-    def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5):
+    def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,refit=True):
         '''
         使用贝叶斯优化参数的Xgboost
         Parameters:
@@ -27,6 +27,7 @@ class BayesianXGBTuner(BaseEstimator):
             init_points:int,贝叶斯优化起始搜索点的个数
             scoring:str,寻优准则,可选'auc','ks','lift'
             cv:int,交叉验证的折数
+            refit:bool,最优参数下是否重新拟合模型，默认True
             
             """参数空间写法
         
@@ -50,7 +51,7 @@ class BayesianXGBTuner(BaseEstimator):
         --
             Optimize:贝叶斯优化迭代器,需先使用fit
             params_best:最优参数组合,需先使用fit
-            xgb_refit:最优参数下的xgboost模型,需先使用fit
+            xgb_refit:最优参数下的xgboost模型,需先使用fit且参数refit=True 
         
         Examples
         --
@@ -63,6 +64,7 @@ class BayesianXGBTuner(BaseEstimator):
         self.init_points=init_points
         self.scoring=scoring
         self.cv=cv
+        self.refit=refit
 
         
     def predict_proba(self,X,y=None):
@@ -101,18 +103,21 @@ class BayesianXGBTuner(BaseEstimator):
         #交叉验证结果保存
         self.cv_result=self.cvresult_to_df()
         
-        self.xgb_refit = XGBClassifier(
-            colsample_bytree=self.params_best['colsample_bytree'],
-            gamma=self.params_best['gamma'],
-            scale_pos_weight=self.params_best['scale_pos_weight'],
-            learning_rate=self.params_best['learning_rate'],          
-            max_delta_step=self.params_best['max_delta_step'],
-            max_depth=self.params_best['max_depth'],
-            min_child_weight=self.params_best['min_child_weight'],
-            n_estimators=self.params_best['n_estimators'],
-            reg_lambda=self.params_best['reg_lambda'],
-            subsample=self.params_best['subsample']
-            ).fit(X,y)      
+        #refit
+        if self.refit:
+            
+            self.xgb_refit = XGBClassifier(
+                colsample_bytree=self.params_best['colsample_bytree'],
+                gamma=self.params_best['gamma'],
+                scale_pos_weight=self.params_best['scale_pos_weight'],
+                learning_rate=self.params_best['learning_rate'],          
+                max_delta_step=self.params_best['max_delta_step'],
+                max_depth=self.params_best['max_depth'],
+                min_child_weight=self.params_best['min_child_weight'],
+                n_estimators=self.params_best['n_estimators'],
+                reg_lambda=self.params_best['reg_lambda'],
+                subsample=self.params_best['subsample']
+                ).fit(X,y)      
         
         return self
     
@@ -201,7 +206,7 @@ class BayesianXGBTuner(BaseEstimator):
 
 class BayesianLgbmTuner(BaseEstimator):
     
-    def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5):
+    def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,refit=True):
         '''
         使用贝叶斯优化参数的LightGBM
         Parameters:
@@ -211,6 +216,7 @@ class BayesianLgbmTuner(BaseEstimator):
             init_points:int,贝叶斯优化起始搜索点的个数
             scoring:str,寻优准则,可选'auc','ks','lift'
             cv:int,交叉验证的折数
+            refit:bool,最优参数下是否重新拟合模型，默认True           
             
             """参数空间写法        
         
@@ -236,7 +242,7 @@ class BayesianLgbmTuner(BaseEstimator):
         --
             Optimize:贝叶斯优化迭代器,需先使用fit
             params_best:最优参数组合,需先使用fit
-            xgb_refit:最优参数下的lgbm模型,需先使用fit
+            lgbm_refit:最优参数下的lgbm模型,需先使用fit
         
         Examples
         --
@@ -249,6 +255,7 @@ class BayesianLgbmTuner(BaseEstimator):
         self.init_points=init_points
         self.scoring=scoring
         self.cv=cv
+        self.refit=refit
 
         
     def predict_proba(self,X,y=None):
@@ -290,20 +297,21 @@ class BayesianLgbmTuner(BaseEstimator):
         #交叉验证结果保存
         self.cv_result=self.cvresult_to_df()
         
-        #print (self.para_space)
-        self.lgbm_refit = LGBMClassifier(
-            boosting_type=self.para_space['boosting_type'],
-            n_estimators=self.params_best['n_estimators'],
-            learning_rate=self.params_best['learning_rate'],
-            max_depth=self.params_best['max_depth'],          
-            min_split_gain=self.params_best['min_split_gain'],
-            min_sum_hessian_in_leaf=self.params_best['min_sum_hessian_in_leaf'],
-            subsample=self.params_best['subsample'],
-            colsample_bytree=self.params_best['colsample_bytree'],
-            #class_weight=self.para_space['class_weight'],
-            scale_pos_weight=self.params_best['scale_pos_weight'],
-            reg_lambda=self.params_best['reg_lambda']
-            ).fit(X,y)      
+        if self.refit:
+            #print (self.para_space)
+            self.lgbm_refit = LGBMClassifier(
+                boosting_type=self.para_space['boosting_type'],
+                n_estimators=self.params_best['n_estimators'],
+                learning_rate=self.params_best['learning_rate'],
+                max_depth=self.params_best['max_depth'],          
+                min_split_gain=self.params_best['min_split_gain'],
+                min_sum_hessian_in_leaf=self.params_best['min_sum_hessian_in_leaf'],
+                subsample=self.params_best['subsample'],
+                colsample_bytree=self.params_best['colsample_bytree'],
+                #class_weight=self.para_space['class_weight'],
+                scale_pos_weight=self.params_best['scale_pos_weight'],
+                reg_lambda=self.params_best['reg_lambda']
+                ).fit(X,y)      
         
         return self
     

@@ -47,6 +47,7 @@ class EDAReport(TransformerMixin):
     def fit(self, X, y=None):
         
         if X.size:
+            
             #填充缺失值
             self.X=X.copy().replace(self.miss_value,np.nan)   
             
@@ -319,6 +320,8 @@ class varReport(TransformerMixin):
 
         if X.size:
             
+            self.breaks_list_dict=self.get_Breaklist_sc(self.breaks_list_dict,X,y)
+            
             parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
             
             out_list=parallel(delayed(self.getReport_Single)(X,y,col,self.breaks_list_dict[col],self.apply_dt,self.psi_base_mon,self.special_values) 
@@ -511,6 +514,11 @@ class varReport(TransformerMixin):
         return var_ptable
     
     def raw_to_bin_sc(self,var_code_raw,breaklist_var,special_values):
+        """ 
+        分箱转换，将分类特征的值与breaks对应起来
+        1.只适合分类bin转换
+        2.此函数只能合并分类的类不能拆分分类的类        
+        """ 
         
         breaklist_var_new=[i.replace(special_values,'missing').unique().tolist()
                                    for i in [pd.Series(i.split('%,%')) 
@@ -520,11 +528,26 @@ class varReport(TransformerMixin):
         
         for raw,map_code in product(var_code_raw,breaklist_var_new):
             
-            if raw in map_code:
+            
+            #多项组合情况
+            if '%,%' in raw:
+                
+                raw_set=set(raw.split('%,%'))
+                
+                #原始code包含于combine_code中时
+                if not raw_set-set(map_code):
+
+                    map_codes[raw]='%,%'.join(map_code)
+            
+            #单项情况
+            elif raw in map_code:
                 
                 map_codes[raw]='%,%'.join(map_code)
-        
+            
+            #print(raw,map_code)
+   
         return map_codes
+    
     
     def psi(self,base,col):
     
@@ -618,7 +641,7 @@ class varReport(TransformerMixin):
         
         else:
             
-            pd.concat(self.var_report_dict).to_excel(writer,sheet_name='4.bin'+sheet_name)            
+            pd.concat(self.var_report_dict).to_excel(writer,sheet_name='bin'+sheet_name)            
         
             
         writer.save()     
