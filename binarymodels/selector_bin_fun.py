@@ -14,6 +14,7 @@ from joblib import Parallel,delayed
 import warnings
 from itertools import product,groupby
 from sklearn.cluster import KMeans
+from scipy.stats import chi2
 
 
 class binAdjusterKmeans(TransformerMixin):
@@ -388,5 +389,181 @@ class binAdjusterKmeans(TransformerMixin):
         else:   
             break_list_sc=break_list
                 
-        return break_list_sc   
-  
+        return break_list_sc 
+    
+
+
+class binAdjusterChi(TransformerMixin):
+    
+    def __init__(self,bin_num=10,chi2_p=0.1,special_values=[np.nan],n_jobs=-1,verbose=0):
+        """ 
+        卡方单调分箱:先等频分箱,再合并低于卡方值(交叉表卡方检验的差异不显著)的分箱或不单调(badrate)的分箱
+        + 只针对连续特征,分类特征将被忽略
+        + 结果只提供参考，需与其他分箱方法一起使用
+        
+        Params:
+        ------
+            bin_num:int,预分箱(等频)箱数,越大的值会使卡方分箱计算量越大,同时会增加分箱精度
+            chi2_p:float,卡方分箱的p值,一般p值越小合并的箱越少,越大则合并的箱越多
+            special_values:list,特殊值,分箱中将被替换为np.nan
+            n_jobs,int,并行数量,默认-1(所有core),在数据量较大特征较多的前提下可极大提升效率
+            verbose,int,并行信息输出等级   
+            
+        Attributes:
+        -------
+        """    
+        self.bin_num=bin_num
+        self.chi2_p=chi2_p
+        self.special_values=special_values
+        self.n_jobs=n_jobs
+        self.verbose=verbose
+
+    
+    def fit(self, X, y):
+        
+        if X.size:
+            
+            X=X.select_dtypes(include='number')
+            #print(X.shape)
+            
+            if X.size:
+            
+                parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+                col_break=parallel(delayed(self.chi2_bin)(X[col],y,self.bin_num,self.chi2_p,self.special_values) 
+                                   for col in X.columns)
+                
+                self.col_break=col_break
+                self.breaks_list_chi2m = {col:breaks for col,breaks in col_break}
+                
+            else:
+                
+                raise IOError('no numeric columns find in X')                                 
+                                    
+        return self
+    
+    
+    def transform(self, X):       
+        
+        if X.size:
+            
+            return X
+        
+        else:
+            
+            warnings.warn('0 rows in input X,return None')
+            
+            return pd.DataFrame(None)
+        
+        
+    def chi2_bin(self,X,y,max_bin=10,chi2_p=0.5,special_values=[np.nan]): 
+    
+    
+        #global count
+        target = y.values
+        var_single = X.replace(special_values,np.nan)
+        threshold = chi2.isf(chi2_p, df=1)
+
+        if max_bin < 2 or var_single.dropna().unique().size<=1:
+
+            cuts = [0]
+
+            return X.name,cuts
+
+        else:
+
+            #1.eq-freq cut
+            cuts = sorted(list(
+                set(np.nanpercentile(var_single, np.linspace(0, 1, max_bin + 1) * 100, interpolation='lower')))
+                         )
+            cutoff = [-np.inf] + cuts + [np.inf]
+
+
+            #2.produce cutoff pair between each breaks
+            seg = [cutoff[i:i + 2] for i in range(len(cutoff) - 1)]
+
+
+            tb = []
+            cutoffs = []        
+
+            #calculate good and bad count
+            for index, (p1, p2) in enumerate(seg):
+
+                #fliter y in the X range of cutoffs
+                mask = (var_single > p1) & (var_single <= p2)
+                yy = target[mask]
+
+                #
+                cntr = len(yy) #freq
+                cntb = int(yy.sum()) #bad count
+                cntg = cntr - cntb #good count
+                if cntr > 0:
+                    tb.append([cntb, cntg])
+                    if p2 < np.inf:
+                        cutoffs.append(p2)
+
+            freq_tb = np.array(tb)#二维数组
+            cutoffs = sorted(cutoffs)
+            monot_ok = False
+
+            count=0
+            while (len(freq_tb) > 1):
+
+                count=count+1
+                minidx = 0
+                minvalue = np.inf
+                for i in range(len(freq_tb) - 1):
+
+                    a, b = freq_tb[i]
+                    c, d = freq_tb[i + 1]
+                    N = (a + b + c + d)
+
+                    #calculate chi2
+
+                    #ccsq,_,_,_,=chi2_contingency(freq_tb[i:i+2],correction=False) #calculate chi2 using scipy
+                    ccsq = N*(a*d-b*c)**2/((a+b)*(a+c)*(c+d)*(b+d))
+
+                    chiv = ccsq
+                    chiv = 0 if (a + c) == 0 or (b + d) == 0 else chiv
+
+                    #chiv should not be infinite
+                    if minvalue > chiv:
+                        minvalue = chiv
+                        minidx = i
+
+                #chi2<user defined threshold or not monot_ok then combine
+                if (minvalue < threshold) or (not monot_ok):
+                    #print(cutoffs,cutoffs[minidx])
+                    cutoffs = np.delete(cutoffs, minidx)
+
+                    tmp = freq_tb[minidx] + freq_tb[minidx + 1]
+
+                    freq_tb[minidx] = tmp
+                    freq_tb = np.delete(freq_tb, minidx + 1, 0)
+                    bad_rate = [i[0]/(i[1]+i[0]) for i in freq_tb]
+                    bad_rate_monotone = [(bad_rate[i-1]<bad_rate[i]<bad_rate[i+1])or
+                                     (bad_rate[i-1]>bad_rate[i]>bad_rate[i+1]) 
+                                     for i in range(1,len(bad_rate)-1)]
+
+                    monot_ok = np.array(bad_rate_monotone).all()
+
+                else:
+
+                    break
+
+            if cutoffs.tolist():
+                
+                if len(cutoffs)==1:
+                
+                    return X.name,[0]
+                
+                elif var_single.max()==max(cutoffs):
+                    
+                    return X.name,cutoffs[:-1].tolist()
+                
+                else:
+                    
+                    return X.name,[0]
+
+            else:
+
+                return X.name,[0]

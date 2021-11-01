@@ -5,13 +5,13 @@ import pandas as pd
 import scorecardpy as sc
 import toad
 from binarymodels.report_report import varReport
-from binarymodels.selector_bin_fun import binAdjusterKmeans
+from binarymodels.selector_bin_fun import binAdjusterKmeans,binAdjusterChi
 #from joblib import Parallel,delayed
 #from pandas.api.types import is_numeric_dtype
 
 class finbinSelector(TransformerMixin):
     
-    def __init__(self,ivlimit=0.02,bin_num=20,bin_num_limit=5,special_values=[np.nan],method='freq',apply_dt=None,out_path=None,psi_base_mon='latest'):
+    def __init__(self,ivlimit=0.02,bin_num=20,bin_num_limit=5,special_values=[np.nan],method='freq',apply_dt=None,out_path=None,psi_base_mon='latest',n_jobs=-1,verbose=0):
         """ 
         IV预筛选,适用于二分类模型
         Parameters:
@@ -37,7 +37,10 @@ class finbinSelector(TransformerMixin):
             psi_base_mon:str,当apply_dt非空时,psi计算的基准,可选earliest和latest，也可用户自定义
                 + earliest:选择apply_dt中最早的时期的分布作为psi基准
                 + latest:选择apply_dt中最晚的时期的分布作为psi基准
-                + str:在apply_dt中任选一个时期的分布作为psi基准  
+                + 选择总分布作为psi基准 
+            
+            n_jobs:int,输出特征分析报告和采用freq-kmeans分箱时并行计算job数,默认-1(使用全部的 CPU cores)
+            verbose:int,并行计算信息输出等级
                 
             
         Attribute:
@@ -58,6 +61,8 @@ class finbinSelector(TransformerMixin):
         self.out_path=out_path
         self.apply_dt=apply_dt
         self.psi_base_mon='latest'
+        self.n_jobs=n_jobs
+        self.verbose=verbose
     
     def fit(self,X,y):
         """ 
@@ -74,7 +79,12 @@ class finbinSelector(TransformerMixin):
         if self.method=='freq-kmeans':
             
             self.breaks_list=self.getBreakslistFinbin(X,y)
-            self.breaks_list=binAdjusterKmeans(self.breaks_list,bin_limit=self.bin_num_limit,special_values=self.special_values).fit(X,y).breaks_list_adj
+            self.breaks_list=binAdjusterKmeans(breaks_list=self.breaks_list,
+                                               bin_limit=self.bin_num_limit,
+                                               special_values=self.special_values,
+                                               n_jobs=self.n_jobs,
+                                               verbose=self.verbose,
+                                               ).fit(X,y).breaks_list_adj
             
         elif self.method=='freq':
             
@@ -91,16 +101,25 @@ class finbinSelector(TransformerMixin):
         #进行细分箱
         if self.out_path:
 
-            varReport(breaks_list_dict=self.breaks_list,out_path=self.out_path,special_values=self.special_values,
-                          sheet_name='_fin',apply_dt=None).fit(X,y)
+            varReport(breaks_list_dict=self.breaks_list,
+                      out_path=self.out_path,
+                      special_values=self.special_values,
+                      sheet_name='_fin',
+                      n_jobs=self.n_jobs,
+                      verbose=self.verbose,
+                      apply_dt=None).fit(X,y)
         
             if self.apply_dt is not None:
      
                 varReport(breaks_list_dict=self.breaks_list,
                           special_values=self.special_values,
-                          out_path=self.out_path,apply_dt=self.apply_dt,
+                          out_path=self.out_path,
+                          apply_dt=self.apply_dt,
                           psi_base_mon=self.psi_base_mon,
-                          sheet_name='_fin').fit(X,y)                        
+                          sheet_name='_fin',
+                          n_jobs=self.n_jobs,
+                          verbose=self.verbose
+                          ).fit(X,y)                        
 
 
         #筛选合适变量
@@ -188,16 +207,30 @@ class finbinSelector(TransformerMixin):
 
 class optbinSelector(TransformerMixin):
     
-    def __init__(self,method='dt',n_bins=10,min_samples=0.05,special_values=[np.nan],iv_limit=0.02,out_path=None,apply_dt=None,psi_base_mon='latest',break_list_adj=None):
+    def __init__(self,method='chi',n_bins=10,min_samples=0.05,special_values=[np.nan],iv_limit=0.02,
+                 out_path=None,apply_dt=None,psi_base_mon='latest',break_list_adj=None,n_jobs=-1,verbose=0):
         """ 
         最优分箱与交互分箱
         Parameters:
         ----------
-            method
-            n_bins
-            min_samples
-            iv_limit
-            
+            method:str,最优分箱方法
+                + 'dt':决策树,递归分裂gini增益最高的切分点形成新分箱直到达到终止条件
+                + 'chi':卡方,先等频预分箱,再递归合并低于卡方值(交叉表卡方检验的差异不显著)的分箱
+                + 'chi_m':卡方单调,先等频预分箱,再合并低于卡方值(交叉表卡方检验的差异不显著)的分箱或不单调(badrate)的分箱    
+                          注意chi_m只适用于数值列,字符列将在breaks_list中被剔除
+            n_bins:int,method为'dt'和'chi'时代表分箱数,method为'chi_m'时代表卡方单调分箱的预分箱数
+            min_samples,method为'dt'和'chi'时代表分箱最终箱样本占比限制
+            special_values,list,特殊值指代值
+            ivlimit=0.02:float,IV阈值,IV低于该阈值特征将被剔除
+            out_path:str,输出分箱结果报告至指定路径的模型文档中              
+            apply_dt:pd.Series,产生报告时使用,用于标示X的时期的字符型列且需要能转化为int
+                + eg:pd.Series(['202001','202002‘...],name='apply_mon',index=X.index)
+            psi_base_mon:str,当apply_dt非空时,psi计算的基准,可选earliest和latest，也可用户自定义
+                + earliest:选择apply_dt中最早的时期的分布作为psi基准
+                + latest:选择apply_dt中最晚的时期的分布作为psi基准
+                + all:选择总分布作为psi基准            
+            n_jobs:int,输出特征分析报告和采用chi2_m分箱时并行计算job数,默认-1(使用全部的 CPU cores)
+            verbose:int,并行计算信息输出等级
         Attribute:
         ----------
             features_info:dict,每一步筛选的特征进入记录
@@ -211,6 +244,8 @@ class optbinSelector(TransformerMixin):
         self.apply_dt=apply_dt
         self.psi_base_mon=psi_base_mon
         self.break_list_adj=break_list_adj
+        self.n_jobs=n_jobs
+        self.verbose=verbose
         
     def transform(self,X,y=None):
         
@@ -219,9 +254,7 @@ class optbinSelector(TransformerMixin):
     def fit(self,X,y):
         """ 
         最优分箱
-        """          
-        self.X=X.copy()
-        self.y=y.copy()      
+        """              
         self.target=y.name
         
         
@@ -232,57 +265,85 @@ class optbinSelector(TransformerMixin):
             #只选择需要调整分箱的特征进行分箱
             self.keep_col=list(self.break_list_adj.keys())
             
-            self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
-                                      y=self.target,
+            self.adjbin_woe=sc.woebin(X[self.keep_col].join(y).replace(self.special_values,np.nan),
+                                      y=y.name,
                                       breaks_list=self.break_list_adj,check_cate_num=False)
             
             #是否输出报告
             if self.out_path:
                 
-                varReport(breaks_list_dict=self.break_list_adj,special_values=self.special_values,
-                          out_path=self.out_path,
-                          sheet_name='_adj',apply_dt=None).fit(self.X[self.keep_col],self.y)
+                varReport(breaks_list_dict=self.break_list_adj,
+                          special_values=self.special_values,
+                          out_path=self.out_path,                          
+                          n_jobs=self.n_jobs,
+                          verbose=self.verbose,
+                          sheet_name='_adj',apply_dt=None).fit(X[self.keep_col],y)
         
                 if self.apply_dt is not None:
                     
                     varReport(breaks_list_dict=self.break_list_adj,
-                                      out_path=self.out_path,apply_dt=self.apply_dt,special_values=self.special_values,
+                                      out_path=self.out_path,
+                                      apply_dt=self.apply_dt,
+                                      special_values=self.special_values,
+                                      n_jobs=self.n_jobs,
+                                      verbose=self.verbose,
                                       psi_base_mon=self.psi_base_mon,
-                                      sheet_name='_adj').fit(self.X[self.keep_col],self.y)  
+                                      sheet_name='_adj').fit(X[self.keep_col],y)  
                     
         #若不给定breaklist，则进行最优分箱                                   
         else:
-        
-            #使用toad进行最优分箱
-            self.break_list_toad=toad.transform.Combiner().fit(self.X.join(self.y),y = self.target,\
-                                                  method = self.method, n_bins=self.n_bins,min_samples=self.min_samples)            
+            
+            #卡方单调分箱
+            if self.method == 'chi_m':
+            
+                #注意chi_m只适用于数值列,字符列将在breaks_list中被剔除
+                self.break_list_opt=binAdjusterChi(bin_num=20,
+                                                   chi2_p=0.1,
+                                                   special_values=self.special_values,
+                                                   n_jobs=self.n_jobs,
+                                                   verbose=self.verbose).fit(X, y).breaks_list_chi2m
+                                
                 
-            self.break_list_opt=self.get_Breaklist_sc(self.break_list_toad.export(),X,y)
-
+            else:    
+                #使用toad进行最优分箱
+                self.break_list_toad=toad.transform.Combiner().fit(X.join(y),y = y.name,\
+                                                      method = self.method, n_bins=self.n_bins,min_samples=self.min_samples)            
+                    
+                self.break_list_opt=self.get_Breaklist_sc(self.break_list_toad.export(),X,y)
+            
+            self.keep_col=list(self.break_list_opt.keys())
             #最优分箱的特征iv统计值
-            self.optimalbin=sc.woebin(self.X.join(self.y).replace(self.special_values,np.nan),
-                                      y=self.target,breaks_list=self.break_list_opt,
+            self.optimalbin=sc.woebin(X[self.keep_col].join(y).replace(self.special_values,np.nan),
+                                      y=y.name,breaks_list=self.break_list_opt,
                                       check_cate_num=False)
             
             self.iv_info=pd.concat(self.optimalbin.values()).groupby('variable')['bin_iv'].sum().rename('iv')
-    
+            
             #IV筛选特征
             self.keep_col=self.iv_info[self.iv_info>=self.iv_limit].index.tolist()  
-            
+            self.break_list_opt={column:self.break_list_opt.get(column) for column in self.keep_col}
+ 
             #是否输出报告
             if self.out_path:
                 
                 varReport(breaks_list_dict=self.break_list_opt,
                           special_values=self.special_values,
-                          out_path=self.out_path).fit(self.X[self.keep_col],self.y)
+                          n_jobs=self.n_jobs,
+                          verbose=self.verbose,
+                          out_path=self.out_path,
+                          apply_dt=None
+                          ).fit(X[self.keep_col],y)
 
                 if self.apply_dt is not None:
              
                     varReport(breaks_list_dict=self.break_list_opt,
                               special_values=self.special_values,
-                              out_path=self.out_path,apply_dt=self.apply_dt,
+                              out_path=self.out_path,
+                              apply_dt=self.apply_dt,
+                              n_jobs=self.n_jobs,
+                              verbose=self.verbose,
                               psi_base_mon=self.psi_base_mon,
-                              sheet_name='_opt').fit(self.X[self.keep_col],self.y)               
+                              sheet_name='_opt').fit(X[self.keep_col],y)               
        
         return self
 

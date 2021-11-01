@@ -641,7 +641,7 @@ class varReport(TransformerMixin):
         
         else:
             
-            pd.concat(self.var_report_dict).to_excel(writer,sheet_name='bin'+sheet_name)            
+            pd.concat(self.var_report_dict).reset_index().to_excel(writer,sheet_name='bin'+sheet_name)            
         
             
         writer.save()     
