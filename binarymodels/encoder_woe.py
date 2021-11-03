@@ -28,7 +28,7 @@ class woeTransformer(TransformerMixin):
         
         return X_woe
           
-    def fit(self):
+    def fit(self,X,y):
    
         return self       
         

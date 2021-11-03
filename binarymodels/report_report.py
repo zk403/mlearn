@@ -628,20 +628,28 @@ class varReport(TransformerMixin):
         
         if self.apply_dt is not None:
             
-            var_report_df=pd.concat(self.var_report_dict)            
-            var_report_psi_df=pd.concat(self.var_report_psi).reset_index().rename(columns={'level_0':'variable'})
+            #var_report_df.columns.levels[0]为时间,按照时间升序排序
+            var_report_df=pd.concat(self.var_report_dict)  
+            var_report_df=[product(sorted(var_report_df.columns.levels[0],reverse=False),var_report_df.columns.levels[1])]
+            
+            var_report_psi_df=pd.concat(self.var_report_psi).sort_index(axis=1,ascending=True).reset_index().rename(columns={'level_0':'variable'})
         
             var_report_df.to_excel(writer,sheet_name='bin_mon'+sheet_name)
             
+            #简化版报表
+            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['count','badprob','total_iv','ks','ks_max'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_s'+sheet_name)            
+            #频数报表
             var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['count'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_c'+sheet_name)
+            #badprob
             var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['badprob'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_b'+sheet_name)
+            #ks报表
             var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['ks_max'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_k'+sheet_name)
-
+            #psi报表
             var_report_psi_df.to_excel(writer,sheet_name='psi_mon'+sheet_name)
         
         else:
             
-            pd.concat(self.var_report_dict).reset_index().to_excel(writer,sheet_name='bin'+sheet_name)            
+            pd.concat(self.var_report_dict).to_excel(writer,sheet_name='bin'+sheet_name)            
         
             
         writer.save()     

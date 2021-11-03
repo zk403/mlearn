@@ -11,6 +11,8 @@ from binarymodels.selector_embeded import lassoSelector,sequentialSelector
 from binarymodels.encoder_woe import woeTransformer
 from binarymodels.tuner_girdcv import girdTuner
 from binarymodels.tuner_bayesian import BayesianXGBTuner,BayesianLgbmTuner
+from binarymodels.selector_bin_fun import binAdjusterKmeans,binAdjusterChi
+
 
 __version__ = '0.0.6'
 
@@ -21,6 +23,8 @@ __all__ = (
     businessReport,
     EDAReport,
     varReport,
+    binAdjusterKmeans,
+    binAdjusterChi,
     finbinSelector,
     optbinSelector,
     faSelector,

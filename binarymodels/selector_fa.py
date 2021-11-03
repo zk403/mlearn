@@ -18,7 +18,7 @@ import warnings
 
 class faSelector(BaseEstimator):
     
-    def __init__(self,n_clusters=5,distance_threshold=None,linkage='average',distance_metrics='pearson',scale=True,method='r2-ratio',varbin=None):
+    def __init__(self,n_clusters=5,distance_threshold=None,linkage='average',distance_metrics='pearson',scale=True,method='r2-ratio'):
         '''
         变量聚类
         Parameters:
@@ -32,8 +32,7 @@ class faSelector(BaseEstimator):
                 + 'r2-ratio':与SAS一致，将筛选每一类特征集中r2-ratio最小的特征
                 + 'iv':筛选每一类特征集中iv最高的特征
                 + 'ks':筛选每一类特征集中ks最高的特征
-            varbin:
-                
+               
         Attribute:    
         --
             components_infos
@@ -47,7 +46,6 @@ class faSelector(BaseEstimator):
         self.distance_threshold=distance_threshold
         self.scale=scale
         self.method=method
-        self.varbin=varbin
         
     def distance(self):
         custom_distance=self.distance_metrics
@@ -88,28 +86,27 @@ class faSelector(BaseEstimator):
             raise ValueError('distances support:r2,pearson,spearman ')
   
     def fit(self,X,y=None):  
-    
-        self.X=X.copy()            
-        self.model=self.featurecluster()
-        self.components_infos=self.getComponentsInfos()
-        self.rsquare_infos=self.getRsquareInfos()
+              
+        self.model=self.featurecluster(X,self.distance(),self.linkage,self.n_clusters,self.distance_threshold)
+        self.components_infos=self.getComponentsInfos(X,self.model.labels_)
+        self.rsquare_infos=self.getRsquareInfos(X,self.model.labels_)
         return self        
     
-    def transform(self,X):
+    def transform(self,X,var_bin_dict):
         
-        var_bin_dict=self.varbin.copy()    
+        if var_bin_dict:
         
-        var_bin_df=pd.concat(var_bin_dict.values())
+            var_bin_df=pd.concat(var_bin_dict.values())
         
         if self.method=='r2-ratio':
         
-            columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio']).groupby('Cluster').head(1).index 
+            columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio']).groupby('Cluster',ascending=[True,True]).head(1).index 
         
         elif self.method=='iv':
 
             iv=var_bin_df.groupby('variable')['bin_iv'].sum().rename('iv')
             
-            columns=self.rsquare_infos.join(iv).sort_values(['Cluster','iv']).groupby('Cluster').head(1).index             
+            columns=self.rsquare_infos.join(iv).sort_values(['Cluster','iv'],ascending=[True,False]).groupby('Cluster').head(1).index             
         
         elif self.method=='ks':
                         
@@ -140,22 +137,22 @@ class faSelector(BaseEstimator):
                 
                 ks=var_bin_df.groupby('variable')['ks'].max()
                 
-                columns=self.rsquare_infos.join(ks).sort_values(['Cluster','ks']).groupby('Cluster').head(1).index 
+                columns=self.rsquare_infos.join(ks).sort_values(['Cluster','ks'],ascending=[True,False]).groupby('Cluster').head(1).index 
  
         else:
             
             warnings.warn('method in (r2-ratio,iv,ks),use r2-ratio instead')  
             
-            columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio']).groupby('Cluster').head(1).index      
+            columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio'],ascending=[True,True]).groupby('Cluster').head(1).index      
       
         return X[columns]
     
-    def featurecluster(self):
+    def featurecluster(self,X,custom_distance,linkage,n_clusters,distance_threshold):
         #变量聚类
-        custom_distance=self.distance()
-        linkage=self.linkage
-        n_clusters=self.n_clusters
-        distance_threshold=self.distance_threshold
+        #custom_distance=self.distance()
+        #linkage=self.linkage
+        #n_clusters=self.n_clusters
+        #distance_threshold=self.distance_threshold
         
         # 生成距离矩阵
         m = pd.DataFrame(pairwise_distances(self.X.T, self.X.T, metric=custom_distance)) #距离衡量
@@ -172,9 +169,8 @@ class faSelector(BaseEstimator):
         
         return model
     
-    def plot_dendrogram(self):
+    def plot_dendrogram(self,X):
         
-        X=self.X
         custom_distance=self.distance()
         linkage=self.linkage
 
@@ -208,11 +204,9 @@ class faSelector(BaseEstimator):
         plt.xlabel("Variable index")
         plt.ylabel("distance")
         
-    def getComponentsInfos(self):
+    def getComponentsInfos(self,X,fclusters):
         
-        X=self.X
-        
-        fclusters=self.model.labels_
+        #fclusters=self.model.labels_
         
         #提取各个类的主成分
         label_components={}
@@ -250,11 +244,9 @@ class faSelector(BaseEstimator):
         self.label_components=label_components #所有类变量集合的第一主成分
         return components_infos
        
-    def getRsquareInfos(self):
+    def getRsquareInfos(self,X,fclusters):
         
-        X=self.X
-        
-        fclusters=self.model.labels_
+        #fclusters=self.model.labels_
         
         #提取各个类的主成分
         label_components={}

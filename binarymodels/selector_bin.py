@@ -37,7 +37,7 @@ class finbinSelector(TransformerMixin):
             psi_base_mon:str,当apply_dt非空时,psi计算的基准,可选earliest和latest，也可用户自定义
                 + earliest:选择apply_dt中最早的时期的分布作为psi基准
                 + latest:选择apply_dt中最晚的时期的分布作为psi基准
-                + 选择总分布作为psi基准 
+                + all:选择总分布作为psi基准 
             
             n_jobs:int,输出特征分析报告和采用freq-kmeans分箱时并行计算job数,默认-1(使用全部的 CPU cores)
             verbose:int,并行计算信息输出等级
@@ -78,7 +78,7 @@ class finbinSelector(TransformerMixin):
    
         if self.method=='freq-kmeans':
             
-            self.breaks_list=self.getBreakslistFinbin(X,y)
+            self.breaks_list=self.getBreakslistFinbin(X,y,self.special_values)
             self.breaks_list=binAdjusterKmeans(breaks_list=self.breaks_list,
                                                bin_limit=self.bin_num_limit,
                                                special_values=self.special_values,
@@ -88,7 +88,7 @@ class finbinSelector(TransformerMixin):
             
         elif self.method=='freq':
             
-            self.breaks_list=self.getBreakslistFinbin(X,y)
+            self.breaks_list=self.getBreakslistFinbin(X,y,self.special_values)
             
         else:
             raise IOError("method in ('freq','freq-kmeans')")
@@ -140,7 +140,7 @@ class finbinSelector(TransformerMixin):
     def transform(self,X):
         return X[self.keep_col]
     
-    def getBreakslistFinbin(self,X,y):
+    def getBreakslistFinbin(self,X,y,special_values):
 
         """
         等频分箱产生sc.woebin可用的breaklist,用于细分箱
@@ -149,29 +149,49 @@ class finbinSelector(TransformerMixin):
             X:特征数据,pd.DataFrame
             y:目标变量列,pd.Series,必须与X索引一致
         """
-        df=X.join(y)
         
         CatCol=X.select_dtypes(include='object').columns.tolist() #分类列
         NumCol=X.select_dtypes(include='number').columns.tolist() #数值列
 
         breaklist={}
+        
+        X=X
 
         #bin_num下若特征分布过于集中,等频分箱将合并集中的分箱区间为最终分箱区间
         for numcol in NumCol:
-            _,breaks=pd.qcut(X[numcol],self.bin_num,duplicates='drop',retbins=True,precision=3)
+            
+            numcol_s=X[numcol].replace(special_values,np.nan)
+            
+            if numcol_s.dropna().size:
+            
+                _,breaks=pd.qcut(numcol_s.dropna(),self.bin_num,duplicates='drop',retbins=True,precision=3)
+                
+            else:
+                
+                breaks=[0]
             
             if len(breaks)==2:
+                
                 breaklist[numcol]=breaks.tolist()[:-1]
+                
             elif len(breaks)==1:
+                
                 breaklist[numcol]=breaks.tolist()
+                
             elif len(breaks)==0:
-                breaklist[numcol]=X[numcol].dropna().unique().tolist()
+                
+                breaklist[numcol]=numcol_s.dropna().unique().tolist()
+                
             else:
+                
                 breaklist[numcol]=breaks.tolist()[1:-1]
             
         #分类变量则根据类别数直接分箱    
         for catcol in CatCol:
-            breaklist[catcol]=df[catcol].unique().tolist()
+            
+            catcol_s=X[catcol].replace(special_values,'missing')
+            
+            breaklist[catcol]=catcol_s.unique().tolist()
                 
         return breaklist
         
