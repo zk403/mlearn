@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*- 
 
 from binarymodels.cleaner_cleaner import outliersTransformer,dtpypeAllocator,nanTransformer
-from binarymodels.report_report import businessReport,EDAReport,varReport
+from binarymodels.report_report import businessReport,EDAReport,varReport,varGroupsReport
 from binarymodels.selector_bin import finbinSelector,optbinSelector
 from binarymodels.selector_fa import faSelector
 from binarymodels.selector_logtit import stepLogit,cardScorer
@@ -14,7 +14,7 @@ from binarymodels.tuner_bayesian import BayesianXGBTuner,BayesianLgbmTuner
 from binarymodels.selector_bin_fun import binAdjusterKmeans,binAdjusterChi
 
 
-__version__ = '0.0.6'
+__version__ = '0.0.7'
 
 __all__ = (    
     outliersTransformer,
@@ -23,6 +23,7 @@ __all__ = (
     businessReport,
     EDAReport,
     varReport,
+    varGroupsReport,
     binAdjusterKmeans,
     binAdjusterChi,
     finbinSelector,

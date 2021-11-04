@@ -104,7 +104,7 @@ class finbinSelector(TransformerMixin):
             varReport(breaks_list_dict=self.breaks_list,
                       out_path=self.out_path,
                       special_values=self.special_values,
-                      sheet_name='_fin',
+                      tab_suffix='_fin',
                       n_jobs=self.n_jobs,
                       verbose=self.verbose,
                       apply_dt=None).fit(X,y)
@@ -116,7 +116,7 @@ class finbinSelector(TransformerMixin):
                           out_path=self.out_path,
                           apply_dt=self.apply_dt,
                           psi_base_mon=self.psi_base_mon,
-                          sheet_name='_fin',
+                          tab_suffix='_fin_mon',
                           n_jobs=self.n_jobs,
                           verbose=self.verbose
                           ).fit(X,y)                        
@@ -297,7 +297,7 @@ class optbinSelector(TransformerMixin):
                           out_path=self.out_path,                          
                           n_jobs=self.n_jobs,
                           verbose=self.verbose,
-                          sheet_name='_adj',apply_dt=None).fit(X[self.keep_col],y)
+                          tab_suffix='_adj',apply_dt=None).fit(X[self.keep_col],y)
         
                 if self.apply_dt is not None:
                     
@@ -308,7 +308,7 @@ class optbinSelector(TransformerMixin):
                                       n_jobs=self.n_jobs,
                                       verbose=self.verbose,
                                       psi_base_mon=self.psi_base_mon,
-                                      sheet_name='_adj').fit(X[self.keep_col],y)  
+                                      tab_suffix='_adj_mon').fit(X[self.keep_col],y)  
                     
         #若不给定breaklist，则进行最优分箱                                   
         else:
@@ -351,7 +351,8 @@ class optbinSelector(TransformerMixin):
                           n_jobs=self.n_jobs,
                           verbose=self.verbose,
                           out_path=self.out_path,
-                          apply_dt=None
+                          apply_dt=None,
+                          tab_suffix='_opt'
                           ).fit(X[self.keep_col],y)
 
                 if self.apply_dt is not None:
@@ -363,7 +364,7 @@ class optbinSelector(TransformerMixin):
                               n_jobs=self.n_jobs,
                               verbose=self.verbose,
                               psi_base_mon=self.psi_base_mon,
-                              sheet_name='_opt').fit(X[self.keep_col],y)               
+                              tab_suffix='_opt_mon').fit(X[self.keep_col],y)               
        
         return self
 
@@ -454,7 +455,7 @@ class optbinSelector(TransformerMixin):
         return(varbin_monotonic,varbin_nonmonotonic)
     
     
-    def fit_adjustBin(self,br_to_adjusted=None,only_nonmonotonic_var=True,out_path=None,apply_dt=None,psi_base_mon='latest',break_list_adj=None):
+    def fit_adjustBin(self,X,y,br_to_adjusted=None,out_path=None,apply_dt=None,psi_base_mon='latest'):
         """
         根据最优分箱结果调整分箱，需先运行fit
         plt.rcParams["figure.figsize"] = [10, 5]
@@ -468,6 +469,9 @@ class optbinSelector(TransformerMixin):
         adjbin_woe:
         
         """          
+        
+        self.X=X
+        self.y=y
         
         #若自定义break_list存在则使用自定义分箱
         if br_to_adjusted:
@@ -488,10 +492,11 @@ class optbinSelector(TransformerMixin):
                 method='chimerge'
             ) 
             
-            exec('breaks_dict_raw'+breaks_str)
+            exec('self.breaks_dict_raw='+breaks_str)
+
+            self.break_list_adj={key:np.sort(self.breaks_dict_raw[key]).tolist() for key in list(self.breaks_dict_raw.keys())}
             
-            #此处语法检查有误正常
-            self.break_list_adj={key:np.sort(breaks_dict_raw[key]).tolist() for key in list(breaks_dict_raw.keys())}
+            del self.breaks_dict_raw
             
             self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
                                       y=self.target,breaks_list=self.break_list_adj)
@@ -503,31 +508,9 @@ class optbinSelector(TransformerMixin):
             bin_sc=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
                              y=self.target,breaks_list=self.optimalbin.breaks_list_dict)
             
-            #将单调与不单调特征进行分开
-            self.optimalbin_monotonic,self.optimalbin_nonmonotonic=self.checkMonotonicFeature(bin_sc)              
-            
-            #只调整最优分箱中的非单调分箱
-            if only_nonmonotonic_var is True:
+
                 
-                
-                self.break_list_adj=sc.woebin_adj(
-                    dt=self.X[self.keep_col].join(self.y),
-                    y=self.target,
-                    adj_all_var=True,
-                    count_distr_limit=0.05,
-                    bins=self.optimalbin_nonmonotonic,
-                    method='chimerge'
-                )
-                
-                adjustedbin_nonmonotonic=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
-                                           y=self.target,breaks_list=self.break_list_adj)
-                
-                self.adjbin_woe=self.optimalbin_monotonic.update(adjustedbin_nonmonotonic)
-    
-            #调整全量分箱
-            else:
-                
-                self.break_list_adj=sc.woebin_adj(
+            self.break_list_adj=sc.woebin_adj(
                     dt=self.X[self.keep_col].join(self.y),
                     y=self.target,
                     adj_all_var=True,
@@ -536,7 +519,8 @@ class optbinSelector(TransformerMixin):
                     method='chimerge'
                 )
                 
-                self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
+            
+            self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
                                           y=self.target,breaks_list=self.break_list_adj)
                  
         
@@ -544,7 +528,7 @@ class optbinSelector(TransformerMixin):
                 
             varReport(breaks_list_dict=self.break_list_adj,out_path=out_path,
                       special_values=self.special_values,
-                      sheet_name='_adj',apply_dt=None).fit(self.X[self.keep_col],self.y)
+                      tab_suffix='_adj',apply_dt=None).fit(X[self.keep_col],y)
         
             if apply_dt is not None:
                     
@@ -552,7 +536,6 @@ class optbinSelector(TransformerMixin):
                            special_values=self.special_values,
                            out_path=out_path,apply_dt=apply_dt,
                            psi_base_mon=psi_base_mon,
-                           sheet_name='_adj').fit(self.X[self.keep_col],self.y)  
-        
+                           tab_suffix='_adj').fit(X[self.keep_col],y)          
                       
         return self   

@@ -7,6 +7,7 @@ Created on Wed Sep  2 16:46:29 2020
 """
 import numpy as np
 import pandas as pd
+from pandas.api.types import is_array_like
 from matplotlib import pyplot as plt
 from scipy.cluster.hierarchy import dendrogram
 from sklearn.cluster import FeatureAgglomeration
@@ -14,11 +15,13 @@ from sklearn.metrics.pairwise import pairwise_distances
 from scipy.stats import pearsonr,spearmanr
 from sklearn.base import BaseEstimator
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 import warnings
 
 class faSelector(BaseEstimator):
     
-    def __init__(self,n_clusters=5,distance_threshold=None,linkage='average',distance_metrics='pearson',scale=True,method='r2-ratio'):
+    def __init__(self,n_clusters=5,distance_threshold=None,linkage='average',
+                 scale=True,distance_metrics='pearson',by='r2-ratio',is_greater_better=True):
         '''
         变量聚类
         Parameters:
@@ -28,10 +31,11 @@ class faSelector(BaseEstimator):
             linkage='average':层次聚类连接方式     
             distance_metrics='pearson':距离衡量方式,可选pearson，spearman，r2
             scale=True:聚类前是否进行数据标准化,
-            method='r2-ratio',聚类后的特征筛选方式
+            by='r2-ratio',聚类后的特征筛选方式
                 + 'r2-ratio':与SAS一致，将筛选每一类特征集中r2-ratio最小的特征
-                + 'iv':筛选每一类特征集中iv最高的特征
-                + 'ks':筛选每一类特征集中ks最高的特征
+                + pd.Series:用户自定义权重,要求index为列名，value为权重值，可以是iv,ks等  
+                
+            is_greater_better=True,若by参数内容为用户自定义权重,is_greater_better=True表示权重越高特征越重要,反之则越不重要
                
         Attribute:    
         --
@@ -45,9 +49,11 @@ class faSelector(BaseEstimator):
         self.n_clusters=n_clusters
         self.distance_threshold=distance_threshold
         self.scale=scale
-        self.method=method
+        self.by=by
+        self.is_greater_better=is_greater_better
         
     def distance(self):
+        
         custom_distance=self.distance_metrics
         
         if custom_distance=='pearson':
@@ -85,67 +91,43 @@ class faSelector(BaseEstimator):
         else: 
             raise ValueError('distances support:r2,pearson,spearman ')
   
-    def fit(self,X,y=None):  
-              
+    def fit(self,X,y=None):          
+
         self.model=self.featurecluster(X,self.distance(),self.linkage,self.n_clusters,self.distance_threshold)
+
         self.components_infos=self.getComponentsInfos(X,self.model.labels_)
+
         self.rsquare_infos=self.getRsquareInfos(X,self.model.labels_)
+        
         return self        
     
-    def transform(self,X,var_bin_dict):
+    def transform(self,X):
         
-        if var_bin_dict:
+        if isinstance(self.by,str):
         
-            var_bin_df=pd.concat(var_bin_dict.values())
+            columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio'],ascending=[True,True]).groupby('Cluster').head(1).index 
         
-        if self.method=='r2-ratio':
-        
-            columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio']).groupby('Cluster',ascending=[True,True]).head(1).index 
-        
-        elif self.method=='iv':
+        elif is_array_like(self.by):
 
-            iv=var_bin_df.groupby('variable')['bin_iv'].sum().rename('iv')
+            name=self.by.name
+            self.rsquare_infos_weight=self.rsquare_infos.join(self.by)
             
-            columns=self.rsquare_infos.join(iv).sort_values(['Cluster','iv'],ascending=[True,False]).groupby('Cluster').head(1).index             
-        
-        elif self.method=='ks':
-                        
-            #varReport格式的var_bin_dict
-            if 'ks' in var_bin_df.columns.tolist():                
-            
-                ks=var_bin_df.groupby('variable')['ks'].max().rename('ks')
+            if self.is_greater_better:
                 
-                columns=self.rsquare_infos.join(ks).sort_values(['Cluster','ks']).groupby('Cluster').head(1).index 
+                columns=self.rsquare_infos_weight.sort_values(['Cluster',name],ascending=[True,False]).groupby('Cluster').head(1).index 
                 
-            #scorecardpy格式的var_bin_dict    
             else:
-              
-                var_bin_dict_ks={}
-            
-                for colname in list(var_bin_dict.keys()):
-                    
-                    df_var=var_bin_dict[colname]
-            
-                    good_distr=df_var['good'].div(df_var['good'].sum())
-                    bad_distr=df_var['bad'].div(df_var['bad'].sum())    
-                    df_var['ks']=good_distr.sub(bad_distr).abs()
-                    df_var['ks_max']=df_var['ks'].max()
-            
-                    var_bin_dict_ks[colname]=df_var
-                
-                var_bin_df=pd.concat(var_bin_dict_ks.values())
-                
-                ks=var_bin_df.groupby('variable')['ks'].max()
-                
-                columns=self.rsquare_infos.join(ks).sort_values(['Cluster','ks'],ascending=[True,False]).groupby('Cluster').head(1).index 
- 
+                 
+                columns=self.rsquare_infos_weight.sort_values(['Cluster',name],ascending=[True,True]).groupby('Cluster').head(1).index        
+
         else:
             
-            warnings.warn('method in (r2-ratio,iv,ks),use r2-ratio instead')  
+            warnings.warn('by in (r2-ratio,pd.Series),use r2-ratio instead')  
             
             columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio'],ascending=[True,True]).groupby('Cluster').head(1).index      
       
         return X[columns]
+    
     
     def featurecluster(self,X,custom_distance,linkage,n_clusters,distance_threshold):
         #变量聚类
@@ -155,7 +137,16 @@ class faSelector(BaseEstimator):
         #distance_threshold=self.distance_threshold
         
         # 生成距离矩阵
-        m = pd.DataFrame(pairwise_distances(self.X.T, self.X.T, metric=custom_distance)) #距离衡量
+                
+        if self.scale:
+            
+            X_t=StandardScaler().fit_transform(X.T)
+            
+        else:
+            
+            X_t=X.T
+        
+        m = pd.DataFrame(pairwise_distances(X_t,X_t,metric=custom_distance)) #距离衡量
         if distance_threshold:
             model = FeatureAgglomeration(distance_threshold=distance_threshold,n_clusters=None,affinity='precomputed',linkage=linkage).fit(m)
         elif n_clusters:
@@ -195,7 +186,12 @@ class faSelector(BaseEstimator):
             dendrogram(linkage_matrix, **kwargs)
 
         #m为预计算的距离矩阵
-        m = pd.DataFrame(pairwise_distances(X.T, X.T, metric=custom_distance)) #使用相关系数距离衡量
+        if self.scale:
+            X_t=StandardScaler().fit_transform(X.T)
+        else:
+            X_t=X.T
+        
+        m = pd.DataFrame(pairwise_distances(X_t, X_t, metric=custom_distance)) #使用相关系数距离衡量
 
         #affinity设定为'precomputed',linkage设定为非ward
         model = FeatureAgglomeration(distance_threshold=0,n_clusters=None,affinity='precomputed',linkage=linkage).fit(m)

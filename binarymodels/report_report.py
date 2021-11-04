@@ -75,8 +75,7 @@ class EDAReport(TransformerMixin):
             
             warnings.warn('0 rows in input X,return None')
             
-            return pd.DataFrame(None)
-        
+            return pd.DataFrame(None)        
     
 
     def num_info(self):
@@ -282,7 +281,7 @@ class businessReport(TransformerMixin):
 
 class varReport(TransformerMixin):
     
-    def __init__(self,breaks_list_dict,special_values=[np.nan],apply_dt=None,psi_base_mon='latest',out_path=None,sheet_name='',n_jobs=-1,verbose=0):
+    def __init__(self,breaks_list_dict,special_values=[np.nan],apply_dt=None,psi_base_mon='latest',out_path=None,tab_suffix='',n_jobs=-1,verbose=0):
         """ 
         产生业务报告
         Params:
@@ -296,7 +295,7 @@ class varReport(TransformerMixin):
                 + latest:选择数据中apply_dt中最晚的时期的分布作为psi基准
                 + all: 选择总分布作为psi基准
             out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
-            sheet_name:str,out_path非None时，输出到模型Excel报告的sheet_name后缀,例如"_in_sample"
+            tab_suffix:本地excel报告名后缀
             n_jobs:int,并行计算job数
             verbose:int,并行计算信息输出等级
         
@@ -310,10 +309,10 @@ class varReport(TransformerMixin):
         self.special_values=special_values
         self.apply_dt = apply_dt
         self.psi_base_mon=psi_base_mon
-        self.out_path = out_path
-        self.sheet_name=sheet_name
         self.n_jobs=n_jobs
         self.verbose=verbose
+        self.out_path = out_path
+        self.tab_suffix=tab_suffix
         
     def fit(self, X, y=None):
         
@@ -612,15 +611,13 @@ class varReport(TransformerMixin):
             
             os.mkdir(self.out_path)
                 
-        if not glob(self.out_path+"/var_report.xlsx"):
+        if not glob(self.out_path+"/var_report"+self.tab_suffix+".xlsx"):
             
-            writer = pd.ExcelWriter(self.out_path+'/var_report.xlsx')            
+            writer = pd.ExcelWriter(self.out_path+'/var_report'+self.tab_suffix+'.xlsx')            
             pd.DataFrame(None).to_excel(writer,sheet_name='summary')
             writer.save()    
-        
-        sheet_name=self.sheet_name
             
-        writer=pd.ExcelWriter(self.out_path+'/var_report.xlsx',
+        writer=pd.ExcelWriter(self.out_path+'/var_report'+self.tab_suffix+'.xlsx',
                               mode='a',
                               if_sheet_exists='replace',
                               #engine_kwargs={'mode':'a','if_sheet_exists':'replace'},
@@ -629,28 +626,225 @@ class varReport(TransformerMixin):
         if self.apply_dt is not None:
             
             #var_report_df.columns.levels[0]为时间,按照时间升序排序
-            var_report_df=pd.concat(self.var_report_dict)  
-            var_report_df=[product(sorted(var_report_df.columns.levels[0],reverse=False),var_report_df.columns.levels[1])]
+            var_report_df=pd.concat(self.var_report_dict)
+            var_report_df=var_report_df[product(sorted(var_report_df.columns.levels[0],reverse=False),var_report_df.columns.levels[1])]
             
-            var_report_psi_df=pd.concat(self.var_report_psi).sort_index(axis=1,ascending=True).reset_index().rename(columns={'level_0':'variable'})
+            var_report_psi_df=pd.concat(self.var_report_psi).sort_index(axis=1,ascending=True).reset_index().rename(columns={'level_0':'variable'})            
         
-            var_report_df.to_excel(writer,sheet_name='bin_mon'+sheet_name)
+            var_report_df.to_excel(writer,sheet_name='bin_mon')
             
             #简化版报表
-            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['count','badprob','total_iv','ks','ks_max'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_s'+sheet_name)            
+            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['count','badprob','total_iv','ks','ks_max'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_brief')            
             #频数报表
-            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['count'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_c'+sheet_name)
+            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['count'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_count')
             #badprob
-            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['badprob'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_b'+sheet_name)
+            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['badprob'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_badp')
             #ks报表
-            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['ks_max'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_k'+sheet_name)
+            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['ks_max'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_ks')
             #psi报表
-            var_report_psi_df.to_excel(writer,sheet_name='psi_mon'+sheet_name)
+            var_report_psi_df.to_excel(writer,sheet_name='psi_mon')
         
         else:
             
-            pd.concat(self.var_report_dict).to_excel(writer,sheet_name='bin'+sheet_name)            
+            pd.concat(self.var_report_dict).to_excel(writer,sheet_name='bin')            
         
             
         writer.save()     
         print('to_excel done') 
+        
+        
+        
+
+class varGroupsReport(TransformerMixin):
+    
+    def __init__(self,breaks_list_dict,columns,sort_columns=None,target='target',output_psi=False,psi_base='all',
+                 special_values=[np.nan],n_jobs=-1,verbose=0,out_path=None,tab_suffix='_group'):
+        """ 
+        产生组业务报告
+        Params:
+        ------
+        
+        breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
+        columns:list,组变量名,最终报告将组变量置于报告列上
+        target:目标变量名
+        output_psi:bool,是否输出群组psi报告
+        psi_base:str,psi计算的基准,可选all，也可用户自定义
+            + 'all':以特征在全量数据的分布为基准
+            + user-define:用户输入支持X.query的表达式以确定base
+        special_values:list,缺失值指代值
+        n_jobs:int,并行计算job数
+        verbose:int,并行计算信息输出等级
+        out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
+        tab_suffix:本地excel报告名后缀
+        
+        Attributes:
+        -------
+            report_dict:dict,所有产生的报告
+        """
+        
+        self.breaks_list_dict=breaks_list_dict
+        self.target=target
+        self.columns=columns
+        self.sort_columns=sort_columns      
+        self.output_psi=output_psi
+        self.psi_base=psi_base
+        self.special_values=special_values
+        self.n_jobs=n_jobs
+        self.verbose=verbose
+        self.out_path=out_path
+        self.tab_suffix=tab_suffix
+       
+    def fit(self, X, y=None):               
+        
+
+        if X.size:
+            
+            if self.sort_columns:
+                
+                X=X.drop(list(self.sort_columns.keys()),1).join(
+                    pd.DataFrame(
+                    {key:pd.Categorical(X.split,categories=self.sort_columns[key],ordered=True) for key in self.sort_columns},
+                    index=X.index)
+                )
+                       
+            result={}
+            
+            X_g_gen=X.groupby(self.columns)
+            
+            for i in X_g_gen.groups:
+            
+                group_dt=X_g_gen.get_group(i)
+                X_g=group_dt.drop([self.target]+self.columns,1)
+                y_g=group_dt[self.target]    
+            
+                if X.size>1000:
+                    res=varReport(breaks_list_dict=self.breaks_list_dict,
+                                  special_values=self.special_values,
+                                  n_jobs=self.n_jobs,                                  
+                                  verbose=self.verbose).fit(X_g,y_g)
+                    result[i]=pd.concat(res.var_report_dict)
+                    
+                else:
+                    result[i]=pd.DataFrame(None)       
+                    
+            report=pd.concat(result,axis=1)
+            
+            self.report_dict=self.getReport(X,report,output_psi=self.output_psi,psi_base=self.psi_base)                    
+            
+            if self.out_path:
+                
+                self.writeExcel()   
+                
+                                         
+        return self
+    
+    def transform(self, X):     
+        
+        if X.size:
+            
+            return X
+        
+        else:
+            
+            warnings.warn('0 rows in input X,return None')
+
+            return pd.DataFrame(None)
+   
+    def getReport(self,X,report,output_psi=True,psi_base='all'):
+        
+        report_out={}
+            
+        report_out['report_all']=report[[i for i in report.columns.tolist() if i[-1] not in \
+                                      ['variable']]].reset_index().rename(columns={'level_0':'variable'})
+                
+        report_out['report_brief']=report[[i for i in report.columns.tolist() if i[-1] in \
+                                      ['count','badprob','woe','total_iv','ks_max']]].reset_index().rename(columns={'level_0':'variable'})   
+                            
+        report_out['report_count']=report[[i for i in report.columns.tolist() if i[-1] in \
+                                      ['count']]].reset_index().rename(columns={'level_0':'variable'})  
+                
+        report_out['report_badprob']=report[[i for i in report.columns.tolist() if i[-1] in \
+                                        ['badprob']]].reset_index().rename(columns={'level_0':'variable'})     
+                
+        report_out['report_iv']=report[[i for i in report.columns.tolist() if i[-1] in \
+                                   ['total_iv']]].droplevel(1).drop_duplicates().reset_index().rename(columns={'index':'variable'})  
+                
+        report_out['report_ks']=report[[i for i in report.columns.tolist() if i[-1] in \
+                                   ['ks_max']]].droplevel(1).drop_duplicates().reset_index().rename(columns={'index':'variable'}) 
+        
+        if self.output_psi:
+            
+            if psi_base=='all':
+                
+                all_var=varReport(breaks_list_dict=self.breaks_list_dict,
+                                  special_values=self.special_values,
+                                  n_jobs=self.n_jobs,                                  
+                                  verbose=self.verbose).fit(X.drop(self.target,1),X[self.target])
+                base=pd.concat(all_var.var_report_dict)['count_distr']
+            
+                report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
+                psi_sum=report_distr.fillna(0).apply(lambda x:self.psi(x,base),axis=0).droplevel(1)\
+                                      .reset_index().assign(bin='psi').groupby(['index','bin']).sum()
+                                      
+                report_out['report_psi']=pd.concat([report_distr,psi_sum]).sort_index().reset_index().rename(columns={'level_0':'variable'})
+            
+            else: 
+                
+                all_var=varReport(breaks_list_dict=self.breaks_list_dict,
+                                  special_values=self.special_values,
+                                  n_jobs=self.n_jobs,                                  
+                                  verbose=self.verbose).fit(X.query(psi_base).drop(self.target,1),X[self.target])
+                base=pd.concat(all_var.var_report_dict)['count_distr']
+            
+                report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
+                psi_sum=report_distr.fillna(0).apply(lambda x:self.psi(x,base),axis=0).droplevel(1)\
+                                      .reset_index().assign(bin='psi').groupby(['index','bin']).sum()
+                                      
+                report_out['report_psi']=pd.concat([report_distr,psi_sum]).sort_index().reset_index().rename(columns={'level_0':'variable'})                
+                        
+                
+        return report_out        
+            
+    
+    def psi(self,base,col):
+    
+        base=base.replace(0,1e-10)
+        col=col.replace(0,1e-10)   
+        psi_out=base.sub(col).mul(base.div(col).map(np.log))
+
+        return psi_out            
+    
+    
+    def writeExcel(self):
+        
+        if not glob(self.out_path):
+            
+            os.mkdir(self.out_path)
+                
+        if not glob(self.out_path+"/var_report"+str(self.tab_suffix)+".xlsx"):
+            
+            writer = pd.ExcelWriter(self.out_path+'/var_report'+str(self.tab_suffix)+'.xlsx')            
+            pd.DataFrame(None).to_excel(writer,sheet_name='summary')
+            writer.save()                    
+            
+        writer=pd.ExcelWriter(self.out_path+'/var_report'+str(self.tab_suffix)+'.xlsx',
+                              mode='a',
+                              if_sheet_exists='replace',
+                              #engine_kwargs={'mode':'a','if_sheet_exists':'replace'},
+                              engine='openpyxl')
+
+        self.report_dict['report_all'].to_excel(writer,sheet_name='bin_all')
+        self.report_dict['report_brief'].to_excel(writer,sheet_name='bin_brief')
+        self.report_dict['report_count'].to_excel(writer,sheet_name='bin_count')     
+        self.report_dict['report_badprob'].to_excel(writer,sheet_name='bin_badprob')     
+        self.report_dict['report_iv'].to_excel(writer,sheet_name='bin_iv') 
+        self.report_dict['report_ks'].to_excel(writer,sheet_name='bin_ks') 
+        
+        if self.output_psi:
+            
+            self.report_dict['report_psi'].to_excel(writer,sheet_name='bin_psi')  
+        
+            
+        writer.save()     
+        print('to_excel done') 
+        
