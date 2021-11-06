@@ -56,7 +56,7 @@ setup(
     ],
     #keywords='credit scorecard',  # Optional
     packages=['BDMtools'],  # Required
-    install_requires=['numpy>=1.18.5',
+    install_requires=['numpy>=1.20',
                       'fastparquet>=0.7.1',
                       'pandas>=1.3.3',
                       'statsmodels>=0.13.0',
