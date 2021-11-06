@@ -120,7 +120,7 @@ class stepLogit(BaseEstimator):
 
             direction_list = ['both']
             if direction not in direction_list:
-                raise IOError('请direction must in：', '\n', direction_list)
+                raise IOError('direction must in：', '\n', direction_list)
 
             # 默认p_enter参数    
             p_enter = {'bic':0.0, 'aic':0.0}

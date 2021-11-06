@@ -26,7 +26,7 @@ with open(path.join(here, 'binarymodels/__init__.py'), encoding='utf-8') as f:
     __version__ = re.search(r'__version__\s*=\s*[\'"]([^\'"]*)[\'"]', f.read()).group(1)
 
 setup(
-    name='binarymodels',  # Required
+    name='BDMtools',  # Required
     version=__version__,  # Required
     description='binarymodels for busniess usage',  # Required
     long_description=long_description,  # Optional

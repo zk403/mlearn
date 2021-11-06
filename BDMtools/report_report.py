@@ -701,7 +701,7 @@ class varGroupsReport(TransformerMixin):
             
             if self.sort_columns:
                 
-                X=X.drop(list(self.sort_columns.keys()),1).join(
+                X=X.drop(list(self.sort_columns.keys()),axis=1).join(
                     pd.DataFrame(
                     {key:pd.Categorical(X.split,categories=self.sort_columns[key],ordered=True) for key in self.sort_columns},
                     index=X.index)
@@ -714,7 +714,7 @@ class varGroupsReport(TransformerMixin):
             for i in X_g_gen.groups:
             
                 group_dt=X_g_gen.get_group(i)
-                X_g=group_dt.drop([self.target]+self.columns,1)
+                X_g=group_dt.drop([self.target]+self.columns,axis=1)
                 y_g=group_dt[self.target]    
             
                 if X.size>1000:
@@ -779,7 +779,7 @@ class varGroupsReport(TransformerMixin):
                 all_var=varReport(breaks_list_dict=self.breaks_list_dict,
                                   special_values=self.special_values,
                                   n_jobs=self.n_jobs,                                  
-                                  verbose=self.verbose).fit(X.drop(self.target,1),X[self.target])
+                                  verbose=self.verbose).fit(X.drop(self.target,axis=1),X[self.target])
                 base=pd.concat(all_var.var_report_dict)['count_distr']
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
@@ -793,7 +793,7 @@ class varGroupsReport(TransformerMixin):
                 all_var=varReport(breaks_list_dict=self.breaks_list_dict,
                                   special_values=self.special_values,
                                   n_jobs=self.n_jobs,                                  
-                                  verbose=self.verbose).fit(X.query(psi_base).drop(self.target,1),X[self.target])
+                                  verbose=self.verbose).fit(X.query(psi_base).drop(self.target,axis=1),X[self.target])
                 base=pd.concat(all_var.var_report_dict)['count_distr']
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
