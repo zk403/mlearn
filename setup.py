@@ -22,7 +22,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 # Get the version from __init__
-with open(path.join(here, 'binarymodels/__init__.py'), encoding='utf-8') as f:
+with open(path.join(here, 'BDMtools/__init__.py'), encoding='utf-8') as f:
     __version__ = re.search(r'__version__\s*=\s*[\'"]([^\'"]*)[\'"]', f.read()).group(1)
 
 setup(
@@ -31,7 +31,7 @@ setup(
     description='binarymodels for busniess usage',  # Required
     long_description=long_description,  # Optional
     long_description_content_type='text/markdown',  # Optional (see note above)
-    url='http://github.com/zengke403/binarymodels',  # Optional
+    #url='http://github.com/zengke403/binarymodels',  # Optional
     author='zengke403',  # Optional
     author_email='',  # Optional
     classifiers=[  # Optional
@@ -54,8 +54,8 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
     ],
-    keywords='credit scorecard, woe binning, performace evaluation',  # Optional
-    packages=['binarymodels'],  # Required
+    #keywords='credit scorecard',  # Optional
+    packages=['BDMtools'],  # Required
     install_requires=['numpy>=1.18.5',
                       'fastparquet>=0.7.1',
                       'pandas>=1.3.3',
@@ -73,8 +73,4 @@ setup(
                      ],  # Optional
     #package_data={'scorecardpy': ['data/*.csv']},
     # data_files=[('scorecardpy': ['data/*.csv'])],  # Optional
-    #project_urls={  # Optional
-    #    'Bug Reports': 'https://github.com/shichenxie/scorecardpy/issues',
-    #    'Source': 'https://github.com/shichenxie/scorecardpy/',
-    #},
 )
