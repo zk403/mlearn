@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import scorecardpy as sc
 import toad
-from binarymodels.report_report import varReport
-from binarymodels.selector_bin_fun import binAdjusterKmeans,binAdjusterChi
+from BDMtools.report_report import varReport
+from BDMtools.selector_bin_fun import binAdjusterKmeans,binAdjusterChi
 #from joblib import Parallel,delayed
 #from pandas.api.types import is_numeric_dtype
 
