@@ -47,7 +47,7 @@ BDMtools是适用于常见商业数据分析数据挖掘场景下，中小数据
 安装: 
 
 ```
-pip install git+https://github.com/zk403/mlearn.git
+pip install git+git://github.com/zk403/mlearn.git
 ```
 
 卸载: 
