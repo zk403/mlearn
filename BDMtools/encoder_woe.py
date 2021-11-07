@@ -4,97 +4,145 @@ from sklearn.base import TransformerMixin
 #import numpy as np
 import pandas as pd
 import scorecardpy as sc
-
+from pandas.api.types import is_numeric_dtype,is_string_dtype
+from joblib import Parallel,delayed
+import numpy as np
+from itertools import product
 
 
 class woeTransformer(TransformerMixin):
     
-    def __init__(self,varbin):
+    """ 
+    对数据进行WOE编码
+        
+    Params:
+    ------
+        
+    varbin:scorecardpy格式的特征分析报告字典结构,{var_name:bin_df,...},由woebin产生
+    method:str,可选'old'和'new'
+        + ‘old’:使用sc.woebin_ply进行woe编码
+        + 'new':使用内置函数进行woe编码,其编码速度较sc.woebin_ply更快,注意,使用方法new时需对原始数据进行缺失值填充处理，详见bm.nanTransformer
+                - 连续特征填充为有序值如-999,分类特可填充为missing
+                - 此时需使用sc.woebin对填充后的数据进行处理产生varbin作为本模块入参，且sc.woebin的special_values参数必须设定为None
+    n_jobs,int,并行数量,默认-1(所有core),在数据量非常大的前提下可极大提升效率，若数据量较少可设定为1
+    verbose,int,并行信息输出等级        
+    check_na:bool,为True时,在使用方法new时，若经woe编码后编码数据出现了缺失值，程序将报错终止   
+            出现此类错误时多半是因为test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高     
+    Attributes:
+    -------
+    """
+    
+    
+    
+    def __init__(self,varbin,method='new',n_jobs=-1,verbose=0,check_na=True):
         
         self.varbin=varbin
+        self.method=method
+        self.n_jobs=n_jobs
+        self.verbose=verbose
+        self.check_na=check_na
         
-        
-    def transform(self,X,y,use_raw=True):
+    def transform(self,X,y):
         """ 
         WOE转换
         """
-        X_woe=pd.DataFrame(index=X.index).join(sc.woebin_ply(dt=X.join(y),bins=self.varbin,no_cores=None))
+        if self.method=='old':
         
-        X_woe=X_woe[X_woe.columns[X_woe.columns.str.contains('_woe')]]
-        
-        if use_raw:
+            X_woe=pd.DataFrame(index=X.index).join(sc.woebin_ply(dt=X.join(y),bins=self.varbin,no_cores=None))
             
+            X_woe=X_woe[X_woe.columns[X_woe.columns.str.contains('_woe')]]
+          
             X_woe.columns=X_woe.columns.str[0:-4]
+            
+            return X_woe
         
-        return X_woe
+        elif self.method=='new':
+            
+            p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+            
+            res=p(delayed(self.woe_map)(X[key],self.varbin[key],np.nan,self.check_na) 
+                              for key in self.varbin)
+            
+            X_woe=pd.concat({col:col_woe for col,col_woe in res},axis=1)
+            
+            return X_woe  
+        
+        else:
+            
+            raise IOError('method in ("old","new")')
+            
           
     def fit(self,X,y):
    
-        return self       
-        
+        return self      
     
+    def woe_map(self,col,bin_df,special_values,check_na=True):
     
-# class getEncoding(TransformerMixin):
+        if is_numeric_dtype(col):
+            
+            bin_df_drop= bin_df[~bin_df['breaks'].isin(["-inf","inf"])]
+            breaks=bin_df_drop['breaks'].astype('float64').tolist()
+            woe=bin_df['woe'].tolist()
     
-#     def __init__(self,varbin,combiner_toad,method='woe_toad'):
-#         '''
-#         进行数据编码       
-#         Params:
-#         ------
-#         varbin:sc.woebin_bin产生的分箱信息dict
-#         combiner_toad:toad分箱后产生的toad.transform.Combiner类        
-#         method:可选"woe_toad","woe_sc"
-#             + woe_toad:使用toad完成编码,注意toad的woe编码对不支持X中存在np.nan
-#             + woe_sc:使用scorecardpy完成编码
- 
-#         Attributes
-#         ------
-#         X_bins_toad:method='woe_toad'时产生的toad的分箱中间数据
-        
-#         Examples
-#         ------      
-        
-#         '''        
-        
-#         self.method=method
-#         self.varbin_sc=varbin         
-#         self.combiner_toad=combiner_toad
-        
-#     def transform(self,X,y):
-#         """ 
-#         变量筛选
-#         """
-#         if self.method=="woe_sc":
+            col_woe=pd.cut(col,[-np.inf]+breaks+[np.inf],labels=woe,right=False,ordered=False).astype('float32')
             
-#             out=self.X_woe=[self.X_woe.columns[self.X_woe.columns.str.contains('_woe')]]
+        elif is_string_dtype(col):
             
-#         elif self.method=="woe_toad":
+            breaks=bin_df.bin.tolist();woe=bin_df.woe.tolist()
             
-#             out=self.woe_ply_toad.transform(X,y)
+            raw_to_breaks=self.raw_to_bin_sc(col.unique().tolist(),breaks,special_values=special_values)
             
-#         else:
-#             raise IOError('method in ("woe_toad","woe_sc")')
-        
-#         return out
-          
-#     def fit(self,X,y):  
-        
-#         if self.method=="woe_sc":
+            breaks_to_woe=dict(zip(breaks,woe))
             
-#             X_woe_raw=sc.woebin_ply(dt=X.join(y),bins=self.varbin,no_cores=None)
+            col_woe=col.replace(special_values,'missing').map(raw_to_breaks).map(breaks_to_woe).astype('float32')
             
-#             self.X_woe=pd.DataFrame(index=X.index).join(X_woe_raw)                                   
+        else:
             
-#         elif self.method=="woe_toad":
+            raise ValueError(col.name+"‘s dtype not in ('number' or 'str')")
             
-#             self.woe_ply_toad = toad.transform.WOETransformer()
-
-#             self.X_bins_toad=self.varbin.transform(X.join(y),labels=False)
+        if check_na:
             
-#             self.woe_ply_toad.fit(self.X_bins_toad,y)
-        
-#         else:
-#             raise IOError('method in ("woe_toad","woe_sc")')
-        
-#         return self        
+            if col_woe.isnull().sum()>0:
                 
+                raise ValueError(col.name+"_woe contains nans")
+            
+        return col.name,col_woe
+        
+    
+    def raw_to_bin_sc(self,var_code_raw,breaklist_var,special_values):
+        
+        """ 
+        分箱转换，将分类特征的值与breaks对应起来
+        1.只适合分类bin转换
+        2.此函数只能合并分类的类不能拆分分类的类        
+        """ 
+        
+        breaklist_var_new=[i.replace(special_values,'missing').unique().tolist()
+                                   for i in [pd.Series(i.split('%,%')) 
+                                             for i in breaklist_var]]
+        
+        map_codes={}
+        
+        for raw,map_code in product(var_code_raw,breaklist_var_new):
+            
+            
+            #多项组合情况
+            if '%,%' in raw:
+                
+                raw_set=set(raw.split('%,%'))
+                
+                #原始code包含于combine_code中时
+                if not raw_set-set(map_code):
+
+                    map_codes[raw]='%,%'.join(map_code)
+            
+            #单项情况
+            elif raw in map_code:
+                
+                map_codes[raw]='%,%'.join(map_code)
+            
+            #print(raw,map_code)
+   
+        return map_codes
+    
+    

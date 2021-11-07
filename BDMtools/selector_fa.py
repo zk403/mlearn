@@ -17,23 +17,27 @@ from sklearn.base import BaseEstimator
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import warnings
+from BDMtools.selector_simple import corrSelector
 
 class faSelector(BaseEstimator):
     
-    def __init__(self,n_clusters=5,distance_threshold=None,linkage='average',
+    def __init__(self,n_clusters=5,corr_limit=0.6,distance_threshold=None,linkage='average',
                  scale=True,distance_metrics='pearson',by='r2-ratio',is_greater_better=True):
         '''
         变量聚类
         Parameters:
         --
             n_clusters=5:int,聚类数量
+                + int,指定列聚类数量
+                + 'auto',自动确定聚类列数量,在进行变量聚类前先进行相关性筛选，指定相关性阈值下留存的列个数将作为变量聚类的聚类数量
+            corr_limit:n_cluster='auto'时,相关性筛选的相关性阈值,经验上corr_limit=0.6左右下的分群列特征值最大的前两个主成分累积解释占比在0.7左右               
             distance_threshold=None:距离阈值
             linkage='average':层次聚类连接方式     
             distance_metrics='pearson':距离衡量方式,可选pearson，spearman，r2
             scale=True:聚类前是否进行数据标准化,
             by='r2-ratio',聚类后的特征筛选方式
                 + 'r2-ratio':与SAS一致，将筛选每一类特征集中r2-ratio最小的特征
-                + pd.Series:用户自定义权重,要求index为列名，value为权重值，可以是iv,ks等  
+                + pd.Series:用户自定义权重,要求index为列名，value为权重值，例如是iv,ks等  
                 
             is_greater_better=True,若by参数内容为用户自定义权重,is_greater_better=True表示权重越高特征越重要,反之则越不重要
                
@@ -47,6 +51,7 @@ class faSelector(BaseEstimator):
         self.distance_metrics=distance_metrics
         self.linkage=linkage
         self.n_clusters=n_clusters
+        self.corr_limit=corr_limit
         self.distance_threshold=distance_threshold
         self.scale=scale
         self.by=by
@@ -89,12 +94,25 @@ class faSelector(BaseEstimator):
             
             return r2_distance
         else: 
-            raise ValueError('distances support:r2,pearson,spearman ')
+            raise ValueError('distances support:r2,pearson,spearman')
   
-    def fit(self,X,y=None):          
-
-        self.model=self.featurecluster(X,self.distance(),self.linkage,self.n_clusters,self.distance_threshold)
-
+    def fit(self,X,y):          
+        
+        if isinstance(self.n_clusters,int):
+        
+            self.model=self.featurecluster(X,self.distance(),self.linkage,self.n_clusters,self.distance_threshold)
+            
+        elif self.n_clusters=='auto':
+            
+            self.n_clusters=len(corrSelector(corr_limit=self.corr_limit).fit(X,y).var_keep)
+            print('n_clusters set to '+str(self.n_clusters))
+            
+            self.model=self.featurecluster(X,self.distance(),self.linkage,self.n_clusters,self.distance_threshold)
+            
+        else:
+            
+            raise IOError("n_clusters in (int,'auto')")
+            
         self.components_infos=self.getComponentsInfos(X,self.model.labels_)
 
         self.rsquare_infos=self.getRsquareInfos(X,self.model.labels_)
@@ -225,6 +243,8 @@ class faSelector(BaseEstimator):
                 label_components[label]=pd.Series(pca.transform(X[cluster_features])[:,0],name=label)
 
                 components_infos=pd.concat([components_infos,components_info],ignore_index=True)
+           
+            #群内只有一个特征
             else:
                 components_info=pd.DataFrame({
                     'cluster':[label],

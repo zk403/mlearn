@@ -221,8 +221,7 @@ class finbinSelector(TransformerMixin):
                     varbin_nonmonotonic.append(column)
                     
         return(varbin_monotonic,varbin_nonmonotonic)
-    
-    
+        
     
 
 class optbinSelector(TransformerMixin):

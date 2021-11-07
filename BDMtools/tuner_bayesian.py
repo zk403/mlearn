@@ -11,13 +11,14 @@ from sklearn.model_selection import GridSearchCV
 from xgboost.sklearn import XGBClassifier
 from lightgbm import LGBMClassifier
 from bayes_opt import BayesianOptimization
+from sklearn.model_selection import RepeatedStratifiedKFold
 #from time import time
 import numpy as np
 import pandas as pd
 
 class BayesianXGBTuner(BaseEstimator):
     
-    def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,refit=True):
+    def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,n_jobs=-1,verbose=0):
         '''
         使用贝叶斯优化参数的Xgboost
         Parameters:
@@ -26,8 +27,11 @@ class BayesianXGBTuner(BaseEstimator):
             n_iter:贝叶斯优化搜索迭代次数
             init_points:int,贝叶斯优化起始搜索点的个数
             scoring:str,寻优准则,可选'auc','ks','lift'
-            cv:int,交叉验证的折数
+            cv:int,RepeatedStratifiedKFold交叉验证的折数
+            repeats:int,RepeatedStratifiedKFold交叉验证重复次数
             refit:bool,最优参数下是否重新拟合模型，默认True
+            n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
+            verbose,int,并行信息输出等级
             
             """参数空间写法
         
@@ -64,7 +68,10 @@ class BayesianXGBTuner(BaseEstimator):
         self.init_points=init_points
         self.scoring=scoring
         self.cv=cv
+        self.repeats=repeats
         self.refit=refit
+        self.n_jobs=n_jobs
+        self.verbose=verbose 
 
         
     def predict_proba(self,X,y=None):
@@ -138,8 +145,7 @@ class BayesianXGBTuner(BaseEstimator):
                       'min_child_weight' : [min_child_weight],
                       'max_delta_step' : [int(max_delta_step)],
                       'reg_lambda':[reg_lambda],
-                      }       
-        
+                      }               
         
         if self.scoring=='ks':
             scorer=metrics.make_scorer(self.custom_score_KS,greater_is_better=True,needs_proba=True)
@@ -149,9 +155,12 @@ class BayesianXGBTuner(BaseEstimator):
             scorer=metrics.make_scorer(self.custom_score_Lift,greater_is_better=True,needs_proba=True)
         else:
             raise IOError('scoring not understood,should be "ks","auc","lift")')
+            
+        cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=0)        
                         
         cv_res=GridSearchCV(
-            XGBClassifier(seed=123,use_label_encoder=False,verbosity=0),para_space,cv=self.cv,
+            XGBClassifier(seed=123,use_label_encoder=False,verbosity=0),para_space,cv=cv,
+            n_jobs=self.n_jobs,verbose=self.verbose,
             scoring=scorer,error_score=0).fit(self.X,self.y)
         
         #print(cv_res.cv_results_['mean_test_score'])
@@ -206,7 +215,7 @@ class BayesianXGBTuner(BaseEstimator):
 
 class BayesianLgbmTuner(BaseEstimator):
     
-    def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,refit=True):
+    def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,n_jobs=-1,verbose=0):
         '''
         使用贝叶斯优化参数的LightGBM
         Parameters:
@@ -215,8 +224,11 @@ class BayesianLgbmTuner(BaseEstimator):
             n_iter:贝叶斯优化搜索迭代次数
             init_points:int,贝叶斯优化起始搜索点的个数
             scoring:str,寻优准则,可选'auc','ks','lift'
-            cv:int,交叉验证的折数
-            refit:bool,最优参数下是否重新拟合模型，默认True           
+            cv:int,RepeatedStratifiedKFold交叉验证的折数
+            repeats:int,RepeatedStratifiedKFold交叉验证重复次数
+            refit:bool,最优参数下是否重新拟合模型，默认True  
+            n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
+            verbose,int,并行信息输出等级
             
             """参数空间写法        
         
@@ -255,7 +267,10 @@ class BayesianLgbmTuner(BaseEstimator):
         self.init_points=init_points
         self.scoring=scoring
         self.cv=cv
+        self.repeats=repeats
         self.refit=refit
+        self.n_jobs=n_jobs
+        self.verbose=verbose
 
         
     def predict_proba(self,X,y=None):
@@ -342,9 +357,12 @@ class BayesianLgbmTuner(BaseEstimator):
             scorer=metrics.make_scorer(self.custom_score_Lift,greater_is_better=True,needs_proba=True)
         else:
             raise IOError('scoring not understood,should be "ks","auc","lift")')
+            
+        cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=0)
                         
         cv_res=GridSearchCV(
-            LGBMClassifier(seed=123,min_child_weight=None),para_space,cv=self.cv,
+            LGBMClassifier(seed=123,min_child_weight=None),para_space,cv=cv,
+            n_jobs=self.n_jobs,verbose=self.verbose,
             scoring=scorer,error_score=0).fit(self.X,self.y)
         
         #print(cv_res.cv_results_['mean_test_score'])

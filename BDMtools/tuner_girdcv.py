@@ -9,14 +9,13 @@ Created on Fri Oct 15 09:32:09 2021
 from sklearn.base import BaseEstimator
 from sklearn import metrics
 from sklearn.model_selection import GridSearchCV,RandomizedSearchCV
-from xgboost.sklearn import XGBClassifier
-from lightgbm import LGBMClassifier
+from sklearn.model_selection import RepeatedStratifiedKFold
 import numpy as np
 import pandas as pd
 
 class girdTuner(BaseEstimator):
     
-    def __init__(self,Estimator,para_space,method='random_gird',n_iter=10,scoring='auc',cv=5):
+    def __init__(self,Estimator,para_space,method='random_gird',n_iter=10,scoring='auc',repeats=1,cv=5,n_jobs=-1,verbose=0):
         '''
         Xgb与Lgbm的网格搜索与随机搜索
         Parameters:
@@ -28,6 +27,8 @@ class girdTuner(BaseEstimator):
             n_iter:随机网格搜索迭代次数,当method="gird"时该参数会被忽略
             scoring:str,寻优准则,可选'auc','ks','lift'
             cv:int,交叉验证的折数
+            n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
+            verbose,int,并行信息输出等级
             
             """参数空间写法
                 当Estimator=XGBClassifier,method="gird":
@@ -127,6 +128,9 @@ class girdTuner(BaseEstimator):
         self.n_iter=n_iter
         self.scoring=scoring
         self.cv=cv
+        self.repeats=repeats
+        self.n_jobs=n_jobs
+        self.verbose=verbose     
 
         
     def predict_proba(self,X,y=None):
@@ -161,6 +165,7 @@ class girdTuner(BaseEstimator):
             #输出最优参数组合
             self.params_best=self.gird_res.best_params_
             self.cv_result=self.cvresult_to_df(self.gird_res.cv_results_)
+            self.model_refit = self.gird_res.best_estimator_   
         
         elif self.method=='random_gird':
             
@@ -168,46 +173,12 @@ class girdTuner(BaseEstimator):
             #输出最优参数组合
             self.params_best=self.r_gird_res.best_params_
             self.cv_result=self.cvresult_to_df(self.r_gird_res.cv_results_)
+            self.model_refit = self.r_gird_res.best_estimator_
             
         else:
             raise IOError('method should be "gird" or "random_gird".')
             
-        
-        if self.Estimator is XGBClassifier:
-            
-            self.model_refit = XGBClassifier(
-                colsample_bytree=self.params_best['colsample_bytree'],
-                gamma=self.params_best['gamma'],
-                scale_pos_weight=self.params_best['scale_pos_weight'],
-                learning_rate=self.params_best['learning_rate'],          
-                max_delta_step=self.params_best['max_delta_step'],
-                max_depth=self.params_best['max_depth'],
-                min_child_weight=self.params_best['min_child_weight'],
-                n_estimators=self.params_best['n_estimators'],
-                reg_lambda=self.params_best['reg_lambda'],
-                subsample=self.params_best['subsample']
-                ).fit(X,y)          
-            
-        elif self.Estimator is LGBMClassifier:
-            
-            self.model_refit = LGBMClassifier(
-                boosting_type=self.params_best['boosting_type'],
-                n_estimators=self.params_best['n_estimators'],
-                learning_rate=self.params_best['learning_rate'],
-                max_depth=self.params_best['max_depth'],          
-                min_split_gain=self.params_best['min_split_gain'],
-                min_child_weight=self.params_best['min_child_weight'],              
-                subsample=self.params_best['subsample'],
-                colsample_bytree=self.params_best['colsample_bytree'],
-                scale_pos_weight=self.params_best['scale_pos_weight'],
-                reg_lambda=self.params_best['reg_lambda']
-                ).fit(X,y)    
-        
-        else:
-            raise IOError('Estimator should be XGBClassifier or LGBMClassifier.')
-            
-        #交叉验证结果保存
-             
+        #交叉验证结果保存             
         
         return self    
     
@@ -223,9 +194,14 @@ class girdTuner(BaseEstimator):
             scorer=metrics.make_scorer(self.custom_score_Lift,greater_is_better=True,needs_proba=True)
         else:
             raise IOError('scoring not understood,should be "ks","auc","lift")')
+            
+        cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=0) 
         
-        gird=GridSearchCV(self.Estimator(random_state=123),self.para_space,cv=self.cv,
-                                scoring=scorer,error_score=0)    
+        gird=GridSearchCV(self.Estimator(random_state=123),self.para_space,cv=cv,
+                          n_jobs=self.n_jobs,
+                          refit=True,
+                          verbose=self.verbose,
+                          scoring=scorer,error_score=0)    
         
         self.gird_res=gird.fit(self.X,self.y)
         
@@ -246,8 +222,11 @@ class girdTuner(BaseEstimator):
         else:
             raise IOError('scoring not understood,should be "ks","auc","lift")')
         
-        r_gird=RandomizedSearchCV(self.Estimator(random_state=123),self.para_space,cv=self.cv,
-                                scoring=scorer,error_score=0,n_iter=self.n_iter)
+        cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=0) 
+        
+        r_gird=RandomizedSearchCV(self.Estimator(random_state=123),self.para_space,cv=cv,
+                                  n_jobs=self.n_jobs,verbose=self.verbose,refit=True,
+                                  scoring=scorer,error_score=0,n_iter=self.n_iter)
         
         self.r_gird_res=r_gird.fit(self.X,self.y)
         
