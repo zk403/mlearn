@@ -1,4 +1,4 @@
-# BDMtools-0.0.7
+# BDMtools-0.0.8
 
 BDMtools是适用于常见商业数据分析数据挖掘场景下，中小数据量(建议n_sample<10w,n_cols<5000)的二分类模型的建模工具包。
 本模组将集成商业分析场景中二分类模型中常用的模型，并使之能够兼顾开发效率、报告制作与模型自动化。
@@ -43,6 +43,7 @@ BDMtools是适用于常见商业数据分析数据挖掘场景下，中小数据
     - BDMtools.girdTuner:网格优化与随机优化的xgb或lgbm
     - BDMtools.BayesianXGBTuner:贝叶斯优化的xgboost
     - BDMtools.BayesianLgbmTuner:贝叶斯优化的lightgbm
+    - DMtools.hgirdTuner:scucessive halving优化的xgb或lgbm
 
 安装: 
 

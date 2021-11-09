@@ -10,11 +10,12 @@ from BDMtools.selector_wrapper import RFECVSelector
 from BDMtools.selector_embeded import lassoSelector,sequentialSelector
 from BDMtools.encoder_woe import woeTransformer
 from BDMtools.tuner_girdcv import girdTuner
+from BDMtools.tuner_halvingcv import hgirdTuner
 from BDMtools.tuner_bayesian import BayesianXGBTuner,BayesianLgbmTuner
 from BDMtools.selector_bin_fun import binAdjusterKmeans,binAdjusterChi
 
 
-__version__ = '0.0.7'
+__version__ = '0.0.8'
 
 __all__ = (    
     outliersTransformer,
@@ -38,6 +39,7 @@ __all__ = (
     sequentialSelector,
     woeTransformer,
     girdTuner,
+    hgirdTuner,
     BayesianXGBTuner,
     BayesianLgbmTuner
 )
