@@ -33,7 +33,7 @@ class EDAReport(TransformerMixin):
         
         Attributes:
         -------
-            num_report:pd.DataFrame,连续特征质量报告
+            num_report:pd.DataFrame,连续特征质量报告a
             char_report:pd.DataFrame,分类特征质量报告
             na_report:pd.DataFrame,单特征缺失率报告
             nacorr_report:pd.DataFrame,缺失率相关性报告
@@ -537,7 +537,7 @@ class varGroupsReport(TransformerMixin):
         ------
         
         breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
-        columns:list,组变量名,最终报告将组变量置于报告列上
+        columns:list,组变量名,最终报告将组变量置于报告列上,组特征可以在breaks_list_dict中
         target:目标变量名
         output_psi:bool,是否输出群组psi报告
         psi_base:str,psi计算的基准,可选all，也可用户自定义
@@ -573,13 +573,14 @@ class varGroupsReport(TransformerMixin):
 
         if X.size:
             
-            X=X[list(self.breaks_list_dict.keys)]
+            
+            self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,1).columns}            
             
             if self.sort_columns:
                 
                 X=X.drop(list(self.sort_columns.keys()),axis=1).join(
-                    pd.DataFrame(
-                    {key:pd.Categorical(X.split,categories=self.sort_columns[key],ordered=True) for key in self.sort_columns},
+                    pd.DataFrame(                      
+                    {col:pd.Categorical(X[col],categories=self.sort_columns[col],ordered=True) for col in self.sort_columns},               
                     index=X.index)
                 )
                        
@@ -594,10 +595,12 @@ class varGroupsReport(TransformerMixin):
                 y_g=group_dt[self.target]    
             
                 if X.size>self.row_limit:
+                    
                     res=varReport(breaks_list_dict=self.breaks_list_dict,
                                   special_values=self.special_values,
                                   n_jobs=self.n_jobs,                                  
                                   verbose=self.verbose).fit(X_g,y_g)
+                    
                     result[i]=pd.concat(res.var_report_dict)
                     
                 else:

@@ -11,6 +11,7 @@ from sklearn.model_selection import GridSearchCV
 from xgboost.sklearn import XGBClassifier
 from lightgbm import LGBMClassifier
 from bayes_opt import BayesianOptimization
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import RepeatedStratifiedKFold
 #from time import time
 import numpy as np
@@ -19,7 +20,7 @@ import pandas as pd
 class BayesianXGBTuner(BaseEstimator):
     
     def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,
-                 n_jobs=-1,verbose=0,random_state=123):
+                 n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
         '''
         使用贝叶斯优化参数的Xgboost
         Parameters:
@@ -34,6 +35,7 @@ class BayesianXGBTuner(BaseEstimator):
             n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
             verbose,int,并行信息输出等级
             random_state,随机种子
+            
             
             """参数空间写法
         
@@ -74,7 +76,10 @@ class BayesianXGBTuner(BaseEstimator):
         self.refit=refit
         self.n_jobs=n_jobs
         self.verbose=verbose 
+        self.sample_weight=sample_weight
         self.random_state=random_state
+        self.calibration=calibration
+        self.cv_calibration=cv_calibration
         
     def predict_proba(self,X,y=None):
         '''
@@ -139,7 +144,12 @@ class BayesianXGBTuner(BaseEstimator):
                 n_estimators=self.params_best['n_estimators'],
                 reg_lambda=self.params_best['reg_lambda'],
                 subsample=self.params_best['subsample']
-                ).fit(X,y)      
+                ).fit(X,y,sample_weight=self.sample_weight)      
+            
+            if self.calibration:
+                
+                self.xgb_refit=CalibratedClassifierCV(self.xgb_refit,cv=self.cv_calibration,
+                                                      n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
         
         return self
     
@@ -176,7 +186,7 @@ class BayesianXGBTuner(BaseEstimator):
         cv_res=GridSearchCV(
             XGBClassifier(seed=self.random_state,use_label_encoder=False,verbosity=0),para_space,cv=cv,
             n_jobs=self.n_jobs,verbose=self.verbose,
-            scoring=scorer,error_score=0).fit(self.X,self.y)
+            scoring=scorer,error_score=0).fit(self.X,self.y,sample_weight=self.sample_weight)
         
         #print(cv_res.cv_results_['mean_test_score'])
         val_score = cv_res.cv_results_['mean_test_score'][0]
