@@ -574,7 +574,7 @@ class varGroupsReport(TransformerMixin):
         if X.size:
             
             
-            self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,1).columns}            
+            self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,axis=1).columns}            
             
             if self.sort_columns:
                 

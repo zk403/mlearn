@@ -142,15 +142,14 @@ class faSelector(BaseEstimator):
         elif is_array_like(self.by):
 
             name=self.by.name
-            self.rsquare_infos_weight=self.rsquare_infos.join(self.by)
             
             if self.is_greater_better:
                 
-                columns=self.rsquare_infos_weight.sort_values(['Cluster',name],ascending=[True,False]).groupby('Cluster').head(1).index 
+                columns=self.rsquare_infos.sort_values(['Cluster',name],ascending=[True,False]).groupby('Cluster').head(1).index 
                 
             else:
                  
-                columns=self.rsquare_infos_weight.sort_values(['Cluster',name],ascending=[True,True]).groupby('Cluster').head(1).index        
+                columns=self.rsquare_infos.sort_values(['Cluster',name],ascending=[True,True]).groupby('Cluster').head(1).index        
 
         else:
             

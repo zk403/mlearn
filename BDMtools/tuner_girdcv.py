@@ -10,13 +10,14 @@ from sklearn.base import BaseEstimator
 from sklearn import metrics
 from sklearn.model_selection import GridSearchCV,RandomizedSearchCV
 from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.calibration import CalibratedClassifierCV
 import numpy as np
 import pandas as pd
 
 class girdTuner(BaseEstimator):
     
     def __init__(self,Estimator,para_space,method='random_gird',n_iter=10,scoring='auc',repeats=1,cv=5,
-                 n_jobs=-1,verbose=0,random_state=123):
+                 n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
         '''
         Xgb与Lgbm的网格搜索与随机搜索
         Parameters:
@@ -31,6 +32,9 @@ class girdTuner(BaseEstimator):
             n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
             verbose,int,并行信息输出等级
             random_state:随机种子
+            sample_weight:样本权重
+            calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准
+            cv_calibration:CalibratedClassifierCV的交叉验证数,注意此处不接受验证数据，不推荐设定为'prefit'    
             
             """参数空间写法
                 当Estimator=XGBClassifier,method="gird":
@@ -134,6 +138,9 @@ class girdTuner(BaseEstimator):
         self.n_jobs=n_jobs
         self.verbose=verbose     
         self.random_state=random_state
+        self.sample_weight=sample_weight
+        self.calibration=calibration
+        self.cv_calibration=cv_calibration
 
         
     def predict_proba(self,X,y=None):
@@ -180,7 +187,12 @@ class girdTuner(BaseEstimator):
             #输出最优参数组合
             self.params_best=self.gird_res.best_params_
             self.cv_result=self.cvresult_to_df(self.gird_res.cv_results_)
-            self.model_refit = self.gird_res.best_estimator_   
+            self.model_refit = self.gird_res.best_estimator_  
+            
+            if self.calibration:
+                
+                self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
+                                                     n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
         
         elif self.method=='random_gird':
             
@@ -189,6 +201,11 @@ class girdTuner(BaseEstimator):
             self.params_best=self.r_gird_res.best_params_
             self.cv_result=self.cvresult_to_df(self.r_gird_res.cv_results_)
             self.model_refit = self.r_gird_res.best_estimator_
+            
+            if self.calibration:
+                
+                self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
+                                                     n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
             
         else:
             raise IOError('method should be "gird" or "random_gird".')
@@ -218,7 +235,7 @@ class girdTuner(BaseEstimator):
                           verbose=self.verbose,
                           scoring=scorer,error_score=0)    
         
-        self.gird_res=gird.fit(self.X,self.y)
+        self.gird_res=gird.fit(self.X,self.y,sample_weight=self.sample_weight)
         
         return self
         
@@ -244,7 +261,7 @@ class girdTuner(BaseEstimator):
                                   random_state=self.random_state,
                                   scoring=scorer,error_score=0,n_iter=self.n_iter)
         
-        self.r_gird_res=r_gird.fit(self.X,self.y)
+        self.r_gird_res=r_gird.fit(self.X,self.y,sample_weight=self.sample_weight)
         
         return self
     

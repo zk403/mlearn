@@ -10,6 +10,7 @@ from sklearn.base import BaseEstimator
 from sklearn import metrics
 from sklearn.experimental import enable_halving_search_cv
 from sklearn.model_selection import HalvingGridSearchCV,HalvingRandomSearchCV,RepeatedStratifiedKFold
+from sklearn.calibration import CalibratedClassifierCV
 import numpy as np
 import pandas as pd
 
@@ -17,7 +18,7 @@ class hgirdTuner(BaseEstimator):
     
     def __init__(self,Estimator,para_space,method='h_random',scoring='auc',repeats=1,cv=5,
                  factor=3,n_candidates='exhaust',
-                 n_jobs=-1,verbose=0,random_state=123):
+                 n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
         '''
         Xgb与Lgbm的sucessive halving搜索与sucessive halving搜索
         Parameters:
@@ -33,6 +34,9 @@ class hgirdTuner(BaseEstimator):
             n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
             verbose,int,并行信息输出等级
             random_state:随机种子
+            sample_weight:样本权重
+            calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准
+            cv_calibration:CalibratedClassifierCV的交叉验证数,注意此处不接受验证数据，不推荐设定为'prefit'            
             
             """参数空间写法
                 当Estimator=XGBClassifier,method="h_gird":
@@ -137,6 +141,9 @@ class hgirdTuner(BaseEstimator):
         self.n_jobs=n_jobs
         self.verbose=verbose     
         self.random_state=random_state
+        self.sample_weight=sample_weight
+        self.calibration=calibration
+        self.cv_calibration=cv_calibration
         
         
     def predict_proba(self,X,y=None):
@@ -182,6 +189,11 @@ class hgirdTuner(BaseEstimator):
             self.params_best=self.h_gird_res.best_params_
             self.cv_result=self.cvresult_to_df(self.h_gird_res.cv_results_)
             self.model_refit = self.h_gird_res.best_estimator_   
+            
+            if self.calibration:
+                
+                self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
+                                                      n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
         
         elif self.method=='h_random':
             
@@ -190,6 +202,11 @@ class hgirdTuner(BaseEstimator):
             self.params_best=self.h_random_res.best_params_
             self.cv_result=self.cvresult_to_df(self.h_random_res.cv_results_)
             self.model_refit = self.h_random_res.best_estimator_
+            
+            if self.calibration:
+                
+                self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
+                                                      n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
             
         else:
             raise IOError('method should be "gird" or "random_gird".')
@@ -222,7 +239,7 @@ class hgirdTuner(BaseEstimator):
                                   verbose=self.verbose,
                                   n_jobs=self.n_jobs)
         
-        self.h_gird_res=hgird.fit(X,y)
+        self.h_gird_res=hgird.fit(X,y,sample_weight=self.sample_weight)
         
         return self
         
@@ -255,7 +272,7 @@ class hgirdTuner(BaseEstimator):
                                      scoring=scorer,
                                      error_score=0)
         
-        self.h_random_res=h_r_gird.fit(X,y)
+        self.h_random_res=h_r_gird.fit(X,y,sample_weight=self.sample_weight)
         
         return self
     

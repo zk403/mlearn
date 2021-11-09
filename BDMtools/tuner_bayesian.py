@@ -35,7 +35,9 @@ class BayesianXGBTuner(BaseEstimator):
             n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
             verbose,int,并行信息输出等级
             random_state,随机种子
-            
+            sample_weight:样本权重
+            calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准
+            cv_calibration:CalibratedClassifierCV的交叉验证数,注意因无验证数据，不推荐设定为'prefit'
             
             """参数空间写法
         
@@ -59,7 +61,7 @@ class BayesianXGBTuner(BaseEstimator):
         --
             Optimize:贝叶斯优化迭代器,需先使用fit
             params_best:最优参数组合,需先使用fit
-            xgb_refit:最优参数下的xgboost模型,需先使用fit且参数refit=True 
+            model_refit:最优参数下的xgboost模型,需先使用fit且参数refit=True 
         
         Examples
         --
@@ -76,8 +78,8 @@ class BayesianXGBTuner(BaseEstimator):
         self.refit=refit
         self.n_jobs=n_jobs
         self.verbose=verbose 
-        self.sample_weight=sample_weight
         self.random_state=random_state
+        self.sample_weight=sample_weight
         self.calibration=calibration
         self.cv_calibration=cv_calibration
         
@@ -88,7 +90,7 @@ class BayesianXGBTuner(BaseEstimator):
         --
         X:pd.DataFrame对象
         '''      
-        pred = self.xgb_refit.predict_proba(X)[:,1]        
+        pred = self.model_refit.predict_proba(X)[:,1]        
         return pred
     
     def predict_score(self,X,y=None,PDO=75,base=660,ratio=1/15):
@@ -98,7 +100,7 @@ class BayesianXGBTuner(BaseEstimator):
         --
         X:pd.DataFrame对象
         '''      
-        pred = self.xgb_refit.predict_proba(X)[:,1]  
+        pred = self.model_refit.predict_proba(X)[:,1]  
         pred = self.p_to_score(pred,PDO,base,ratio)
         
         return pred
@@ -133,7 +135,7 @@ class BayesianXGBTuner(BaseEstimator):
         #refit
         if self.refit:
             
-            self.xgb_refit = XGBClassifier(
+            self.model_refit = XGBClassifier(
                 colsample_bytree=self.params_best['colsample_bytree'],
                 gamma=self.params_best['gamma'],
                 scale_pos_weight=self.params_best['scale_pos_weight'],
@@ -148,7 +150,7 @@ class BayesianXGBTuner(BaseEstimator):
             
             if self.calibration:
                 
-                self.xgb_refit=CalibratedClassifierCV(self.xgb_refit,cv=self.cv_calibration,
+                self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
                                                       n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
         
         return self
@@ -249,7 +251,7 @@ class BayesianXGBTuner(BaseEstimator):
 class BayesianLgbmTuner(BaseEstimator):
     
     def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,
-                 n_jobs=-1,verbose=0,random_state=123):
+                 n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
         '''
         使用贝叶斯优化参数的LightGBM
         Parameters:
@@ -264,6 +266,9 @@ class BayesianLgbmTuner(BaseEstimator):
             n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
             verbose,int,并行信息输出等级
             random_state,随机种子
+            sample_weight:样本权重
+            calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准
+            cv_calibration:CalibratedClassifierCV的交叉验证数,注意因无验证数据，不推荐设定为'prefit'
             
             """参数空间写法        
         
@@ -289,12 +294,10 @@ class BayesianLgbmTuner(BaseEstimator):
         --
             Optimize:贝叶斯优化迭代器,需先使用fit
             params_best:最优参数组合,需先使用fit
-            lgbm_refit:最优参数下的lgbm模型,需先使用fit
+            model_refit:最优参数下的lgbm模型,需先使用fit
         
         Examples
         --
-        
-        
 
         '''        
         self.para_space=para_space
@@ -307,6 +310,9 @@ class BayesianLgbmTuner(BaseEstimator):
         self.n_jobs=n_jobs
         self.verbose=verbose
         self.random_state=random_state
+        self.sample_weight=sample_weight
+        self.calibration=calibration
+        self.cv_calibration=cv_calibration
         
     def predict_proba(self,X,y=None):
         '''
@@ -315,7 +321,7 @@ class BayesianLgbmTuner(BaseEstimator):
         --
         X:pd.DataFrame对象
         '''      
-        pred = self.lgbm_refit.predict_proba(X)[:,1]        
+        pred = self.model_refit.predict_proba(X)[:,1]        
         return pred
     
     def predict_score(self,X,y=None,PDO=75,base=660,ratio=1/15):
@@ -325,7 +331,7 @@ class BayesianLgbmTuner(BaseEstimator):
         --
         X:pd.DataFrame对象
         '''      
-        pred = self.lgbm_refit.predict_proba(X)[:,1]  
+        pred = self.model_refit.predict_proba(X)[:,1]  
         pred = self.p_to_score(pred,PDO,base,ratio)
         return pred
     
@@ -360,7 +366,7 @@ class BayesianLgbmTuner(BaseEstimator):
         
         if self.refit:
             #print (self.para_space)
-            self.lgbm_refit = LGBMClassifier(
+            self.model_refit = LGBMClassifier(
                 boosting_type=self.para_space['boosting_type'],
                 n_estimators=self.params_best['n_estimators'],
                 learning_rate=self.params_best['learning_rate'],
@@ -372,7 +378,12 @@ class BayesianLgbmTuner(BaseEstimator):
                 #class_weight=self.para_space['class_weight'],
                 scale_pos_weight=self.params_best['scale_pos_weight'],
                 reg_lambda=self.params_best['reg_lambda']
-                ).fit(X,y)      
+                ).fit(X,y,self.sample_weight)      
+            
+            if self.calibration:
+                
+                self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
+                                                      n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
         
         return self
     
@@ -392,8 +403,7 @@ class BayesianLgbmTuner(BaseEstimator):
                       'colsample_bytree' : [colsample_bytree],
                       'scale_pos_weight' : [scale_pos_weight],
                       'reg_lambda':[reg_lambda]
-                      }       
-        
+                      }               
         
         if self.scoring=='ks':
             scorer=metrics.make_scorer(self.custom_score_KS,greater_is_better=True,needs_proba=True)
@@ -409,7 +419,7 @@ class BayesianLgbmTuner(BaseEstimator):
         cv_res=GridSearchCV(
             LGBMClassifier(seed=self.random_state,min_child_weight=None),para_space,cv=cv,
             n_jobs=self.n_jobs,verbose=self.verbose,
-            scoring=scorer,error_score=0).fit(self.X,self.y)
+            scoring=scorer,error_score=0).fit(self.X,self.y,sample_weight=self.sample_weight)
         
         #print(cv_res.cv_results_['mean_test_score'])
         val_score = cv_res.cv_results_['mean_test_score'][0]
