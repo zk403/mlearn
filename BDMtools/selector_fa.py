@@ -24,7 +24,7 @@ class faSelector(BaseEstimator):
     def __init__(self,n_clusters=5,corr_limit=0.6,distance_threshold=None,linkage='average',
                  scale=True,distance_metrics='pearson',by='r2-ratio',is_greater_better=True):
         '''
-        变量聚类
+        变量聚类:
         Parameters:
         --
             n_clusters=5:int,聚类数量
@@ -114,8 +114,22 @@ class faSelector(BaseEstimator):
             raise IOError("n_clusters in (int,'auto')")
             
         self.components_infos=self.getComponentsInfos(X,self.model.labels_)
+        
+        
+        if isinstance(self.by,str):
+        
+            self.rsquare_infos=self.getRsquareInfos(X,self.model.labels_)
+        
+        elif is_array_like(self.by):
 
-        self.rsquare_infos=self.getRsquareInfos(X,self.model.labels_)
+            self.rsquare_infos=self.getRsquareInfos(X,self.model.labels_).join(self.by)
+        
+        else:
+            
+            warnings.warn('by in (r2-ratio,pd.Series),use r2-ratio instead')  
+        
+            self.rsquare_infos=self.getRsquareInfos(X,self.model.labels_)
+            
         
         return self        
     

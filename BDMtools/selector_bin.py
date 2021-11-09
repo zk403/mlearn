@@ -11,7 +11,7 @@ from BDMtools.selector_bin_fun import binAdjusterKmeans,binAdjusterChi
 
 class finbinSelector(TransformerMixin):
     
-    def __init__(self,ivlimit=0.02,bin_num=20,bin_num_limit=5,special_values=[np.nan],method='freq',apply_dt=None,out_path=None,psi_base_mon='latest',n_jobs=-1,verbose=0):
+    def __init__(self,ivlimit=0.02,bin_num=20,bin_num_limit=5,special_values=[np.nan],method='freq',out_path=None,n_jobs=-1,verbose=0):
         """ 
         IV预筛选,适用于二分类模型
         Parameters:
@@ -31,13 +31,6 @@ class finbinSelector(TransformerMixin):
 
                     varReport(breaks_list_dict=breaks_list_insample,
                                   out_path='report',sheet_name='_oot').fit(X_oot,y_oot)
-              
-            apply_dt:pd.Series,产生报告时使用,用于标示X的时期的字符型列且需要能转化为int
-                + eg:pd.Series(['202001','202002‘...],name='apply_mon',index=X.index)
-            psi_base_mon:str,当apply_dt非空时,psi计算的基准,可选earliest和latest，也可用户自定义
-                + earliest:选择apply_dt中最早的时期的分布作为psi基准
-                + latest:选择apply_dt中最晚的时期的分布作为psi基准
-                + all:选择总分布作为psi基准 
             
             n_jobs:int,输出特征分析报告和采用freq-kmeans分箱时并行计算job数,默认-1(使用全部的 CPU cores)
             verbose:int,并行计算信息输出等级
@@ -59,8 +52,6 @@ class finbinSelector(TransformerMixin):
         self.bin_num_limit=bin_num_limit
         self.special_values=special_values
         self.out_path=out_path
-        self.apply_dt=apply_dt
-        self.psi_base_mon='latest'
         self.n_jobs=n_jobs
         self.verbose=verbose
     
@@ -108,33 +99,24 @@ class finbinSelector(TransformerMixin):
                       n_jobs=self.n_jobs,
                       verbose=self.verbose,
                       apply_dt=None).fit(X,y)
+
+        #加入ks
+        bin_res_ks={}
+        for col in bin_res:
+            df_var=bin_res[col]
+            good_distr=df_var['good'].div(df_var['good'].sum())
+            bad_distr=df_var['bad'].div(df_var['bad'].sum())
+            df_var['ks']=good_distr.sub(bad_distr).abs()
+            bin_res_ks[col]=df_var
         
-            if self.apply_dt is not None:
-     
-                varReport(breaks_list_dict=self.breaks_list,
-                          special_values=self.special_values,
-                          out_path=self.out_path,
-                          apply_dt=self.apply_dt,
-                          psi_base_mon=self.psi_base_mon,
-                          tab_suffix='_fin_mon',
-                          n_jobs=self.n_jobs,
-                          verbose=self.verbose
-                          ).fit(X,y)                        
-
-
-        #筛选合适变量
-        col_cate=X.select_dtypes(include='object').columns.tolist()
-        finebindf=pd.concat(bin_res.values())
-
-        #开始筛选
-        Numfinbindf=finebindf[~finebindf.variable.isin(col_cate)] #数值列
-        Facfinbindf=finebindf[finebindf.variable.isin(col_cate)] #分类列
+        finebindf=pd.concat(bin_res_ks.values())
                 
-        self.iv_info=pd.concat([Numfinbindf.groupby('variable')['bin_iv'].sum().rename('iv'),Facfinbindf.groupby('variable')['bin_iv'].sum().rename('iv')])
+        self.iv_info=pd.concat([finebindf.groupby('variable')['bin_iv'].sum().rename('total_iv')])        
+        self.ks_info=pd.concat([finebindf.groupby('variable')['ks'].max().rename('ks_max')])        
         self.keep_col=self.iv_info[self.iv_info>=ivlimit].index.tolist()
         self.finebin={column:bin_res.get(column) for column in self.keep_col}
-        #self.finebin_monotonic,self.finebin_nonmonotonic=self.checkMonotonicFeature(self.finebin,ivlimit)
-        
+        self.breaks_list={column:self.breaks_list[column] for column in self.keep_col}
+             
         return self
     
     def transform(self,X):
@@ -196,38 +178,11 @@ class finbinSelector(TransformerMixin):
         return breaklist
         
     
-    def checkMonotonicFeature(self,varbin,ivlimit):
-        """
-        检查细分箱后特征的分箱woe是否单调
-        Parameters:
-        --
-        Attribute:
-        --
-            finebin_nonmonotonic:dict,非单调特征list
-            finebin_monotonic:dict,单调特征list
-        """        
-        varbin_monotonic=[]
-        varbin_nonmonotonic=[]
-        for column in varbin.keys():
-            #var_woe=varbin[column].query('bin!="missing"').woe
-            varbin_col=varbin[column]
-            var_woe=varbin_col[varbin_col['bin'].astype(str)!="missing"]['woe']
-            
-            if var_woe.is_monotonic_decreasing or var_woe.is_monotonic_increasing:
-                if varbin_col['bin_iv'].sum()>ivlimit:
-                    varbin_monotonic.append(column)
-            else:
-                if varbin_col['bin_iv'].sum()>ivlimit:
-                    varbin_nonmonotonic.append(column)
-                    
-        return(varbin_monotonic,varbin_nonmonotonic)
-        
-    
 
 class optbinSelector(TransformerMixin):
     
-    def __init__(self,method='chi',n_bins=10,min_samples=0.05,special_values=[np.nan],iv_limit=0.02,
-                 out_path=None,apply_dt=None,psi_base_mon='latest',break_list_adj=None,n_jobs=-1,verbose=0):
+    def __init__(self,method='tree',n_bins=10,min_samples=0.05,special_values=[np.nan],iv_limit=0.02,
+                 out_path=None,break_list_adj=None,n_jobs=-1,verbose=0):
         """ 
         最优分箱与交互分箱
         Parameters:
@@ -260,8 +215,6 @@ class optbinSelector(TransformerMixin):
         self.iv_limit=iv_limit
         self.special_values=special_values
         self.out_path=out_path
-        self.apply_dt=apply_dt
-        self.psi_base_mon=psi_base_mon
         self.break_list_adj=break_list_adj
         self.n_jobs=n_jobs
         self.verbose=verbose
@@ -297,17 +250,6 @@ class optbinSelector(TransformerMixin):
                           n_jobs=self.n_jobs,
                           verbose=self.verbose,
                           tab_suffix='_adj',apply_dt=None).fit(X[self.keep_col],y)
-        
-                if self.apply_dt is not None:
-                    
-                    varReport(breaks_list_dict=self.break_list_adj,
-                                      out_path=self.out_path,
-                                      apply_dt=self.apply_dt,
-                                      special_values=self.special_values,
-                                      n_jobs=self.n_jobs,
-                                      verbose=self.verbose,
-                                      psi_base_mon=self.psi_base_mon,
-                                      tab_suffix='_adj_mon').fit(X[self.keep_col],y)  
                     
         #若不给定breaklist，则进行最优分箱                                   
         else:
@@ -332,14 +274,27 @@ class optbinSelector(TransformerMixin):
             
             self.keep_col=list(self.break_list_opt.keys())
             #最优分箱的特征iv统计值
-            self.optimalbin=sc.woebin(X[self.keep_col].join(y).replace(self.special_values,np.nan),
+            
+            bin_res=sc.woebin(X[self.keep_col].join(y).replace(self.special_values,np.nan),
                                       y=y.name,breaks_list=self.break_list_opt,
                                       check_cate_num=False)
             
-            self.iv_info=pd.concat(self.optimalbin.values()).groupby('variable')['bin_iv'].sum().rename('iv')
+            bin_res_ks={}
+            for col in bin_res:
+                df_var=bin_res[col]
+                good_distr=df_var['good'].div(df_var['good'].sum())
+                bad_distr=df_var['bad'].div(df_var['bad'].sum())
+                df_var['ks']=good_distr.sub(bad_distr).abs()
+                bin_res_ks[col]=df_var
+            
+            optbindf_ks=pd.concat(bin_res_ks.values())
+
+            self.iv_info=optbindf_ks.groupby('variable')['bin_iv'].sum().rename('total_iv')
+            self.ks_info=optbindf_ks.groupby('variable')['ks'].max().rename('total_iv')
             
             #IV筛选特征
             self.keep_col=self.iv_info[self.iv_info>=self.iv_limit].index.tolist()  
+            self.optbin={column:bin_res.get(column) for column in self.keep_col}
             self.break_list_opt={column:self.break_list_opt.get(column) for column in self.keep_col}
  
             #是否输出报告
@@ -352,18 +307,7 @@ class optbinSelector(TransformerMixin):
                           out_path=self.out_path,
                           apply_dt=None,
                           tab_suffix='_opt'
-                          ).fit(X[self.keep_col],y)
-
-                if self.apply_dt is not None:
-             
-                    varReport(breaks_list_dict=self.break_list_opt,
-                              special_values=self.special_values,
-                              out_path=self.out_path,
-                              apply_dt=self.apply_dt,
-                              n_jobs=self.n_jobs,
-                              verbose=self.verbose,
-                              psi_base_mon=self.psi_base_mon,
-                              tab_suffix='_opt_mon').fit(X[self.keep_col],y)               
+                          ).fit(X[self.keep_col],y)              
        
         return self
 
@@ -422,39 +366,9 @@ class optbinSelector(TransformerMixin):
             break_list_sc=break_list
                 
         return break_list_sc                   
-        
-    
-    def checkMonotonicFeature(self,varbin):
-        """
-        检查细分箱后特征的分箱woe是否单调
-        Parameters:
-        --
-        Attribute:
-        --
-            finebin_nonmonotonic:dict,非单调特征list
-            finebin_monotonic:dict,单调特征list
-        """    
-
-        varbin_monotonic={}
-        varbin_nonmonotonic={}
-        for column in varbin.keys():
-            #var_woe=varbin[column].query('bin!="missing"').woe
-            varbin_col=varbin[column]
-            var_woe=varbin_col[varbin_col['bin'].astype(str)!="missing"]['woe']
-            
-            if var_woe.is_monotonic_decreasing or var_woe.is_monotonic_increasing:
-                #if varbin_col['bin_iv'].sum()>ivlimit:
-                #varbin_monotonic.append(column)
-                varbin_monotonic[column]=varbin_col
-            else:
-                #if varbin_col['bin_iv'].sum()>ivlimit:
-                #varbin_nonmonotonic.append(column)
-                varbin_nonmonotonic[column]=varbin_col
-                    
-        return(varbin_monotonic,varbin_nonmonotonic)
     
     
-    def fit_adjustBin(self,X,y,br_to_adjusted=None,out_path=None,apply_dt=None,psi_base_mon='latest'):
+    def fit_adjustBin(self,X,y,br_to_adjusted=None,out_path=None):
         """
         根据最优分箱结果调整分箱，需先运行fit
         plt.rcParams["figure.figsize"] = [10, 5]
@@ -523,18 +437,4 @@ class optbinSelector(TransformerMixin):
                                           y=self.target,breaks_list=self.break_list_adj)
                  
         
-        if out_path:
-                
-            varReport(breaks_list_dict=self.break_list_adj,out_path=out_path,
-                      special_values=self.special_values,
-                      tab_suffix='_adj',apply_dt=None).fit(X[self.keep_col],y)
-        
-            if apply_dt is not None:
-                    
-                varReport(breaks_list_dict=self.break_list_adj,
-                           special_values=self.special_values,
-                           out_path=out_path,apply_dt=apply_dt,
-                           psi_base_mon=psi_base_mon,
-                           tab_suffix='_adj').fit(X[self.keep_col],y)          
-                      
         return self   

@@ -18,7 +18,8 @@ import pandas as pd
 
 class BayesianXGBTuner(BaseEstimator):
     
-    def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,n_jobs=-1,verbose=0):
+    def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,
+                 n_jobs=-1,verbose=0,random_state=123):
         '''
         使用贝叶斯优化参数的Xgboost
         Parameters:
@@ -32,6 +33,7 @@ class BayesianXGBTuner(BaseEstimator):
             refit:bool,最优参数下是否重新拟合模型，默认True
             n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
             verbose,int,并行信息输出等级
+            random_state,随机种子
             
             """参数空间写法
         
@@ -72,7 +74,7 @@ class BayesianXGBTuner(BaseEstimator):
         self.refit=refit
         self.n_jobs=n_jobs
         self.verbose=verbose 
-
+        self.random_state=random_state
         
     def predict_proba(self,X,y=None):
         '''
@@ -83,6 +85,19 @@ class BayesianXGBTuner(BaseEstimator):
         '''      
         pred = self.xgb_refit.predict_proba(X)[:,1]        
         return pred
+    
+    def predict_score(self,X,y=None,PDO=75,base=660,ratio=1/15):
+        '''
+        最优参数下的模型的预测
+        Parameters:
+        --
+        X:pd.DataFrame对象
+        '''      
+        pred = self.xgb_refit.predict_proba(X)[:,1]  
+        pred = self.p_to_score(pred,PDO,base,ratio)
+        
+        return pred
+        
     
     def transform(self,X,y=None):            
         return self
@@ -156,10 +171,10 @@ class BayesianXGBTuner(BaseEstimator):
         else:
             raise IOError('scoring not understood,should be "ks","auc","lift")')
             
-        cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=0)        
+        cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)        
                         
         cv_res=GridSearchCV(
-            XGBClassifier(seed=123,use_label_encoder=False,verbosity=0),para_space,cv=cv,
+            XGBClassifier(seed=self.random_state,use_label_encoder=False,verbosity=0),para_space,cv=cv,
             n_jobs=self.n_jobs,verbose=self.verbose,
             scoring=scorer,error_score=0).fit(self.X,self.y)
         
@@ -212,10 +227,19 @@ class BayesianXGBTuner(BaseEstimator):
         
         return ParaDf_all
     
+    def p_to_score(self,pred,PDO=75,base=660,ratio=1/15):
+        
+        B=1*PDO/np.log(2)
+        A=base + B*np.log(ratio)
+        score=A-B*np.log(pred/(1-pred))
+        
+        return np.round(score,0)
+    
 
 class BayesianLgbmTuner(BaseEstimator):
     
-    def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,n_jobs=-1,verbose=0):
+    def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,
+                 n_jobs=-1,verbose=0,random_state=123):
         '''
         使用贝叶斯优化参数的LightGBM
         Parameters:
@@ -229,6 +253,7 @@ class BayesianLgbmTuner(BaseEstimator):
             refit:bool,最优参数下是否重新拟合模型，默认True  
             n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
             verbose,int,并行信息输出等级
+            random_state,随机种子
             
             """参数空间写法        
         
@@ -271,7 +296,7 @@ class BayesianLgbmTuner(BaseEstimator):
         self.refit=refit
         self.n_jobs=n_jobs
         self.verbose=verbose
-
+        self.random_state=random_state
         
     def predict_proba(self,X,y=None):
         '''
@@ -281,6 +306,17 @@ class BayesianLgbmTuner(BaseEstimator):
         X:pd.DataFrame对象
         '''      
         pred = self.lgbm_refit.predict_proba(X)[:,1]        
+        return pred
+    
+    def predict_score(self,X,y=None,PDO=75,base=660,ratio=1/15):
+        '''
+        最优参数下的模型的预测
+        Parameters:
+        --
+        X:pd.DataFrame对象
+        '''      
+        pred = self.lgbm_refit.predict_proba(X)[:,1]  
+        pred = self.p_to_score(pred,PDO,base,ratio)
         return pred
     
     def transform(self,X,y=None):     
@@ -358,10 +394,10 @@ class BayesianLgbmTuner(BaseEstimator):
         else:
             raise IOError('scoring not understood,should be "ks","auc","lift")')
             
-        cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=0)
+        cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)
                         
         cv_res=GridSearchCV(
-            LGBMClassifier(seed=123,min_child_weight=None),para_space,cv=cv,
+            LGBMClassifier(seed=self.random_state,min_child_weight=None),para_space,cv=cv,
             n_jobs=self.n_jobs,verbose=self.verbose,
             scoring=scorer,error_score=0).fit(self.X,self.y)
         
@@ -414,7 +450,13 @@ class BayesianLgbmTuner(BaseEstimator):
         
         return ParaDf_all    
     
-    
+    def p_to_score(self,pred,PDO=75,base=660,ratio=1/15):
+        
+        B=1*PDO/np.log(2)
+        A=base + B*np.log(ratio)
+        score=A-B*np.log(pred/(1-pred))
+        
+        return np.round(score,0)
     
     
     

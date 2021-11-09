@@ -8,23 +8,25 @@ Created on Fri Oct 15 09:32:09 2021
 
 from sklearn.base import BaseEstimator
 from sklearn import metrics
-from sklearn.model_selection import GridSearchCV,RandomizedSearchCV
-from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.experimental import enable_halving_search_cv
+from sklearn.model_selection import HalvingGridSearchCV,HalvingRandomSearchCV,RepeatedStratifiedKFold
 import numpy as np
 import pandas as pd
 
-class girdTuner(BaseEstimator):
+class hgirdTuner(BaseEstimator):
     
-    def __init__(self,Estimator,para_space,method='random_gird',n_iter=10,scoring='auc',repeats=1,cv=5,
+    def __init__(self,Estimator,para_space,method='h_random',scoring='auc',repeats=1,cv=5,
+                 factor=3,n_candidates='exhaust',
                  n_jobs=-1,verbose=0,random_state=123):
         '''
-        Xgb与Lgbm的网格搜索与随机搜索
+        Xgb与Lgbm的sucessive halving搜索与sucessive halving搜索
         Parameters:
         --
             Estimator:拟合器,XGBClassifier或LGBMClassifier
-            method:str,可选"gird"或"random_gird"
-            para_space:dict,参数空间,注意随机搜索与网格搜索对应不同的dict结构,参数空间写法见后                        
-            n_iter:随机网格搜索迭代次数,当method="gird"时该参数会被忽略
+            method:str,可选"h_gird"或"h_random"
+            para_space:dict,参数空间,注意随机搜索与网格搜索对应不同的dict结构,参数空间写法见后                       
+            n_candidates:int or 'exhaust',halving random_search的抽样候选参数个数,当method="h_gird"时该参数会被忽略
+            factor:int,halving search中，1/factor的候选参数将被用于下一次迭代
             scoring:str,寻优准则,可选'auc','ks','lift'
             repeats:int,RepeatedStratifiedKFold交叉验证重复次数
             cv:int,交叉验证的折数
@@ -33,7 +35,7 @@ class girdTuner(BaseEstimator):
             random_state:随机种子
             
             """参数空间写法
-                当Estimator=XGBClassifier,method="gird":
+                当Estimator=XGBClassifier,method="h_gird":
                     
                     param_space={
                          'n_estimators':[100]
@@ -50,7 +52,7 @@ class girdTuner(BaseEstimator):
                          'max_delta_step':[0]
                          }
                 
-                当Estimator=XGBClassifier,method="random_gird":     
+                当Estimator=XGBClassifier,method="h_random":     
                    
                    from scipy.stats import randint as sp_randint
                    from scipy.stats import uniform as sp_uniform 
@@ -71,7 +73,7 @@ class girdTuner(BaseEstimator):
                          'max_delta_step':sp_uniform(loc=0,scale=0)
                          } 
                   
-                 当Estimator=LGBMClassifier,method="gird": 
+                 当Estimator=LGBMClassifier,method="h_gird": 
                      
                     para_space={
                          'boosting_type':['gbdt','goss'], 
@@ -88,7 +90,7 @@ class girdTuner(BaseEstimator):
                          'reg_lambda':[0,10], 
                          }
                     
-                 当Estimator=LGBMClassifier,method="random_gird": 
+                 当Estimator=LGBMClassifier,method="h_random": 
                      
                      from scipy.stats import randint as sp_randint
                      from scipy.stats import uniform as sp_uniform 
@@ -114,8 +116,8 @@ class girdTuner(BaseEstimator):
         --
             cv_result:交叉验证结果,需先使用fit
             params_best:最优参数组合,需先使用fit
-            gird_res:method="gird"下的网格优化结果,需先使用fit
-            r_gird_res:method="random_gird"下的网格优化结果,需先使用fit
+            h_gird_res:method="h_gird"下的优化结果,需先使用fit
+            h_random_res:method="h_random"下的优化结果,需先使用fit
             model_refit:最优参数下的模型,需先使用fit
             
         Examples
@@ -127,14 +129,15 @@ class girdTuner(BaseEstimator):
         self.Estimator=Estimator
         self.para_space=para_space
         self.method=method
-        self.n_iter=n_iter
+        self.factor=factor
+        self.n_candidates=n_candidates
         self.scoring=scoring
         self.cv=cv
         self.repeats=repeats
         self.n_jobs=n_jobs
         self.verbose=verbose     
         self.random_state=random_state
-
+        
         
     def predict_proba(self,X,y=None):
         '''
@@ -158,6 +161,7 @@ class girdTuner(BaseEstimator):
         
         return pred
     
+    
     def transform(self,X,y=None):   
          
         return self
@@ -170,25 +174,22 @@ class girdTuner(BaseEstimator):
         X:pd.DataFrame对象
         y:目标变量,pd.Series对象
         '''   
-        
-        self.X=X
-        self.y=y
-        
-        if self.method=='gird':
+
+        if self.method=='h_gird':
             
-            self.gird_search()
+            self.h_gird_search(X,y)
             #输出最优参数组合
-            self.params_best=self.gird_res.best_params_
-            self.cv_result=self.cvresult_to_df(self.gird_res.cv_results_)
-            self.model_refit = self.gird_res.best_estimator_   
+            self.params_best=self.h_gird_res.best_params_
+            self.cv_result=self.cvresult_to_df(self.h_gird_res.cv_results_)
+            self.model_refit = self.h_gird_res.best_estimator_   
         
-        elif self.method=='random_gird':
+        elif self.method=='h_random':
             
-            self.random_search()
+            self.h_random_search(X,y)
             #输出最优参数组合
-            self.params_best=self.r_gird_res.best_params_
-            self.cv_result=self.cvresult_to_df(self.r_gird_res.cv_results_)
-            self.model_refit = self.r_gird_res.best_estimator_
+            self.params_best=self.h_random_res.best_params_
+            self.cv_result=self.cvresult_to_df(self.h_random_res.cv_results_)
+            self.model_refit = self.h_random_res.best_estimator_
             
         else:
             raise IOError('method should be "gird" or "random_gird".')
@@ -197,7 +198,7 @@ class girdTuner(BaseEstimator):
         
         return self    
     
-    def gird_search(self):          
+    def h_gird_search(self,X,y):          
         '''
         网格搜索
         '''  
@@ -212,18 +213,21 @@ class girdTuner(BaseEstimator):
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state) 
         
-        gird=GridSearchCV(self.Estimator(random_state=self.random_state),self.para_space,cv=cv,
-                          n_jobs=self.n_jobs,
-                          refit=True,
-                          verbose=self.verbose,
-                          scoring=scorer,error_score=0)    
+        hgird=HalvingGridSearchCV(self.Estimator(random_state=self.random_state),
+                                  param_grid=self.para_space,
+                                  cv=cv,
+                                  refit=True,
+                                  factor=self.factor,
+                                  scoring=scorer,
+                                  verbose=self.verbose,
+                                  n_jobs=self.n_jobs)
         
-        self.gird_res=gird.fit(self.X,self.y)
+        self.h_gird_res=hgird.fit(X,y)
         
         return self
         
         
-    def random_search(self):  
+    def h_random_search(self,X,y):  
         '''
         随机网格搜索
         '''         
@@ -239,12 +243,19 @@ class girdTuner(BaseEstimator):
         
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state) 
         
-        r_gird=RandomizedSearchCV(self.Estimator(random_state=self.random_state),self.para_space,cv=cv,
-                                  n_jobs=self.n_jobs,verbose=self.verbose,refit=True,
-                                  random_state=self.random_state,
-                                  scoring=scorer,error_score=0,n_iter=self.n_iter)
+        h_r_gird=HalvingRandomSearchCV(self.Estimator(random_state=self.random_state),
+                                     param_distributions=self.para_space,
+                                     n_candidates=self.n_candidates,
+                                     factor=self.factor,
+                                     cv=cv,
+                                     n_jobs=self.n_jobs,
+                                     verbose=self.verbose,
+                                     refit=True,
+                                     random_state=self.random_state,
+                                     scoring=scorer,
+                                     error_score=0)
         
-        self.r_gird_res=r_gird.fit(self.X,self.y)
+        self.h_random_res=h_r_gird.fit(X,y)
         
         return self
     
@@ -283,6 +294,7 @@ class girdTuner(BaseEstimator):
         '''          
         return pd.DataFrame(cv_results_)    
     
+    
     def p_to_score(self,pred,PDO=75,base=660,ratio=1/15):
         
         B=1*PDO/np.log(2)
@@ -290,9 +302,5 @@ class girdTuner(BaseEstimator):
         score=A-B*np.log(pred/(1-pred))
         
         return np.round(score,0)
-        
-        
-        
-        
     
     

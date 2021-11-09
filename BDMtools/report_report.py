@@ -20,7 +20,7 @@ from joblib import Parallel,delayed
 
 class EDAReport(TransformerMixin):
     
-    def __init__(self,categorical_col=None,numeric_col=None,miss_value=[np.nan,'nan'],is_nacorr=False,out_path="report"):
+    def __init__(self,categorical_col=None,numeric_col=None,special_values=[np.nan,'nan'],is_nacorr=False,out_path="report"):
         """ 
         产生数据质量报告
         Params:
@@ -40,7 +40,7 @@ class EDAReport(TransformerMixin):
         """
         self.categorical_col = categorical_col
         self.numeric_col = numeric_col
-        self.miss_value=miss_value
+        self.special_values=special_values
         self.is_nacorr=is_nacorr
         self.out_path=out_path
         
@@ -49,14 +49,14 @@ class EDAReport(TransformerMixin):
         if X.size:
             
             #填充缺失值
-            self.X=X.copy().replace(self.miss_value,np.nan)   
+            X=X.replace(self.special_values,np.nan)   
             
             #产生报告
-            self.num_report=self.num_info()
-            self.char_report=self.char_info()
-            self.na_report=self.nan_info()        
+            self.num_report=self.num_info(X)
+            self.char_report=self.char_info(X)
+            self.na_report=self.nan_info(X)        
             if self.is_nacorr:
-                self.nacorr_report=self.nan_corr()
+                self.nacorr_report=self.nan_corr(X)
             
             #输出报告    
             if self.out_path: 
@@ -78,20 +78,18 @@ class EDAReport(TransformerMixin):
             return pd.DataFrame(None)        
     
 
-    def num_info(self):
+    def num_info(self,X):
         
         """ 数据质量报告-数值特征
         """
         
-        data =self.X
-        
         if self.numeric_col is None:
-            num_col=data.select_dtypes(include='number').columns
+            num_col=X.select_dtypes(include='number').columns
         else:
             num_col=self.num_col
 
-        report=data[num_col].describe(percentiles=[0.2,0.4,0.6,0.8]).T.assign(
-            MissingRate=data.apply(   
+        report=X[num_col].describe(percentiles=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]).T.assign(
+            MissingRate=X.apply(   
                 lambda col:col.isnull().sum()/col.size    
                )
         ).reset_index().rename(columns={'index':'VarName'})
@@ -99,59 +97,56 @@ class EDAReport(TransformerMixin):
         return report
     
 
-    def char_info(self):
+    def char_info(self,X):
         """ 数据质量报告-分类特征
         """
         
-        data=self.X
-        
         if self.categorical_col is None:
-            category_col=data.select_dtypes(include=['object','category']).columns
+            category_col=X.select_dtypes(include=['object','category']).columns
         else:
             category_col=self.category_col
     
         report=pd.DataFrame()
         for Col in category_col:
 
-            ColTable=data[Col].value_counts().sort_index().rename('Freq').reset_index() \
+            ColTable=X[Col].value_counts().sort_index().rename('Freq').reset_index() \
                 .rename(columns={'index':'Levels'}).assign(VarName=Col)[['VarName','Levels','Freq']]
 
-            ColTable['Percent']=ColTable.Freq/data[Col].size #占比
+            ColTable['Percent']=ColTable.Freq/X[Col].size #占比
             ColTable['CumFreq']=ColTable.Freq.cumsum() #累计(分类特征类别有次序性时有参考价值)
-            ColTable['CumPercent']=ColTable.CumFreq/data[Col].size #累计占比(分类特征类别有次序性时有参考价值)
+            ColTable['CumPercent']=ColTable.CumFreq/X[Col].size #累计占比(分类特征类别有次序性时有参考价值)
 
             report=pd.concat([report,ColTable])
         
         return report
     
    
-    def nan_info(self):
+    def nan_info(self,X):
         """ 数据质量报告-缺失特征
         """        
-        data=self.X
         
         report=pd.DataFrame(
-        {'N':data.apply(   
+        {'N':X.apply(   
             lambda col:col.size      
            ),
-        'Missings':data.apply(   
+        'Missings':X.apply(   
             lambda col:col.isnull().sum()   
            ),
-        'MissingRate':data.apply(   
+        'MissingRate':X.apply(   
             lambda col:col.isnull().sum()/col.size    
                ),
-        'dtype':data.dtypes
+        'dtype':X.dtypes
             } ).reset_index().rename(columns={'index':'VarName'})
     
         return report
     
-    #@property     
-    def nan_corr(self):
+  
+    def nan_corr(self,X):
         """ 数据质量报告-缺失特征相关性
         """        
-        data=self.X        
-        nan_info=data.isnull().sum()
-        nan_corr_table=data[nan_info[nan_info>0].index].isnull().corr()
+      
+        nan_info=X.isnull().sum()
+        nan_corr_table=X[nan_info[nan_info>0].index].isnull().corr()
         return nan_corr_table
     
     def writeExcel(self):
@@ -281,19 +276,13 @@ class businessReport(TransformerMixin):
 
 class varReport(TransformerMixin):
     
-    def __init__(self,breaks_list_dict,special_values=[np.nan],apply_dt=None,psi_base_mon='latest',out_path=None,tab_suffix='',n_jobs=-1,verbose=0):
+    def __init__(self,breaks_list_dict,special_values=[np.nan],out_path=None,tab_suffix='',n_jobs=-1,verbose=0):
         """ 
         产生业务报告
         Params:
         ------
             breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
             special_values:list,缺失值指代值
-            apply_dt:pd.Series,用于标示X的时期的字符型列且需要能转化为int
-                + eg:pd.Series(['202001','202002‘...],name='apply_mon',index=X.index)
-            psi_base_mon:str,当apply_dt非空时,psi计算的基准,可选earliest和latest，也可用户自定义
-                + earliest:选择数据中apply_dt中最早的时期的分布作为psi基准
-                + latest:选择数据中apply_dt中最晚的时期的分布作为psi基准
-                + all: 选择总分布作为psi基准
             out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
             tab_suffix:本地excel报告名后缀
             n_jobs:int,并行计算job数
@@ -302,13 +291,9 @@ class varReport(TransformerMixin):
         Attributes:
         -------
             var_report_dict:dict,特征分析报告字典
-            var_report_dict_simplified:dict,apply_dt非None时产生的简化版特征分析报告
-            var_psi_report_dict:dict,apply_dt非None时产生的特征分析报告
         """
         self.breaks_list_dict = breaks_list_dict
         self.special_values=special_values
-        self.apply_dt = apply_dt
-        self.psi_base_mon=psi_base_mon
         self.n_jobs=n_jobs
         self.verbose=verbose
         self.out_path = out_path
@@ -323,7 +308,7 @@ class varReport(TransformerMixin):
             
             parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
             
-            out_list=parallel(delayed(self.getReport_Single)(X,y,col,self.breaks_list_dict[col],self.apply_dt,self.psi_base_mon,self.special_values) 
+            out_list=parallel(delayed(self.getReport_Single)(X,y,col,self.breaks_list_dict[col],self.special_values) 
                                for col in list(self.breaks_list_dict.keys())) 
             
             self.var_report_dict={col:total for col,total,_ in out_list}
@@ -350,7 +335,7 @@ class varReport(TransformerMixin):
             return pd.DataFrame(None)
         
     
-    def getReport_Single(self,X,y,col,breaklist_var,apply_dt,psi_base_mon,special_values):
+    def getReport_Single(self,X,y,col,breaklist_var,special_values):
          
          #print(col)
          #global psi_base_mon1,dis_mon
@@ -388,107 +373,18 @@ class varReport(TransformerMixin):
          else:
              
              raise IOError('dtypes in X in (number,object),others not support')
-             
-         
-         #第2步:判断是否需按月汇总
-         if apply_dt is not None:                
-             
-             var_bin_dt=pd.concat([var_bin,y],axis=1).join(apply_dt)
-             
-             var_report_dict_interval={} #每期的特征报告字典
-             
-             #var_report_dict_interval_simplified={} #每期的简化特征报告字典
-             
-             psi_ts_var={} ##每期的PSI报告字典
-                         
-             #定义的psi计算的基准月份
-             if psi_base_mon=='earliest':
-                 
-                 psi_base_mon=min(apply_dt.unique().tolist())
-                 
-             elif psi_base_mon=='latest':
-                 
-                 psi_base_mon=max(apply_dt.unique().tolist())
-             
-             elif psi_base_mon=='all':
-                 
-                 psi_base_mon=var_bin.value_counts().div(var_bin.size)
-                 psi_base_mon.index.name='bin'
-             
-             #elif isinstance(psi_base_mon,pd.core.series.Series):
-                 
-             #    psi_base_mon=psi_base_mon
-             
-             else:
-                 
-                 raise ValueError("psi_base_mon in ('earliest','latest' or ‘all’)")
-             
-             #计算所有指标
-             for mon in apply_dt.unique().tolist():
-             
-                 var_bin_mon=var_bin_dt[var_bin_dt[apply_dt.name].eq(mon)]
-                 rename_aggfunc=dict(zip(['count','sum','mean'],['count','bad','badprob']))
-                 result=pd.pivot_table(var_bin_mon,index=col,values=y.name,
-                                   margins=False,
-                                   aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(1,1) 
-                 #print(result)
-                 
-                 if result.size:
-                     
-                     #全部指标
-                     var_report_dict_interval[mon]=self.getVarReport_ks(result,col)
-                     
-                     #print(getVarReport_ks(result,col))
-                     
-                     #简化版，简化版指标在这里定义
-                     #var_report_dict_interval_simplified[mon]=var_report_dict_interval[mon][['count','badprob','total_iv','ks','ks_max']]
-                     
-                     #PSI指标
-                     psi_ts_var[mon]=var_report_dict_interval[mon]['count_distr']
- 
-                 else:
-                     
-                     var_report_dict_interval[mon]=None
- 
-             #计算PSI
-             dis_mon=pd.concat(psi_ts_var,axis=1).fillna(0)
-             
-             if isinstance(psi_base_mon,str):
-             
-                 dis_mon_psi=dis_mon.apply(lambda x:self.psi(dis_mon[psi_base_mon],x),0)
-                 
-             else:
-                 
-                 dis_mon_psi=dis_mon.apply(lambda x:self.psi(psi_base_mon,x),0)
-             
-             dis_mon=pd.concat([dis_mon,pd.DataFrame(dis_mon_psi.sum().rename('psi')).T],axis=0)
-             dis_mon.index.name='bin'
-             
-             #dis_mon_psi.columns=dis_mon_psi.columns+'_psi'                
-             #dis_mon_psi=pd.concat([dis_mon_psi,pd.DataFrame(dis_mon_psi.sum().rename('psi')).T],axis=0)
-             #dis_mon_psi_all=dis_mon.join(dis_mon_psi,how='right')
-               
-                 
-             #汇总所有表          
-             
-             var_report_df_interval=pd.concat(var_report_dict_interval,axis=1)               
-             #return var_report_df_interval,var_report_df_interval_simplified,dis_mon  
-             return col,var_report_df_interval,dis_mon
-         
          
          #若只计算全量数据则只输出全量的特征分析报告
-         else:
              
-             var_bin=pd.concat([var_bin,y],axis=1)
-         
-             #print var_bin
-             rename_aggfunc=dict(zip(['count','sum','mean'],['count','bad','badprob']))
-             result=pd.pivot_table(var_bin,index=col,values=y.name,
-                               #columns=apply_dt.name,
-                               margins=False,
-                               aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(1,1) 
- 
-             return col,self.getVarReport_ks(result,col),None   
+         var_bin=pd.concat([var_bin,y],axis=1)
+    
+         #print var_bin
+         rename_aggfunc=dict(zip(['count','sum','mean'],['count','bad','badprob']))
+         result=pd.pivot_table(var_bin,index=col,values=y.name,
+                           margins=False,
+                           aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(1,1) 
+
+         return col,self.getVarReport_ks(result,col),None   
 
             
     def getVarReport_ks(self,var_ptable,col):
@@ -622,34 +518,10 @@ class varReport(TransformerMixin):
                               if_sheet_exists='replace',
                               #engine_kwargs={'mode':'a','if_sheet_exists':'replace'},
                               engine='openpyxl')
-        
-        if self.apply_dt is not None:
-            
-            #var_report_df.columns.levels[0]为时间,按照时间升序排序
-            var_report_df=pd.concat(self.var_report_dict)
-            var_report_df=var_report_df[product(sorted(var_report_df.columns.levels[0],reverse=False),var_report_df.columns.levels[1])]
-            
-            var_report_psi_df=pd.concat(self.var_report_psi).sort_index(axis=1,ascending=True).reset_index().rename(columns={'level_0':'variable'})            
-        
-            var_report_df.to_excel(writer,sheet_name='bin_mon')
-            
-            #简化版报表
-            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['count','badprob','total_iv','ks','ks_max'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_brief')            
-            #频数报表
-            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['count'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_count')
-            #badprob
-            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['badprob'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_badp')
-            #ks报表
-            var_report_df.loc[:,product(var_report_df.columns.levels[0].tolist(),['ks_max'])].reset_index().rename(columns={'level_0':'variable'}).to_excel(writer,sheet_name='bin_mon_ks')
-            #psi报表
-            var_report_psi_df.to_excel(writer,sheet_name='psi_mon')
-        
-        else:
-            
-            pd.concat(self.var_report_dict).to_excel(writer,sheet_name='bin')            
-        
-            
+           
+        pd.concat(self.var_report_dict).to_excel(writer,sheet_name='bin')                               
         writer.save()     
+        
         print('to_excel done') 
         
         
@@ -657,7 +529,7 @@ class varReport(TransformerMixin):
 
 class varGroupsReport(TransformerMixin):
     
-    def __init__(self,breaks_list_dict,columns,sort_columns=None,target='target',output_psi=False,psi_base='all',
+    def __init__(self,breaks_list_dict,columns,sort_columns=None,target='target',row_limit=1000,output_psi=False,psi_base='all',
                  special_values=[np.nan],n_jobs=-1,verbose=0,out_path=None,tab_suffix='_group'):
         """ 
         产生组业务报告
@@ -670,7 +542,8 @@ class varGroupsReport(TransformerMixin):
         output_psi:bool,是否输出群组psi报告
         psi_base:str,psi计算的基准,可选all，也可用户自定义
             + 'all':以特征在全量数据的分布为基准
-            + user-define:用户输入支持X.query的表达式以确定base
+            + user-define:用户输入支持X.query的表达式以确定base           
+        row_limit,int,分组行数限制，小于限制的组不统计其任何指标，返回空，建议设定此参数以保证分组统计计算不出错
         special_values:list,缺失值指代值
         n_jobs:int,并行计算job数
         verbose:int,并行计算信息输出等级
@@ -686,6 +559,7 @@ class varGroupsReport(TransformerMixin):
         self.target=target
         self.columns=columns
         self.sort_columns=sort_columns      
+        self.row_limit=row_limit
         self.output_psi=output_psi
         self.psi_base=psi_base
         self.special_values=special_values
@@ -698,6 +572,8 @@ class varGroupsReport(TransformerMixin):
         
 
         if X.size:
+            
+            X=X[list(self.breaks_list_dict.keys)]
             
             if self.sort_columns:
                 
@@ -717,7 +593,7 @@ class varGroupsReport(TransformerMixin):
                 X_g=group_dt.drop([self.target]+self.columns,axis=1)
                 y_g=group_dt[self.target]    
             
-                if X.size>1000:
+                if X.size>self.row_limit:
                     res=varReport(breaks_list_dict=self.breaks_list_dict,
                                   special_values=self.special_values,
                                   n_jobs=self.n_jobs,                                  
