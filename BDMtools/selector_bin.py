@@ -290,7 +290,7 @@ class optbinSelector(TransformerMixin):
             optbindf_ks=pd.concat(bin_res_ks.values())
 
             self.iv_info=optbindf_ks.groupby('variable')['bin_iv'].sum().rename('total_iv')
-            self.ks_info=optbindf_ks.groupby('variable')['ks'].max().rename('total_iv')
+            self.ks_info=optbindf_ks.groupby('variable')['ks'].max().rename('ks_max')
             
             #IV筛选特征
             self.keep_col=self.iv_info[self.iv_info>=self.iv_limit].index.tolist()  
