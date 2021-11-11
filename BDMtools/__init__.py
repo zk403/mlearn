@@ -13,6 +13,7 @@ from BDMtools.tuner_girdcv import girdTuner
 from BDMtools.tuner_halvingcv import hgirdTuner
 from BDMtools.tuner_bayesian import BayesianXGBTuner,BayesianLgbmTuner
 from BDMtools.selector_bin_fun import binAdjusterKmeans,binAdjusterChi
+from BDMtools.tuner_fun import shapCheck
 
 
 __version__ = '0.0.8'
@@ -41,5 +42,6 @@ __all__ = (
     girdTuner,
     hgirdTuner,
     BayesianXGBTuner,
-    BayesianLgbmTuner
+    BayesianLgbmTuner,
+    shapCheck
 )

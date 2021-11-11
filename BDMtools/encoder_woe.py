@@ -27,7 +27,7 @@ class woeTransformer(TransformerMixin):
     n_jobs,int,并行数量,默认-1(所有core),在数据量非常大的前提下可极大提升效率，若数据量较少可设定为1
     verbose,int,并行信息输出等级        
     check_na:bool,为True时,在使用方法new时，若经woe编码后编码数据出现了缺失值，程序将报错终止   
-            出现此类错误时多半是因为test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高     
+            出现此类错误时多半是某箱样本量为1，或test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高     
     Attributes:
     -------
     """

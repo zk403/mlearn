@@ -382,7 +382,7 @@ class varReport(TransformerMixin):
          rename_aggfunc=dict(zip(['count','sum','mean'],['count','bad','badprob']))
          result=pd.pivot_table(var_bin,index=col,values=y.name,
                            margins=False,
-                           aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(1,1) 
+                           aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(level=1,axis=1) 
 
          return col,self.getVarReport_ks(result,col),None   
 
@@ -646,10 +646,10 @@ class varGroupsReport(TransformerMixin):
                                         ['badprob']]].reset_index().rename(columns={'level_0':'variable'})     
                 
         report_out['report_iv']=report[[i for i in report.columns.tolist() if i[-1] in \
-                                   ['total_iv']]].droplevel(1).drop_duplicates().reset_index().rename(columns={'index':'variable'})  
+                                   ['total_iv']]].droplevel(level=1).drop_duplicates().reset_index().rename(columns={'index':'variable'})  
                 
         report_out['report_ks']=report[[i for i in report.columns.tolist() if i[-1] in \
-                                   ['ks_max']]].droplevel(1).drop_duplicates().reset_index().rename(columns={'index':'variable'}) 
+                                   ['ks_max']]].droplevel(level=1).drop_duplicates().reset_index().rename(columns={'index':'variable'}) 
         
         if self.output_psi:
             
@@ -662,7 +662,7 @@ class varGroupsReport(TransformerMixin):
                 base=pd.concat(all_var.var_report_dict)['count_distr']
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
-                psi_sum=report_distr.fillna(0).apply(lambda x:self.psi(x,base),axis=0).droplevel(1)\
+                psi_sum=report_distr.fillna(0).apply(lambda x:self.psi(x,base),axis=0).droplevel(level=1)\
                                       .reset_index().assign(bin='psi').groupby(['index','bin']).sum()
                                       
                 report_out['report_psi']=pd.concat([report_distr,psi_sum]).sort_index().reset_index().rename(columns={'level_0':'variable'})
@@ -676,7 +676,7 @@ class varGroupsReport(TransformerMixin):
                 base=pd.concat(all_var.var_report_dict)['count_distr']
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
-                psi_sum=report_distr.fillna(0).apply(lambda x:self.psi(x,base),axis=0).droplevel(1)\
+                psi_sum=report_distr.fillna(0).apply(lambda x:self.psi(x,base),axis=0).droplevel(level=1)\
                                       .reset_index().assign(bin='psi').groupby(['index','bin']).sum()
                                       
                 report_out['report_psi']=pd.concat([report_distr,psi_sum]).sort_index().reset_index().rename(columns={'level_0':'variable'})                
