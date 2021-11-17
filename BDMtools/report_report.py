@@ -467,30 +467,38 @@ class varReport(TransformerMixin):
                 if isinstance(value,list):
                     count=count+1           
                 break
+            
+        columns=list(break_list.keys())
         
         #toad格式时转换为sc格式
         if count>0:
         
-            cate_colname=X.select_dtypes(exclude='number')
-            num_colname=X.select_dtypes(include='number')
+            cate_colname=X[columns].select_dtypes(exclude='number')
+            num_colname=X[columns].select_dtypes(include='number')
 
             break_list_sc=dict()
 
             #将toad的breaklist转化为scorecardpy的breaklist
             for key in break_list.keys():
-                if key in cate_colname and break_list[key]:#防止分箱结果为空
+                
+                #分类列需调整格式
+                if key in cate_colname and break_list[key]: 
 
                     bin_value_list=[]
+                    
                     for value in break_list[key]:
                         #if 'nan' in value:
                         #    value=pd.Series(value).replace('nan','missing').tolist()
                         bin_value_list.append('%,%'.join(value))
 
                     break_list_sc[key]=bin_value_list
-
-                elif key in num_colname and break_list[key]:#防止分箱结果为空
+                
+                #数值列默认
+                elif key in num_colname and break_list[key]:
+                    
                     break_list_sc[key]=break_list[key]
-
+                
+                #空breaklist调整格式
                 else:
 
                     break_list_sc[key]=[-np.inf,np.inf]
@@ -498,8 +506,9 @@ class varReport(TransformerMixin):
         else:   
             break_list_sc=break_list
                 
-        return break_list_sc
-        
+        return break_list_sc 
+
+    
     
     def writeExcel(self):
         
