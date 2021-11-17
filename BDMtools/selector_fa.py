@@ -37,8 +37,7 @@ class faSelector(BaseEstimator):
             scale=True:聚类前是否进行数据标准化,
             by='r2-ratio',聚类后的特征筛选方式
                 + 'r2-ratio':与SAS一致，将筛选每一类特征集中r2-ratio最小的特征
-                + pd.Series:用户自定义权重,要求index为列名，value为权重值，例如是iv,ks等  
-                
+                + pd.Series:用户自定义权重,要求index为列名，value为权重值，例如iv,ks等                  
             is_greater_better=True,若by参数内容为用户自定义权重,is_greater_better=True表示权重越高特征越重要,反之则越不重要
                
         Attribute:    

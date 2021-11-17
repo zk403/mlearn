@@ -667,12 +667,18 @@ class varGroupsReport(TransformerMixin):
                                       
                 report_out['report_psi']=pd.concat([report_distr,psi_sum]).sort_index().reset_index().rename(columns={'level_0':'variable'})
             
-            else: 
+            else:            
+                
+                X_q=X.query(psi_base)
+                
+                if not X_q.size:
+                    
+                    raise IOError('X.query has 0 row, check the query expr.')
                 
                 all_var=varReport(breaks_list_dict=self.breaks_list_dict,
                                   special_values=self.special_values,
                                   n_jobs=self.n_jobs,                                  
-                                  verbose=self.verbose).fit(X.query(psi_base).drop(self.target,axis=1),X[self.target])
+                                  verbose=self.verbose).fit(X_q.drop(self.target,axis=1),X[self.target])
                 base=pd.concat(all_var.var_report_dict)['count_distr']
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]

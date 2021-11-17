@@ -12,6 +12,12 @@ import statsmodels.formula.api as smf
 from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import scorecardpy as sc
+import numpy as np
+from statsmodels.discrete.discrete_model import BinaryResultsWrapper
+from sklearn.linear_model._logistic import LogisticRegression
+from pandas.api.types import is_numeric_dtype,is_string_dtype
+from itertools import product
+from joblib import Parallel,delayed
 
 
 class stepLogit(BaseEstimator):
@@ -232,45 +238,199 @@ class stepLogit(BaseEstimator):
             return(vif)    
 
 
+
 class cardScorer(TransformerMixin):
     
-    def __init__(self,logit_model,varbin,odds0=1/100,pdo=50,points0=600):
+    def __init__(self,logit_model,varbin,odds0=1/100,pdo=50,points0=600,digit=0,method='new',check_na=True,n_jobs=1,verbose=0):
         '''
         评分转换
         Parameters:
         --
-            logit_model:stepwise后的statsmodel的logit回归模型对象
+            logit_model:statsmodel/sklearn的logit回归模型对象
+                + statsmodel.discrete.discrete_model.BinaryResultsWrapper类
+                + sklearn.linear_model._logistic.LogisticRegression类
             varbin:sc.woebin产生的分箱信息,dict格式,woe编码参照此编码产生
             odds0=1/100:基准分对应的发生比(bad/good)
-            pdo=20:int,评分翻番时间隔
+            pdo=50:int,评分翻番时间隔
             points0=600,int,基准分
+            digit=0,评分卡打分保留的小数位数
+            method=‘new’:str,可选'old'和'new'
+                + ‘old’:使用sc.scorecard_ply对全量数据打分
+                + 'new':使用内置函数对全量数据打分,其优化了效率与内存使用，注意,使用方法new时需对原始数据进行缺失值填充处理，详见bm.nanTransformer
+                        - 连续特征填充为有序值如-999,分类特可填充为missing
+                        - 此时需使用sc.woebin对填充后的数据进行处理产生varbin作为本模块入参，且sc.woebin的special_values参数必须设定为None
+            check_na,bool,为True时,在使用方法new时，若经打分后编码数据出现了缺失值，程序将报错终止   
+                    出现此类错误时多半是某箱样本量为1，或test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高
+            n_jobs=1,并行数量,默认-1(所有core),在数据量非常大,特征非常多的前提下可极大提升效率，若数据量较少可设定为1    
+            verbose=0,并行信息输出等级  
+            
         
         Attribute:    
         --
             scorecard:dict,产生的评分卡,须先使用方法fit
+            
         '''        
         self.logit_model=logit_model
         self.varbin=varbin
         self.odds0=odds0
         self.pdo=pdo
         self.points0=points0
+        self.digit=digit
+        self.check_na=check_na
+        self.n_jobs=n_jobs
+        self.verbose=verbose
+        self.method=method
         
     def fit(self):        
-        self.logit_model.coef_=self.logit_model.params[1:]
-        self.logit_model.intercept_=[self.logit_model.params[0]]
-        self.scorecard=sc.scorecard(self.varbin,
-                           self.logit_model,
-                           self.logit_model.params[1:].index.tolist(),
-                           odds0=self.odds0,
-                           points0=self.points0,
-                           pdo=self.pdo)
+                
+        if isinstance(self.logit_model,BinaryResultsWrapper):    
+            
+            logit_model_coef=self.logit_model.params[1:].to_dict()
+            logit_model_intercept=self.logit_model.params[0]
+            self.columns=list(logit_model_coef.keys())
+        
+        elif isinstance(self.logit_model,LogisticRegression):  
+            
+            logit_model_coef=dict(zip(self.logit_model.feature_names_in_.tolist(),self.logit_model.coef_.tolist()[0]))
+            logit_model_intercept=self.logit_model.intercept_[0]
+            self.columns=self.logit_model.feature_names_in_.tolist()
+            
+        else:
+            raise IOError('type(logit_model) in (statsmodels.discrete.discrete_model.BinaryResultsWrapper,sklearn.linear_model._logistic.LogisticRegression)')
+            
+        self.scorecard=self.getPoints(self.varbin,logit_model_coef,logit_model_intercept,self.digit)
+        
         return self
+    
     
     def transform(self,X):
         
-        score=sc.scorecard_ply(X,self.scorecard,only_total_score=False)
         
-        return score
+        if self.method=='old':
+            
+            score=sc.scorecard_ply(X[self.columns],self.scorecard,only_total_score=False)
+        
+            return score
+        
+        elif self.method=='new':
+            
+            p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+            
+            res=p(delayed(self.points_map)(X[key],self.scorecard[key],np.nan,self.check_na) 
+                              for key in self.columns)
+            
+            score=pd.concat({col:col_points for col,col_points in res},axis=1)
+            
+            score['score']=score.sum(axis=1).add(self.scorecard['intercept']['points'][0])
+            
+            return score  
+        
+        else:
+            
+            raise IOError('method in ("old","new")')
+
+    
+    def getPoints(self,varbin,logit_model_coef,logit_model_intercept,digit):
+        
+        A,B=self.getAB(base=self.points0, ratio=self.odds0, PDO=self.pdo)
+        
+        bin_keep={col:varbin[col] for col in logit_model_coef.keys()}
+        
+        points_intercept=round(A-B*(logit_model_intercept),digit)
+        points_all={}
+        points_all['intercept']=pd.DataFrame({'variable':'intercept',
+                                              'bin':np.nan,
+                                              'points':pd.Series(points_intercept)})
+        
+        for col in bin_keep:
+            
+            bin_points=bin_keep[col].join(
+                        bin_keep[col]['woe'].mul(logit_model_coef[col]).mul(B).mul(-1).round(digit).rename('points') 
+                    )[['variable','bin','points','woe','breaks']]
+            
+            points_all[col]=bin_points
+            
+        return points_all
+    
+
+    def getAB(self,base=600, ratio=1/100, PDO=50):        
+            
+        b = PDO/np.log(2)
+        a = base + b*np.log(ratio) 
+        
+        return a,b
+    
+    
+    def points_map(self,col,bin_df,special_values,check_na=True):
+    
+        if is_numeric_dtype(col):
+            
+            bin_df_drop= bin_df[~bin_df['breaks'].isin(["-inf","inf"])]
+            
+            breaks=bin_df_drop['breaks'].astype('float64').tolist()
+            
+            points=bin_df['points'].tolist()
+    
+            col_points=pd.cut(col,[-np.inf]+breaks+[np.inf],labels=points,right=False,ordered=False).astype('float32')
+            
+        elif is_string_dtype(col):
+            
+            breaks=bin_df['bin'].tolist();points=bin_df['points'].tolist()
+           
+            raw_to_breaks=self.raw_to_bin_sc(col.unique().tolist(),breaks,special_values=special_values)
+            
+            breaks_to_points=dict(zip(breaks,points))
+            
+            col_points=col.replace(special_values,'missing').map(raw_to_breaks).map(breaks_to_points).astype('float32')
+            
+        else:
+            
+            raise ValueError(col.name+"‘s dtype not in ('number' or 'str')")
+            
+        if check_na:
+            
+            if col_points.isnull().sum()>0:
+                
+                raise ValueError(col.name+"_points contains nans")
+            
+        return col.name,col_points
+        
+    
+    def raw_to_bin_sc(self,var_code_raw,breaklist_var,special_values):
+        
+        """ 
+        分箱转换，将分类特征的值与breaks对应起来
+        1.只适合分类bin转换
+        2.此函数只能合并分类的类不能拆分分类的类        
+        """ 
+        
+        breaklist_var_new=[i.replace(special_values,'missing').unique().tolist()
+                                   for i in [pd.Series(i.split('%,%')) 
+                                             for i in breaklist_var]]
+        
+        map_codes={}
+        
+        for raw,map_code in product(var_code_raw,breaklist_var_new):
+            
+            
+            #多项组合情况
+            if '%,%' in raw:
+                
+                raw_set=set(raw.split('%,%'))
+                
+                #原始code包含于combine_code中时
+                if not raw_set-set(map_code):
+
+                    map_codes[raw]='%,%'.join(map_code)
+            
+            #单项情况
+            elif raw in map_code:
+                
+                map_codes[raw]='%,%'.join(map_code)
+            
+            #print(raw,map_code)
+   
+        return map_codes
     
     
     

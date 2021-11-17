@@ -31,7 +31,7 @@ class BayesianXGBTuner(BaseEstimator):
             scoring:str,寻优准则,可选'auc','ks','lift'
             cv:int,RepeatedStratifiedKFold交叉验证的折数
             repeats:int,RepeatedStratifiedKFold交叉验证重复次数
-            refit:bool,最优参数下是否重新拟合模型，默认True
+            refit:bool,最优参数下是否重新在全量数据上拟合模型，默认True
             n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
             verbose,int,并行信息输出等级
             random_state,随机种子
@@ -262,7 +262,7 @@ class BayesianLgbmTuner(BaseEstimator):
             scoring:str,寻优准则,可选'auc','ks','lift'
             cv:int,RepeatedStratifiedKFold交叉验证的折数
             repeats:int,RepeatedStratifiedKFold交叉验证重复次数
-            refit:bool,最优参数下是否重新拟合模型，默认True  
+            refit:bool,最优参数下是否重新在全量数据上拟合模型，默认True  
             n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
             verbose,int,并行信息输出等级
             random_state,随机种子

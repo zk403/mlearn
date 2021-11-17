@@ -50,7 +50,7 @@ class girdTuner(BaseEstimator):
                          'subsample':[0.6,0.8],
                          'colsample_bytree' :[0.6,0.8],
                          'reg_lambda':[0,10], 
-                         'scale_pos_weight':[1,11],
+                         'scale_pos_weight':[1,10],
                          'max_delta_step':[0]
                          }
                 
