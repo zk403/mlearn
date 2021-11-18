@@ -2,7 +2,7 @@
 
 from BDMtools.cleaner_cleaner import outliersTransformer,dtpypeAllocator,nanTransformer
 from BDMtools.report_report import businessReport,EDAReport,varReport,varGroupsReport
-from BDMtools.selector_bin import finbinSelector,optbinSelector
+from BDMtools.selector_bin import binSelector
 from BDMtools.selector_fa import faSelector
 from BDMtools.selector_logtit import stepLogit,cardScorer
 from BDMtools.selector_simple import preSelector,corrSelector
@@ -28,8 +28,7 @@ __all__ = (
     varGroupsReport,
     binAdjusterKmeans,
     binAdjusterChi,
-    finbinSelector,
-    optbinSelector,
+    binSelector,
     faSelector,
     stepLogit,
     cardScorer,
