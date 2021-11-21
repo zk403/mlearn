@@ -24,7 +24,7 @@ class woeTransformer(TransformerMixin):
         + 'new':使用内置函数进行woe编码,其优化了效率与内存使用,注意,使用方法new时需对原始数据进行缺失值及特殊值进行填充处理，详见bm.nanTransformer
                 - 连续特征填充为有序值如-999,分类特可填充为missing
                 - 此时需使用sc.woebin对填充后的数据进行处理产生varbin作为本模块入参，且sc.woebin的special_values参数必须设定为None
-    n_jobs,int,并行数量,默认-1(所有core),在数据量非常大的前提下可极大提升效率，若数据量较少可设定为1
+    n_jobs,int,并行数量,默认1(所有core),在数据量非常大的前提下可极大提升效率，若数据量较少可设定为1
     verbose,int,并行信息输出等级        
     check_na:bool,为True时,在使用方法new时，若经woe编码后编码数据出现了缺失值，程序将报错终止   
             出现此类错误时多半是某箱样本量为1，或test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高     

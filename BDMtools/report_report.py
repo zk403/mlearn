@@ -534,8 +534,6 @@ class varReport(TransformerMixin):
         print('to_excel done') 
         
         
-        
-
 class varGroupsReport(TransformerMixin):
     
     def __init__(self,breaks_list_dict,columns,sort_columns=None,target='target',row_limit=1000,output_psi=False,psi_base='all',
@@ -552,7 +550,9 @@ class varGroupsReport(TransformerMixin):
         psi_base:str,psi计算的基准,可选all，也可用户自定义
             + 'all':以特征在全量数据的分布为基准
             + user-define:用户输入支持X.query的表达式以确定base           
-        row_limit,int,分组行数限制，小于限制的组不统计其任何指标，返回空，建议设定此参数以保证分组统计计算不出错
+        row_limit,int,分组行数限制，建议设定该参数至合理水平
+            + 默认每组最少1000行，小于限制的组不统计其任何指标，返回空，
+            + 当数据中存在组样本过少时，分组进行统计的bin可能会在某些分段内缺失导致concat时出现index overlapping错误，此时可适当提高row_limit以避免此类错误
         special_values:list,缺失值指代值
         n_jobs:int,并行计算job数
         verbose:int,并行计算信息输出等级
@@ -603,7 +603,7 @@ class varGroupsReport(TransformerMixin):
                 X_g=group_dt.drop([self.target]+self.columns,axis=1)
                 y_g=group_dt[self.target]    
             
-                if X.size>self.row_limit:
+                if len(X_g)>self.row_limit:
                     
                     res=varReport(breaks_list_dict=self.breaks_list_dict,
                                   special_values=self.special_values,
@@ -613,6 +613,8 @@ class varGroupsReport(TransformerMixin):
                     result[i]=pd.concat(res.var_report_dict)
                     
                 else:
+                    warnings.warn('group '+str(i)+' has rows less than '+str(self.row_limit),',output will return None')         
+                    
                     result[i]=pd.DataFrame(None)       
                     
             report=pd.concat(result,axis=1)
@@ -672,7 +674,7 @@ class varGroupsReport(TransformerMixin):
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
                 psi_sum=report_distr.fillna(0).apply(lambda x:self.psi(x,base),axis=0).droplevel(level=1)\
-                                      .reset_index().assign(bin='psi').groupby(['index','bin']).sum()
+                                      .reset_index().assign(bin='psi').sort_index(axis=1).groupby(['index','bin']).sum()
                                       
                 report_out['report_psi']=pd.concat([report_distr,psi_sum]).sort_index().reset_index().rename(columns={'level_0':'variable'})
             
@@ -692,7 +694,7 @@ class varGroupsReport(TransformerMixin):
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
                 psi_sum=report_distr.fillna(0).apply(lambda x:self.psi(x,base),axis=0).droplevel(level=1)\
-                                      .reset_index().assign(bin='psi').groupby(['index','bin']).sum()
+                                      .reset_index().assign(bin='psi').sort_index(axis=1).groupby(['index','bin']).sum()
                                       
                 report_out['report_psi']=pd.concat([report_distr,psi_sum]).sort_index().reset_index().rename(columns={'level_0':'variable'})                
                         
