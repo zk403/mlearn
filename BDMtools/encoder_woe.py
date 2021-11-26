@@ -28,10 +28,10 @@ class woeTransformer(TransformerMixin):
     verbose,int,并行信息输出等级        
     check_na:bool,为True时,在使用方法new时，若经woe编码后编码数据出现了缺失值，程序将报错终止   
             出现此类错误时多半是某箱样本量为1，或test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高     
+            
     Attributes:
-    -------
-    """    
-    
+    -------   
+    """        
     
     def __init__(self,varbin,method='new',n_jobs=1,verbose=0,check_na=True):
         

@@ -233,8 +233,10 @@ class binSelector(TransformerMixin):
         """ 
         最优分箱
         """              
-        self.target=y.name
-        
+        if y.name:
+            self.target=y.name
+        else:
+            raise IOError('name y using pd.Series(y,name=yname)')        
         
         #若给定分箱breaklist已知,可直接调用并进行分箱与后续woe编码
         if self.break_list_adj:
@@ -273,7 +275,6 @@ class binSelector(TransformerMixin):
             elif self.method=='freq':
                 
                 self.breaks_list=self.getBreakslistFinbin(X,y,self.n_bins,self.special_values)
-
             
             #卡方单调分箱
             elif self.method == 'chi_m':
@@ -293,8 +294,7 @@ class binSelector(TransformerMixin):
                                                       method = self.method, n_bins=self.n_bins,min_samples=self.min_samples)            
                     
                 self.breaks_list=self.getBreaklist_sc(break_list_toad.export(),X,y)
-                
-                
+                                
                 
             else:
                 

@@ -39,6 +39,10 @@ class dtpypeAllocator(TransformerMixin):
                     + colname_list是列名列表,可以为None,代表无此类特征,注意各个类的列名列表不能出现交集与重复,否则将报错终止
                     + 若所有colname_list的特征只是数据所有列的一部分，则剩下部分的列将不做转换
                     + colname_list不能含有col_rm中的列,否则会出现错误
+            col_rm=None or list,不参与转换的列的列名列表，其不会参与任何转换且最终会保留在输出数据中        
+            dtype_num='float64',数值类型列转换方式，默认为float64，可以选择float32/float16，注意其可以有效减少数据的内存占用，但会损失数据精度
+            t_unit=‘1 D’,timedelta类列处理为数值的时间单位，默认天
+            drop_date=False,是否剔除原始数据中的日期列，默认False
 
         Returns:
         ------
@@ -51,7 +55,6 @@ class dtpypeAllocator(TransformerMixin):
         self.col_rm = col_rm
         self.drop_date=drop_date
         self.t_unit=t_unit
-
         
 
     def transform(self, X):
@@ -80,10 +83,8 @@ class dtpypeAllocator(TransformerMixin):
             else:
                 
                 raise IOError("dtypes_dict={'num':colname_list,'str':colname_list,'date':colname_list} or {}")
-                
-            
-            return(pd.concat([X_rm,X_out],axis=1))
-            
+                           
+            return(pd.concat([X_rm,X_out],axis=1))            
         
         else:
             
