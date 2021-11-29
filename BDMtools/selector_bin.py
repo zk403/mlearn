@@ -364,8 +364,11 @@ class binSelector(TransformerMixin):
         #toad格式时转换为sc格式
         if count>0:
         
-            cate_colname=X[columns].select_dtypes(exclude='number')
-            num_colname=X[columns].select_dtypes(include='number')
+            cate_colname=X[columns].select_dtypes(include='object').columns.tolist()
+            num_colname=X[columns].select_dtypes(include='number').columns.tolist()
+            oth_colname=X[columns].select_dtypes(exclude=['number','object']).columns.tolist()
+            if oth_colname:
+                raise IOError('supported X.dtypes only in (number,object),use bm.dtypeAllocator to format X')
 
             break_list_sc=dict()
 
@@ -392,6 +395,7 @@ class binSelector(TransformerMixin):
                 else:
 
                     break_list_sc[key]=[-np.inf,np.inf]
+                    
         #sc格式/toad全数值格式
         else:   
             
@@ -422,6 +426,9 @@ class binSelector(TransformerMixin):
         
         CatCol=X.select_dtypes(include='object').columns.tolist() #分类列
         NumCol=X.select_dtypes(include='number').columns.tolist() #数值列
+        OthCol=X.select_dtypes(exclude=['number','object']).columns.tolist()
+        if OthCol:
+            raise IOError('supported X.dtypes only in (number,object),use bm.dtypeAllocator to format X')
 
         breaklist={}
         

@@ -349,20 +349,16 @@ class varReport(TransformerMixin):
          if is_numeric_dtype(var_fillna):
            
              #按照分箱sc的breaklist的区间进行分箱
-             var_cut=pd.cut(var_fillna,[-np.inf]+breaklist_var+[np.inf],duplicates='drop',right=False)
+             var_cut=pd.cut(var_fillna,[-np.inf]+breaklist_var+[np.inf],duplicates='drop',right=False).cat.add_categories('missing')
              
-             var_bin=pd.Series(np.where(var_cut.isnull(),'missing',var_cut),
-                       index=var_cut.index,
-                       name=col)
+             var_bin=var_cut.fillna('missing')
          
          elif is_string_dtype(var_fillna):    
              
              var_cut=pd.Series(np.where(var_fillna.isnull(),'missing',var_fillna),
                        index=var_fillna.index,
                        name=var_fillna.name)
-             
-             
-             
+
              #转换字原始符映射到分箱sc的breaklist的字符映射
              var_code_raw=var_cut.unique().tolist()
                                    
@@ -377,7 +373,6 @@ class varReport(TransformerMixin):
          #若只计算全量数据则只输出全量的特征分析报告
              
          var_bin=pd.concat([var_bin,y],axis=1)
-    
          #print var_bin
          rename_aggfunc=dict(zip(['count','sum','mean'],['count','bad','badprob']))
          result=pd.pivot_table(var_bin,index=col,values=y.name,
@@ -473,9 +468,12 @@ class varReport(TransformerMixin):
         #toad格式时转换为sc格式
         if count>0:
         
-            cate_colname=X[columns].select_dtypes(exclude='number')
-            num_colname=X[columns].select_dtypes(include='number')
-
+            cate_colname=X[columns].select_dtypes(include='object').columns.tolist()
+            num_colname=X[columns].select_dtypes(include='number').columns.tolist()
+            oth_colname=X[columns].select_dtypes(exclude=['number','object']).columns.tolist()
+            if oth_colname:
+                raise IOError('supported X.dtypes only in (number,object),use bm.dtypeAllocator to format X')
+                
             break_list_sc=dict()
 
             #将toad的breaklist转化为scorecardpy的breaklist
@@ -487,8 +485,7 @@ class varReport(TransformerMixin):
                     bin_value_list=[]
                     
                     for value in break_list[key]:
-                        #if 'nan' in value:
-                        #    value=pd.Series(value).replace('nan','missing').tolist()
+   
                         bin_value_list.append('%,%'.join(value))
 
                     break_list_sc[key]=bin_value_list
@@ -583,7 +580,10 @@ class varGroupsReport(TransformerMixin):
         if X.size:
             
             
-            self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,axis=1).columns}            
+            self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,axis=1).columns}    
+
+            X=pd.concat([X.drop(self.columns,axis=1),X[self.columns].astype('str')],axis=1)
+
             
             if self.sort_columns:
                 
@@ -598,11 +598,11 @@ class varGroupsReport(TransformerMixin):
             X_g_gen=X.groupby(self.columns)
             
             for i in X_g_gen.groups:
-            
+                
                 group_dt=X_g_gen.get_group(i)
                 X_g=group_dt.drop([self.target]+self.columns,axis=1)
                 y_g=group_dt[self.target]    
-            
+                
                 if len(X_g)>self.row_limit:
                     
                     res=varReport(breaks_list_dict=self.breaks_list_dict,
@@ -613,18 +613,22 @@ class varGroupsReport(TransformerMixin):
                     result[i]=pd.concat(res.var_report_dict)
                     
                 else:
-                    warnings.warn('group '+str(i)+' has rows less than '+str(self.row_limit),',output will return None')         
+                    
+                    warnings.warn('group '+str(i)+' has rows less than '+str(self.row_limit)+',output will return None')         
                     
                     result[i]=pd.DataFrame(None)       
+            
+            try:     
+                report=pd.concat(result,axis=1)
+                
+                self.report_dict=self.getReport(X,report,output_psi=self.output_psi,psi_base=self.psi_base)                    
+                
+                if self.out_path:
                     
-            report=pd.concat(result,axis=1)
-            
-            self.report_dict=self.getReport(X,report,output_psi=self.output_psi,psi_base=self.psi_base)                    
-            
-            if self.out_path:
-                
-                self.writeExcel()   
-                
+                    self.writeExcel()   
+            except:
+                self.debug=result
+                    
                                          
         return self
     
@@ -674,7 +678,7 @@ class varGroupsReport(TransformerMixin):
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
                 psi_sum=report_distr.fillna(0).apply(lambda x:self.psi(x,base),axis=0).droplevel(level=1)\
-                                      .reset_index().assign(bin='psi').sort_index(axis=1).groupby(['index','bin']).sum()
+                                      .assign(bin='psi').set_index('bin',append=True).sort_index(axis=1).groupby(level=[0,1]).sum()
                                       
                 report_out['report_psi']=pd.concat([report_distr,psi_sum]).sort_index().reset_index().rename(columns={'level_0':'variable'})
             
@@ -694,10 +698,9 @@ class varGroupsReport(TransformerMixin):
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
                 psi_sum=report_distr.fillna(0).apply(lambda x:self.psi(x,base),axis=0).droplevel(level=1)\
-                                      .reset_index().assign(bin='psi').sort_index(axis=1).groupby(['index','bin']).sum()
+                                      .assign(bin='psi').set_index('bin',append=True).sort_index(axis=1).groupby(level=[0,1]).sum()
                                       
-                report_out['report_psi']=pd.concat([report_distr,psi_sum]).sort_index().reset_index().rename(columns={'level_0':'variable'})                
-                        
+                report_out['report_psi']=pd.concat([report_distr,psi_sum]).sort_index().reset_index().rename(columns={'level_0':'variable'})                                        
                 
         return report_out        
             

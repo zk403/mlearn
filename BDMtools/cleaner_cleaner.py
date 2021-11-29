@@ -16,7 +16,7 @@ import warnings
 #import time
 
 
-class dtpypeAllocator(TransformerMixin):
+class dtypeAllocator(TransformerMixin):
 
     
     def __init__(self,dtypes_dict={},col_rm=None,t_unit='1 D',dtype_num='float64',drop_date=False):
@@ -242,7 +242,7 @@ class nanTransformer(TransformerMixin):
                       indicator=False):
         """ 
         缺失值填补，集成sklearn.impute        
-        注意本模块不支持除字符、数值以外（时间、日期、时间差类）列的填充，请将其设定为pandas的索引、转换为数值型或剔除掉
+        注意本模块不支持除字符、数值以外（时间、日期、时间差类）列的填充，这些列将直接返回原始值
         Params:
         ------
         method:(str,str)应对连续特征和分类特征的缺失值填补方法,连续可选constant,mean,median,knn,most_frequent,分类特征可选constant,most_frequent
@@ -310,6 +310,7 @@ class nanTransformer(TransformerMixin):
         if X.size:
             X_num=X.select_dtypes(include='number')
             X_str=X.select_dtypes(include='object')
+            X_oth=X.select_dtypes(exclude=['number','object'])
     
             if X_num.size:        
                 X_num_fill=pd.DataFrame(self.imputer_num.transform(X_num),
@@ -337,7 +338,7 @@ class nanTransformer(TransformerMixin):
             else:
                 X_na=None                      
             
-            return pd.concat([X_num_fill,X_str_fill,X_na],axis=1)
+            return pd.concat([X_oth,X_num_fill,X_str_fill,X_na],axis=1)
         
         else:
             

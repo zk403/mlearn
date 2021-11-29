@@ -356,8 +356,11 @@ class binAdjusterKmeans(TransformerMixin):
         #toad格式时转换为sc格式
         if count>0:
         
-            cate_colname=X[columns].select_dtypes(exclude='number')
-            num_colname=X[columns].select_dtypes(include='number')
+            cate_colname=X[columns].select_dtypes(include='object').columns.tolist()
+            num_colname=X[columns].select_dtypes(include='number').columns.tolist()
+            oth_colname=X[columns].select_dtypes(exclude=['number','object']).columns.tolist()
+            if oth_colname:
+                raise IOError('supported X.dtypes only in (number,object),use bm.dtypeAllocator to format X')
 
             break_list_sc=dict()
 
