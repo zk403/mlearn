@@ -271,8 +271,124 @@ class businessReport(TransformerMixin):
             
         writer.save()     
         print('to_excel done') 
+        
 
 
+class varReportSinge:
+    
+    def report(self, X, y,breaks,special_values):
+        
+        report_var=self.getReport_Single(X,y,breaks,special_values)
+        
+        return report_var
+ 
+        
+    def getReport_Single(self,X,y,breaklist_var,special_values):
+         
+
+         col=X.name
+
+         #处理缺失值
+         var_fillna=X.replace(special_values,np.nan)
+         
+         #breaklist_var=list(breaks_list_dict[col])
+         
+         #第1步:判断数据类型
+         if is_numeric_dtype(var_fillna):
+           
+             #按照分箱sc的breaklist的区间进行分箱
+             var_cut=pd.cut(var_fillna,[-np.inf]+breaklist_var+[np.inf],duplicates='drop',right=False).cat.add_categories('missing')
+             
+             var_bin=var_cut.fillna('missing')
+         
+         elif is_string_dtype(var_fillna):    
+             
+             var_cut=pd.Series(np.where(var_fillna.isnull(),'missing',var_fillna),
+                       index=var_fillna.index,
+                       name=var_fillna.name)
+
+             #转换字原始符映射到分箱sc的breaklist的字符映射
+             var_code_raw=var_cut.unique().tolist()
+                                   
+             map_codes=self.raw_to_bin_sc(var_code_raw,breaklist_var,special_values)
+             
+             var_bin=var_cut.map(map_codes)
+             
+         else:
+             
+             raise IOError('dtypes in X in (number,object),others not support')
+         
+         #若只计算全量数据则只输出全量的特征分析报告
+             
+         var_bin=pd.concat([var_bin,y],axis=1)
+         #print var_bin
+         rename_aggfunc=dict(zip(['count','sum','mean'],['count','bad','badprob']))
+         result=pd.pivot_table(var_bin,index=col,values=y.name,
+                           margins=False,
+                           aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(level=1,axis=1) 
+         
+         var_tab=self.getVarReport_ks(result,col) 
+
+         return  var_tab.assign(
+             breaks=var_tab.index.categories.map(lambda x:x if isinstance(x,str) else x.right))
+            
+    def getVarReport_ks(self,var_ptable,col):
+        
+        var_ptable['count_distr']=var_ptable['count'].div(var_ptable['count'].sum())
+        var_ptable['good']=var_ptable['count'].sub(var_ptable['bad'])
+        var_ptable['good_dis']=var_ptable['good'].div(var_ptable['good'].sum())
+        var_ptable['bad_dis']=var_ptable['bad'].div(var_ptable['bad'].sum())
+        var_ptable['bin_iv']=var_ptable['bad_dis'].sub(var_ptable['good_dis']).mul(
+            (var_ptable["bad_dis"]+1e-10).div((var_ptable["good_dis"]+1e-10)).apply(np.log)
+        )
+        var_ptable['total_iv']=var_ptable['bin_iv'].sum()
+        var_ptable['woe']=(var_ptable["bad_dis"]+1e-10).div((var_ptable["good_dis"]+1e-10)).apply(np.log)
+        var_ptable['ks']=var_ptable['good_dis'].cumsum().sub(var_ptable['bad_dis'].cumsum()).abs()
+        var_ptable['ks_max']=var_ptable['ks'].max()
+        var_ptable['variable']=col
+        var_ptable.index.name='bin'
+        #var_ptable=var_ptable.reset_index()
+        #var_ptable['bin']=var_ptable['bin'].astype('str')
+        var_ptable=var_ptable[['variable', 'count', 'count_distr', 'good', 'bad', 'badprob','woe', 'bin_iv', 'total_iv','ks','ks_max']]
+        
+        return var_ptable
+    
+    def raw_to_bin_sc(self,var_code_raw,breaklist_var,special_values):
+        """ 
+        分箱转换，将分类特征的值与breaks对应起来
+        1.只适合分类bin转换
+        2.此函数只能合并分类的类不能拆分分类的类        
+        """ 
+        
+        breaklist_var_new=[i.replace(special_values,'missing').unique().tolist()
+                                   for i in [pd.Series(i.split('%,%')) 
+                                             for i in breaklist_var]]
+        
+        map_codes={}
+        
+        for raw,map_code in product(var_code_raw,breaklist_var_new):
+            
+            
+            #多项组合情况
+            if '%,%' in raw:
+                
+                raw_set=set(raw.split('%,%'))
+                
+                #原始code包含于combine_code中时
+                if not raw_set-set(map_code):
+
+                    map_codes[raw]='%,%'.join(map_code)
+            
+            #单项情况
+            elif raw in map_code:
+                
+                map_codes[raw]='%,%'.join(map_code)
+            
+            #print(raw,map_code)
+   
+        return map_codes    
+        
+        
 
 class varReport(TransformerMixin):
     
@@ -378,8 +494,13 @@ class varReport(TransformerMixin):
          result=pd.pivot_table(var_bin,index=col,values=y.name,
                            margins=False,
                            aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(level=1,axis=1) 
+         
+         var_tab=self.getVarReport_ks(result,col) 
 
-         return col,self.getVarReport_ks(result,col),None   
+         var_tab_out=var_tab.assign(
+             breaks=var_tab.index.categories.map(lambda x:x if isinstance(x,str) else x.right))
+
+         return col,var_tab_out,None   
 
             
     def getVarReport_ks(self,var_ptable,col):
@@ -618,16 +739,14 @@ class varGroupsReport(TransformerMixin):
                     
                     result[i]=pd.DataFrame(None)       
             
-            try:     
-                report=pd.concat(result,axis=1)
+   
+            report=pd.concat(result,axis=1)
                 
-                self.report_dict=self.getReport(X,report,output_psi=self.output_psi,psi_base=self.psi_base)                    
+            self.report_dict=self.getReport(X,report,output_psi=self.output_psi,psi_base=self.psi_base)                    
                 
-                if self.out_path:
+            if self.out_path:
                     
-                    self.writeExcel()   
-            except:
-                self.debug=result
+                self.writeExcel()   
                     
                                          
         return self

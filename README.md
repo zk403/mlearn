@@ -13,7 +13,7 @@ BDMtools是适用于常见商业数据分析数据挖掘场景下，中小数据
 
 + 数据清洗与数据预处理
 
-    - BDMtools.dtpypeAllocator:特征规范化
+    - BDMtools.dtypeAllocator:特征规范化
     - BDMtools.EDAReport:数据质量报告
     - BDMtools.businessReport:业务分析报告
     - BDMtools.nanTransformer:缺失值处理

@@ -162,7 +162,7 @@ class dtypeAllocator(TransformerMixin):
         X_tdiff=X.select_dtypes(include=['timedelta']).div(pd.to_timedelta(self.t_unit)).astype(self.dtype_num)
         
         #其他
-        X_oth=X.select_dtypes(exclude=['number','bool','object','category','timedelta'])
+        X_oth=X.select_dtypes(exclude=['number','bool','object','category','timedelta','datetime','datetimetz'])
         
         #合并
         X_all=pd.concat([X_num,X_obj,X_cat_ordered,X_cat_unordered,X_date,X_tdiff,X_oth],axis=1)

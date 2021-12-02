@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*- 
 
-from BDMtools.cleaner_cleaner import outliersTransformer,dtpypeAllocator,nanTransformer
+from BDMtools.cleaner_cleaner import outliersTransformer,dtypeAllocator,nanTransformer
 from BDMtools.report_report import businessReport,EDAReport,varReport,varGroupsReport
 from BDMtools.selector_bin import binSelector
 from BDMtools.selector_fa import faSelector
@@ -19,7 +19,7 @@ __version__ = '0.0.9'
 
 __all__ = (    
     outliersTransformer,
-    dtpypeAllocator,
+    dtypeAllocator,
     nanTransformer,
     businessReport,
     EDAReport,
