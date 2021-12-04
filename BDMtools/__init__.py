@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*- 
 
-from BDMtools.cleaner_cleaner import outliersTransformer,dtypeAllocator,nanTransformer
+from BDMtools.cleaner_cleaner import outliersTransformer,dtypeAllocator,nanTransformer,dtStandardization
 from BDMtools.report_report import businessReport,EDAReport,varReport,varGroupsReport
 from BDMtools.selector_bin import binSelector
 from BDMtools.selector_fa import faSelector
@@ -15,9 +15,10 @@ from BDMtools.tuner_bayesian import BayesianXGBTuner,BayesianLgbmTuner
 from BDMtools.tuner_fun import shapCheck
 
 
-__version__ = '0.0.9'
+__version__ = '0.1.0'
 
 __all__ = (    
+    dtStandardization,
     outliersTransformer,
     dtypeAllocator,
     nanTransformer,

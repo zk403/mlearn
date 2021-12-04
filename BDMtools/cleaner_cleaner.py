@@ -16,7 +16,7 @@ import warnings
 #import time
 
 
-class dtProcesser(TransformerMixin):
+class dtStandardization(TransformerMixin):
     
     def __init__(self,id_col=None,col_rm=None,downcast=True,set_index=True,drop_dup=True):
         """ 

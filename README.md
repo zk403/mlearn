@@ -13,9 +13,8 @@ BDMtools是适用于常见商业数据分析数据挖掘场景下，中小数据
 
 + 数据清洗与数据预处理
 
-    - BDMtools.dtypeAllocator:特征规范化
-    - BDMtools.EDAReport:数据质量报告
-    - BDMtools.businessReport:业务分析报告
+    - BDMtools.dtStandardization:数据规范化
+    - BDMtools.dtypeAllocator:特征类型分配
     - BDMtools.nanTransformer:缺失值处理
     - BDMtools.outliersTransformer:异常值处理
 
@@ -31,7 +30,9 @@ BDMtools是适用于常见商业数据分析数据挖掘场景下，中小数据
     - BDMtools.woeTransformer:WOE编码
     
 + 报告
-    - BDMtools.varReport:全量及分月的特征分析报告
+    - BDMtools.EDAReport:数据质量报告
+    - BDMtools.businessReport:业务分析报告   
+    - BDMtools.varReport:特征分析报告
     - BDMtools.varGroupsReport:分群特征分析报告
 
 + 评分卡
