@@ -476,7 +476,7 @@ class binAdjusterChi(TransformerMixin):
 
             #1.eq-freq cut
             cuts = sorted(list(
-                set(np.nanpercentile(var_single, np.linspace(0, 1, max_bin + 1) * 100, interpolation='lower')))
+                set(np.nanpercentile(var_single,np.linspace(0, 1, max_bin + 1)[1:-1] * 100, interpolation='lower')))
                          )
             cutoff = [-np.inf] + cuts + [np.inf]
 

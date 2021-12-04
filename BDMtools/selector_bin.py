@@ -185,7 +185,7 @@ from BDMtools.selector_bin_fun import binAdjusterKmeans,binAdjusterChi
 
 class binSelector(TransformerMixin):
     
-    def __init__(self,method='freq',n_bins=10,min_samples=0.05,bin_num_limit=7,special_values=[np.nan],iv_limit=0.02,
+    def __init__(self,method='freq',n_bins=10,min_samples=0.05,bin_num_limit=7,special_values=[np.nan],iv_limit=0.02,keep=None,
                  out_path=None,break_list_adj=None,n_jobs=-1,verbose=0):
         """ 
         最优分箱与交互分箱
@@ -206,7 +206,8 @@ class binSelector(TransformerMixin):
             min_samples,method为'dt'和'chi'时代表分箱最终箱样本占比限制
             bin_num_limit,method='freq-kmeans'时，合并分箱最低限制,bin_num_limit<n_bins时才有效果
             special_values,list,特殊值指代值
-            ivlimit=0.02:float,IV阈值,IV低于该阈值特征将被剔除
+            iv_limit=0.02:float,IV阈值,IV低于该阈值特征将被剔除
+            keep=None,list or None,保留列的列名list
             out_path:str,输出分箱结果报告至指定路径的模型文档中                
             n_jobs:int,并行计算job数,默认-1(使用全部的 CPU cores)
             verbose:int,并行计算信息输出等级
@@ -219,6 +220,7 @@ class binSelector(TransformerMixin):
         self.min_samples=min_samples
         self.bin_num_limit=bin_num_limit
         self.iv_limit=iv_limit
+        self.keep=keep
         self.special_values=special_values
         self.out_path=out_path
         self.break_list_adj=break_list_adj
@@ -271,7 +273,7 @@ class binSelector(TransformerMixin):
                                                    n_jobs=self.n_jobs,
                                                    verbose=self.verbose,
                                                    ).fit(X,y).breaks_list_adj
-            
+             
             elif self.method=='freq':
                 
                 self.breaks_list=self.getBreakslistFinbin(X,y,self.n_bins,self.special_values)
@@ -312,7 +314,9 @@ class binSelector(TransformerMixin):
                 df_var=bin_res[col]
                 good_distr=df_var['good'].div(df_var['good'].sum())
                 bad_distr=df_var['bad'].div(df_var['bad'].sum())
-                df_var['ks']=good_distr.sub(bad_distr).abs()
+                
+                df_var['ks']=good_distr.cumsum().sub(bad_distr.cumsum()).abs()
+                df_var['ks_max']=df_var['ks'].max()
                 bin_res_ks[col]=df_var
             
             optbindf_ks=pd.concat(bin_res_ks.values())
@@ -326,6 +330,10 @@ class binSelector(TransformerMixin):
             if not self.keep_col:
                 
                 warnings.warn('iv_limit too high to keep any variables,reset iv_limit')  
+                
+            if self.keep:
+                
+                self.keep_col=list(set(self.keep_col.extend(self.keep)))  
             
             self.bin={column:bin_res.get(column) for column in self.keep_col}
             self.breaks_list={column:self.breaks_list.get(column) for column in self.keep_col}

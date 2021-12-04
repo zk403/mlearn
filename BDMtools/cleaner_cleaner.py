@@ -16,14 +16,99 @@ import warnings
 #import time
 
 
+class dtProcesser(TransformerMixin):
+    
+    def __init__(self,id_col=None,col_rm=None,downcast=True,set_index=True,drop_dup=True):
+        """ 
+        数据规范化：处理原始数据中实体重复,内存占用,索引等问题
+        
+        Params:
+        ------
+        id_col:id列list
+        col_rm:需删除的列名list
+        downcast:是否对数据中的numeric类型数据进行降级处理(float64->float32),降级后数据的内存占用将减少但会损失精度。存在id_col时,其将不进行降级处理
+        set_index:是否将id_col设定为pandas索引
+        drop_dup:是否执行去重处理,
+            + 列:重复列名的列将被剔除并保留第一个出现的列,
+            + 行:当id_col存在时,其将按照id_col进行行去重处理,此时重复id的行将被剔除并保留第一个出现的行,否则不做任何处理
+            注意此模块假定行或列标识重复时相应行或列的数据也是重复的,若行列标示下存在相同标示但数据不同的情况时，应找出原因并慎用此功能
+            
+        Returns:
+        ------
+            pandas.dataframe
+        
+        """        
+        
+        self.id_col=id_col
+        self.col_rm=col_rm
+        self.downcast=downcast
+        self.drop_dup=drop_dup
+        self.set_index=set_index
+        
+        
+    def transform(self, X):
+    
+        
+        if not X.index.is_unique:
+            
+            raise IOError('X.index is not unique,recommend set unique single index')
+            
+        X = X.copy()
+        
+        
+        if X.size:
+            
+            X=X.drop(np.unique(self.col_rm),axis=1) if self.col_rm else X
+            
+            if self.id_col and self.downcast:
+                
+                X=X.apply(lambda x:pd.to_numeric(x,'ignore','float') if x.name not in self.id_col else x)
+                
+                if self.drop_dup:
+                    
+                    X=X.loc[~X[self.id_col].duplicated(),~X.columns.duplicated()]
+            
+            elif not self.id_col and self.downcast:
+                
+                X=X.apply(pd.to_numeric,args=('ignore','float'))
+                
+                if self.drop_dup:
+                    
+                    X=X.loc[:,~X.columns.duplicated()]
+                            
+            else:
+                
+                X=X  
+                
+                
+            if self.id_col and self.set_index:
+                
+                X=X.set_index(self.id_col)
+                
+            return X
+        
+        else:
+            
+            warnings.warn('0 rows in input X,return None')  
+            
+            return pd.DataFrame(None)     
+    
+
+    def fit(self,X,y=None):       
+        
+        
+        return self 
+
+
 class dtypeAllocator(TransformerMixin):
 
     
     def __init__(self,dtypes_dict={},col_rm=None,t_unit='1 D',dtype_num='float64',drop_date=False):
         """ 
-        数据规范化：将原始数据中的列类型转换为适合进行数据分析与建模的数据类型，请注意
+        列类型分配器：将原始数据中的列类型转换为适合进行数据分析与建模的数据类型，请注意
                   + 本模块不支持对complex、bytes类型的列进行转换
-                  + 本模块将pandas的无序category类视为object类型，若存原始数据存在有序category类型列时其将被转换为数值int8型     
+                  + 本模块将pandas的无序category类视为object类型，若原始数据存在有序category类型列时其将被转换为数值int8型 
+                  + 本模块暂不支持对pd.Interval类型的列进行任何转换
         Params:
         ------
             dtypes_dict={}
@@ -40,7 +125,7 @@ class dtypeAllocator(TransformerMixin):
                     + 若所有colname_list的特征只是数据所有列的一部分，则剩下部分的列将不做转换
                     + colname_list不能含有col_rm中的列,否则会出现错误
             col_rm=None or list,不参与转换的列的列名列表，其不会参与任何转换且最终会保留在输出数据中        
-            dtype_num='float64',数值类型列转换方式，默认为float64，可以选择float32/float16，注意其可以有效减少数据的内存占用，但会损失数据精度
+            dtype_num='float64',数值类型列转换方式，默认为float64，可以选择float32/float16，注意其可以有效减少数据的内存占用，但会损失数据精度,请注意数据中的id列,建议不进行32或16转换
             t_unit=‘1 D’,timedelta类列处理为数值的时间单位，默认天
             drop_date=False,是否剔除原始数据中的日期列，默认False
 
@@ -168,7 +253,7 @@ class dtypeAllocator(TransformerMixin):
         X_all=pd.concat([X_num,X_obj,X_cat_ordered,X_cat_unordered,X_date,X_tdiff,X_oth],axis=1)
         
         return  X_all
-        
+
 
 
 class outliersTransformer(TransformerMixin):
@@ -229,13 +314,10 @@ class outliersTransformer(TransformerMixin):
             return pd.DataFrame(None) 
 
 
-
-    
-
 class nanTransformer(TransformerMixin):
     
     def __init__(self,method=('constant','constant'),
-                      missing_values=(np.nan,np.nan),
+                      missing_values=[np.nan],
                       fill_value=(-9999,'missing'),  
                       n_neighbors=10,
                       weights_knn='uniform',
@@ -251,7 +333,7 @@ class nanTransformer(TransformerMixin):
             + 'median':以中位数填补
             + 'knn':KNN填补,注意本方法中事前将不对数据进行任何标准化
             + 'most_frequent':众数填补
-        missing_values:str,int,float 缺失值指代值
+        missing_values:list,缺失值指代值,数据中无论分类与连续都适用此指代值,若不同列的缺失指代值存在冲突，请先处理好这些冲突再使用本模块
         fill_value:str,int,float,method=constant时的填补设定值
         indicator:bool,是否生成缺失值指代特征
         n_neighbors:knn算法中的邻近个数k
@@ -271,71 +353,87 @@ class nanTransformer(TransformerMixin):
         self.n_neighbors=n_neighbors
 
         
-    def fit(self,X, y=None):  
-        
-        X=X.copy()
-        if X.size:
-            
-            X_num=X.select_dtypes(include='number')
-            X_str=X.select_dtypes(include='object')
-            
-            if X_num.size and self.method[0]=='knn':
-                
-                self.imputer_num=KNNImputer(missing_values=self.missing_values[0],
-                                           n_neighbors=self.n_neighbors,
-                                           weights=self.weights_knn).fit(X_num)
-                
-            elif X_num.size and self.method[0]!='knn':
-                self.imputer_num=SimpleImputer(missing_values=self.missing_values[0],
-                                           strategy=self.method[0],
-                                           fill_value=self.fill_value[0]).fit(X_num) 
-                
-            if X_str.size:
-            
-                self.imputer_str=SimpleImputer(missing_values=self.missing_values[1],
-                                           strategy=self.method[1],
-                                           fill_value=self.fill_value[1]).fit(X_str)        
-            
-            if self.indicator:
-                na_s=X.isnull().sum().gt(0)
-                self.na_cols=na_s[na_s>0].index
-                
-                self.indicator_na=MissingIndicator(missing_values=self.missing_values[1]).fit(X[self.na_cols])            
+    def fit(self,X, y=None):            
         
         return self
     
-    def transform(self,X):
+    def transform(self,X, y=None):
         
-        X=X.copy()
+        X=X.copy().replace(self.missing_values,np.nan)
+        
         if X.size:
+            
             X_num=X.select_dtypes(include='number')
             X_str=X.select_dtypes(include='object')
             X_oth=X.select_dtypes(exclude=['number','object'])
+            
+            if X_oth.columns.size:                
+                warnings.warn("column which its dtype not in ('number','object') will not be imputed")      
+
     
-            if X_num.size:        
-                X_num_fill=pd.DataFrame(self.imputer_num.transform(X_num),
-                                        columns=self.imputer_num.feature_names_in_,
+            if X_num.size:
+                
+                if self.method[0]=='knn':
+                    
+                    imputer_num=KNNImputer(missing_values=np.nan,
+                                               n_neighbors=self.n_neighbors,
+                                               weights=self.weights_knn).fit(X_num)
+                    
+                elif self.method[0] in ('constant','mean','median','most_frequent'):
+                    
+                    imputer_num=SimpleImputer(missing_values=np.nan,
+                                           strategy=self.method[0],
+                                           fill_value=self.fill_value[0]).fit(X_num) 
+                    
+                else:
+                    
+                    raise IOError("method for numcol in ('knn','constant','mean','median','most_frequent')")
+                
+                
+                X_num_fill=pd.DataFrame(imputer_num.transform(X_num),
+                                        columns=imputer_num.feature_names_in_,
                                         index=X.index
-                                        )
+                                        ) 
             else:
+                
                 X_num_fill=None
             
+            
             if X_str.size:
-                X_str_fill=pd.DataFrame(self.imputer_str.transform(X_str),
-                                       columns=self.imputer_str.feature_names_in_,
+                
+                if self.method[1] in ('constant','most_frequent'):
+                
+                    imputer_str=SimpleImputer(missing_values=np.nan,
+                                               strategy=self.method[1],
+                                               fill_value=self.fill_value[1]).fit(X_str)  
+                    
+                else:
+                    
+                    raise IOError("method for strcol in ('constant','most_frequent')")
+                    
+                
+                X_str_fill=pd.DataFrame(imputer_str.transform(X_str),
+                                       columns=imputer_str.feature_names_in_,
                                        index=X.index
                                        ) 
             else:
+                
                 X_str_fill=None
     
     
-            if self.indicator:       
+            if self.indicator:      
+                
+                na_s=X.isnull().sum()
+                
+                na_cols=na_s[na_s>0].index
+                
+                indicator_na=MissingIndicator(missing_values=np.nan).fit(X[na_cols]) 
     
-                X_na=pd.DataFrame(self.indicator_na.transform(X[self.na_cols]),
-                                       columns=self.indicator_na.feature_names_in_,
-                                       index=X.index
-                                       )
+                X_na=pd.DataFrame(indicator_na.transform(X[na_cols]),
+                                       columns=indicator_na.feature_names_in_,
+                                       index=X.index)
             else:
+                
                 X_na=None                      
             
             return pd.concat([X_oth,X_num_fill,X_str_fill,X_na],axis=1)
@@ -343,8 +441,5 @@ class nanTransformer(TransformerMixin):
         else:
             
             warnings.warn('0 rows in input X,return None')  
-            return pd.DataFrame(None)   
-    
-    
-
-        
+            
+            return pd.DataFrame(None)           
