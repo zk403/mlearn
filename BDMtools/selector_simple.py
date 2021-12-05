@@ -20,7 +20,8 @@ class preSelector(TransformerMixin):
                  tree_size=100,
                  iv_limit=0.02,
                  out_path="report",
-                 special_values=[np.nan]
+                 special_values=[np.nan],
+                 keep=None
                  ):
         """ 
         线性预筛选,适用于二分类模型
@@ -35,6 +36,7 @@ class preSelector(TransformerMixin):
             iv_limit:float or None使用toad.quality进行iv快速筛选的iv阈值
             out_path:str or None,模型报告路径,将预筛选过程每一步的筛选过程输出到模型报告中
             special_values:list,特殊值指代值列表,其将被替换为np.nan
+            keep:list or None,需保留列的列名list
             
         Attribute:
         ----------
@@ -49,16 +51,28 @@ class preSelector(TransformerMixin):
         self.iv_limit=iv_limit
         self.out_path=out_path
         self.special_values=special_values
+        self.keep=keep
         
     def transform(self,X,y=None):
         """ 
         变量筛选
-        """ 
-        return X[self.features_info[max(list(self.features_info.keys()))]]
+        """  
+        
+        if self.keep:
+        
+            keep_col=self.features_info[max(list(self.features_info.keys()))] + self.keep  
+            
+        else:
+            
+            keep_col=self.features_info[max(list(self.features_info.keys()))]            
+        
+        return X[keep_col]
        
     def fit(self,X,y):
         
         X=X.replace(self.special_values,np.nan)
+        
+        X=X.drop(self.keep) if self.keep else X
         
         self.features_info={}
     

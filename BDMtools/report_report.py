@@ -9,8 +9,7 @@ import pandas as pd
 from sklearn.base import TransformerMixin
 import numpy as np
 #import time
-from pandas.api.types import is_string_dtype
-from pandas.api.types import is_numeric_dtype
+from pandas.api.types import is_string_dtype,is_array_like,is_numeric_dtype
 from glob import glob
 from itertools import product
 import os
@@ -276,14 +275,14 @@ class businessReport(TransformerMixin):
 
 class varReportSinge:
     
-    def report(self, X, y,breaks,special_values):
+    def report(self, X, y,breaks,special_values=[np.nan],sample_weight=None):
         
-        report_var=self.getReport_Single(X,y,breaks,special_values)
+        report_var=self.getReport_Single(X,y,breaks,special_values,sample_weight)
         
         return report_var
  
         
-    def getReport_Single(self,X,y,breaklist_var,special_values):
+    def getReport_Single(self,X,y,breaklist_var,special_values,sample_weight):
          
 
          col=X.name
@@ -320,20 +319,31 @@ class varReportSinge:
          
          #若只计算全量数据则只输出全量的特征分析报告
              
-         var_bin=pd.concat([var_bin,y],axis=1)
-         #print var_bin
-         rename_aggfunc=dict(zip(['count','sum','mean'],['count','bad','badprob']))
-         result=pd.pivot_table(var_bin,index=col,values=y.name,
-                           margins=False,
-                           aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(level=1,axis=1) 
+         if is_array_like(sample_weight):         
+             var_bin=pd.concat([var_bin,y.mul(sample_weight).rename(y.name)],axis=1) 
+             var_bin['sample_weight']=sample_weight
+         else:
+             var_bin=pd.concat([var_bin,y],axis=1)
+             var_bin['sample_weight']=1
          
+         #print var_bin
+         rename_aggfunc=dict(zip(['sample_weight','target'],['count','bad']))
+         result=pd.pivot_table(var_bin,index=col,values=[y.name,'sample_weight'],
+                           margins=False,
+                           aggfunc='sum').rename(columns=rename_aggfunc,level=0)#.droplevel(level=1,axis=1) 
+
          var_tab=self.getVarReport_ks(result,col) 
+         
+         if is_string_dtype(var_fillna):
+             
+             var_tab.index=var_tab.index.astype('category') 
 
          return  var_tab.assign(
              breaks=var_tab.index.categories.map(lambda x:x if isinstance(x,str) else x.right))
             
     def getVarReport_ks(self,var_ptable,col):
         
+        var_ptable['badprob']=var_ptable['bad'].div(var_ptable['count'])
         var_ptable['count_distr']=var_ptable['count'].div(var_ptable['count'].sum())
         var_ptable['good']=var_ptable['count'].sub(var_ptable['bad'])
         var_ptable['good_dis']=var_ptable['good'].div(var_ptable['good'].sum())
@@ -392,13 +402,14 @@ class varReportSinge:
 
 class varReport(TransformerMixin):
     
-    def __init__(self,breaks_list_dict,special_values=[np.nan],out_path=None,tab_suffix='',n_jobs=-1,verbose=0):
+    def __init__(self,breaks_list_dict,special_values=[np.nan],sample_weight=None,out_path=None,tab_suffix='',n_jobs=-1,verbose=0):
         """ 
         产生业务报告
         Params:
         ------
             breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
             special_values:list,缺失值指代值
+            sample_weight:numpy.array or pd.Series or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标
             out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
             tab_suffix:本地excel报告名后缀
             n_jobs:int,并行计算job数
@@ -410,6 +421,7 @@ class varReport(TransformerMixin):
         """
         self.breaks_list_dict = breaks_list_dict
         self.special_values=special_values
+        self.sample_weight=sample_weight
         self.n_jobs=n_jobs
         self.verbose=verbose
         self.out_path = out_path
@@ -486,16 +498,25 @@ class varReport(TransformerMixin):
              
              raise IOError('dtypes in X in (number,object),others not support')
          
-         #若只计算全量数据则只输出全量的特征分析报告
-             
-         var_bin=pd.concat([var_bin,y],axis=1)
-         #print var_bin
-         rename_aggfunc=dict(zip(['count','sum','mean'],['count','bad','badprob']))
-         result=pd.pivot_table(var_bin,index=col,values=y.name,
-                           margins=False,
-                           aggfunc=['count','sum','mean']).rename(columns=rename_aggfunc,level=0).droplevel(level=1,axis=1) 
+         #加权         
+         if is_array_like(self.sample_weight):         
+             var_bin=pd.concat([var_bin,y.mul(self.sample_weight).rename(y.name)],axis=1) 
+             var_bin['sample_weight']=self.sample_weight
+         else:
+             var_bin=pd.concat([var_bin,y],axis=1)
+             var_bin['sample_weight']=1
          
+         #print var_bin
+         rename_aggfunc=dict(zip(['sample_weight','target'],['count','bad']))
+         result=pd.pivot_table(var_bin,index=col,values=[y.name,'sample_weight'],
+                           margins=False,
+                           aggfunc='sum').rename(columns=rename_aggfunc,level=0)#.droplevel(level=1,axis=1)          
+             
          var_tab=self.getVarReport_ks(result,col) 
+         
+         if is_string_dtype(var_fillna):
+             
+             var_tab.index=var_tab.index.astype('category') 
 
          var_tab_out=var_tab.assign(
              breaks=var_tab.index.categories.map(lambda x:x if isinstance(x,str) else x.right))
@@ -505,6 +526,7 @@ class varReport(TransformerMixin):
             
     def getVarReport_ks(self,var_ptable,col):
         
+        var_ptable['badprob']=var_ptable['bad'].div(var_ptable['count'])
         var_ptable['count_distr']=var_ptable['count'].div(var_ptable['count'].sum())
         var_ptable['good']=var_ptable['count'].sub(var_ptable['bad'])
         var_ptable['good_dis']=var_ptable['good'].div(var_ptable['good'].sum())
@@ -655,7 +677,8 @@ class varReport(TransformerMixin):
 class varGroupsReport(TransformerMixin):
     
     def __init__(self,breaks_list_dict,columns,sort_columns=None,target='target',row_limit=1000,output_psi=False,psi_base='all',
-                 special_values=[np.nan],n_jobs=-1,verbose=0,out_path=None,tab_suffix='_group'):
+                 special_values=[np.nan],sample_weight=None,
+                 n_jobs=-1,verbose=0,out_path=None,tab_suffix='_group'):
         """ 
         产生组业务报告
         Params:
@@ -672,6 +695,7 @@ class varGroupsReport(TransformerMixin):
             + 默认每组最少1000行，小于限制的组不统计其任何指标，返回空，
             + 当数据中存在组样本过少时，分组进行统计的bin可能会在某些分段内缺失导致concat时出现index overlapping错误，此时可适当提高row_limit以避免此类错误
         special_values:list,缺失值指代值
+        sample_weight:numpy.array or pd.Series(...,index=X.index) or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标以还原抽样对分析影响
         n_jobs:int,并行计算job数
         verbose:int,并行计算信息输出等级
         out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
@@ -690,6 +714,7 @@ class varGroupsReport(TransformerMixin):
         self.output_psi=output_psi
         self.psi_base=psi_base
         self.special_values=special_values
+        self.sample_weight=sample_weight
         self.n_jobs=n_jobs
         self.verbose=verbose
         self.out_path=out_path
@@ -716,6 +741,10 @@ class varGroupsReport(TransformerMixin):
                        
             result={}
             
+            if is_array_like(self.sample_weight):
+                
+                X['sample_weight']=self.sample_weight 
+            
             X_g_gen=X.groupby(self.columns)
             
             for i in X_g_gen.groups:
@@ -723,11 +752,13 @@ class varGroupsReport(TransformerMixin):
                 group_dt=X_g_gen.get_group(i)
                 X_g=group_dt.drop([self.target]+self.columns,axis=1)
                 y_g=group_dt[self.target]    
+                w_g=group_dt['sample_weight']    
                 
                 if len(X_g)>self.row_limit:
                     
                     res=varReport(breaks_list_dict=self.breaks_list_dict,
                                   special_values=self.special_values,
+                                  sample_weight=w_g,
                                   n_jobs=self.n_jobs,                                  
                                   verbose=self.verbose).fit(X_g,y_g)
                     

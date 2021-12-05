@@ -58,8 +58,10 @@ class dtStandardization(TransformerMixin):
         
         if X.size:
             
+            #remove columns if exists
             X=X.drop(np.unique(self.col_rm),axis=1) if self.col_rm else X
             
+            #downcast and drop dups
             if self.id_col and self.downcast:
                 
                 X=X.apply(lambda x:pd.to_numeric(x,'ignore','float') if x.name not in self.id_col else x)
@@ -76,11 +78,15 @@ class dtStandardization(TransformerMixin):
                     
                     X=X.loc[:,~X.columns.duplicated()]
                             
-            else:
+            elif self.id_col and not self.downcast:                
+                    
+                X=X.loc[~X[self.id_col].duplicated(),~X.columns.duplicated()] if self.drop_dup else X
                 
-                X=X  
+            elif not self.id_col and not self.downcast:
                 
+                X=X.loc[:,~X.columns.duplicated()] if self.drop_dup else X
                 
+            #set index if id exists
             if self.id_col and self.set_index:
                 
                 X=X.set_index(self.id_col)

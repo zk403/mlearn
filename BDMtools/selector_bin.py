@@ -333,7 +333,7 @@ class binSelector(TransformerMixin):
                 
             if self.keep:
                 
-                self.keep_col=list(set(self.keep_col.extend(self.keep)))  
+                self.keep_col=list(set(self.keep_col+self.keep))  
             
             self.bin={column:bin_res.get(column) for column in self.keep_col}
             self.breaks_list={column:self.breaks_list.get(column) for column in self.keep_col}
@@ -481,7 +481,7 @@ class binSelector(TransformerMixin):
         return breaklist                  
     
     
-    def fit_adjustBin(self,X,y,br_to_adjusted):
+    def fit_adjustBin(self,X,y,br_to_adjusted,special_values):
         """
         根据最优分箱结果调整分箱，需先运行fit
         plt.rcParams["figure.figsize"] = [10, 5]
@@ -496,15 +496,15 @@ class binSelector(TransformerMixin):
         
         """          
             
-        self.keep_col=list(br_to_adjusted.keys())
+        keep_col=list(br_to_adjusted.keys())
         
         
-        bin_sc=sc.woebin(X[self.keep_col].join(y),
-                         y=self.target,
+        bin_sc=sc.woebin(X[keep_col].join(y),
+                         y=y.name,
                          breaks_list=br_to_adjusted)
         
         breaks_str=sc.woebin_adj(
-            dt=X[self.keep_col].join(y),
+            dt=X[keep_col].join(y),
             y=y.name,
             adj_all_var=True,
             count_distr_limit=0.05,
@@ -518,7 +518,7 @@ class binSelector(TransformerMixin):
         
         del self.breaks_dict_raw
         
-        self.adjbin_woe=sc.woebin(self.X[self.keep_col].join(self.y).replace(self.special_values,np.nan),
-                                  y=self.target,breaks_list=self.break_list_adj)
+        self.adjbin_woe=sc.woebin(X[keep_col].join(y).replace(special_values,np.nan),
+                                  y=y.name,breaks_list=self.break_list_adj)
                     
         return self   
