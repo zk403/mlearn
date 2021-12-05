@@ -72,7 +72,7 @@ class preSelector(TransformerMixin):
         
         X=X.replace(self.special_values,np.nan)
         
-        X=X.drop(self.keep) if self.keep else X
+        X=X.drop(self.keep,axis=1) if self.keep else X
         
         self.features_info={}
     
@@ -335,7 +335,7 @@ class corrSelector(TransformerMixin):
         
     def transform(self,X,y=None):
         
-        return X[self.var_keep]
+        return X[self.keep_col]
           
     def fit(self,X,y):
         """ 
@@ -382,7 +382,7 @@ class corrSelector(TransformerMixin):
         #使用toad
         X_drop=toad.selection.drop_corr(X.join(y),target=y.name,threshold=self.corr_limit,by=self.by).drop(y.name,axis=1)
     
-        self.var_keep=X_drop.columns.tolist()
+        self.keep_col=X_drop.columns.tolist()
 
         
         

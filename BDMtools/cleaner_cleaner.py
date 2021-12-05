@@ -12,6 +12,7 @@ import pandas as pd
 from sklearn.base import TransformerMixin
 from sklearn.impute import SimpleImputer,KNNImputer,MissingIndicator
 import numpy as np
+from pandas.api.types import is_numeric_dtype
 import warnings
 #import time
 
@@ -31,7 +32,7 @@ class dtStandardization(TransformerMixin):
         drop_dup:是否执行去重处理,
             + 列:重复列名的列将被剔除并保留第一个出现的列,
             + 行:当id_col存在时,其将按照id_col进行行去重处理,此时重复id的行将被剔除并保留第一个出现的行,否则不做任何处理
-            注意此模块假定行或列标识重复时相应行或列的数据也是重复的,若行列标示下存在相同标示但数据不同的情况时，应找出原因并慎用此功能
+            注意此模块假定行或列标识重复时相应行或列的数据也是重复的,若行列标示下存在相同标示但数据不同的情况时慎用此功能
             
         Returns:
         ------
@@ -64,19 +65,15 @@ class dtStandardization(TransformerMixin):
             #downcast and drop dups
             if self.id_col and self.downcast:
                 
-                X=X.apply(lambda x:pd.to_numeric(x,'ignore','float') if x.name not in self.id_col else x)
-                
-                if self.drop_dup:
+                X=X.apply(lambda x:pd.to_numeric(x,'ignore','float') if x.name not in self.id_col and is_numeric_dtype(x) else x)
                     
-                    X=X.loc[~X[self.id_col].duplicated(),~X.columns.duplicated()]
+                X=X.loc[~X[self.id_col].duplicated(),~X.columns.duplicated()] if self.drop_dup else X
             
             elif not self.id_col and self.downcast:
                 
-                X=X.apply(pd.to_numeric,args=('ignore','float'))
-                
-                if self.drop_dup:
+                X=X.apply(lambda x:pd.to_numeric(x,'ignore','float') if is_numeric_dtype(x) else x)                
                     
-                    X=X.loc[:,~X.columns.duplicated()]
+                X=X.loc[:,~X.columns.duplicated()] if self.drop_dup else X
                             
             elif self.id_col and not self.downcast:                
                     

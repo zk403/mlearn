@@ -178,7 +178,6 @@ class EDAReport(TransformerMixin):
         print('to_excel done')  
 
         
-
 class businessReport(TransformerMixin):
     
     def __init__(self,target,index,columns,rename_columns=None,rename_index=None,out_path=None):
@@ -339,6 +338,7 @@ class varReportSinge:
              var_tab.index=var_tab.index.astype('category') 
 
          return  var_tab.assign(
+             
              breaks=var_tab.index.categories.map(lambda x:x if isinstance(x,str) else x.right))
             
     def getVarReport_ks(self,var_ptable,col):
