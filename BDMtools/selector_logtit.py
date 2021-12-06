@@ -9,6 +9,7 @@ Created on Tue Sep 15 16:19:07 2020
 from sklearn.base import TransformerMixin,BaseEstimator
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import statsmodels.formula.api as smf
+import statsmodels.api as sm
 from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import scorecardpy as sc
@@ -22,17 +23,20 @@ from joblib import Parallel,delayed
 
 class stepLogit(BaseEstimator):
     
-    def __init__(self,custom_column=None,target='target',p_value_enter=.05,criterion='aic',normalize=False,show_step=False,show_high_vif_only=False):
+    def __init__(self,custom_column=None,p_value_enter=.05,criterion='aic',
+                 normalize=False,show_step=False,max_iter=200,sample_weight=None,
+                 show_high_vif_only=False):
         '''
         逐步回归
         Parameters:
         --
             custom_column=None:list,自定义列名,调整回归模型时使用,默认为None表示所有特征都会进行筛选
-            target='target':str,目标变量列列名
             p_value_enter=.05:逐步法中特征进入的pvalue限制,默认0.05
             criterion='aic':逐步法筛选变量的准则,默认aic,可选bic
             normalize=False:是否进行数据标准化,默认False,若为True,则数据将先进行标准化,且不会拟合截距
             show_step=False:是否打印逐步回归过程
+            max_iter=200,逐步回归最大迭代次数
+            sample_weight=None,样本权重
             show_high_vif_only=False:True时仅输出vif大于10的特征,False时将输出所有特征的vif
         
         Attribute:    
@@ -42,11 +46,12 @@ class stepLogit(BaseEstimator):
             vif_info:pd.DataFrame,筛选后特征的方差膨胀系数,须先使用方法fit
         '''        
         self.custom_column=custom_column
-        self.target=target
         self.p_value_enter=p_value_enter
         self.criterion=criterion
         self.normalize=normalize
         self.show_step=show_step
+        self.max_iter=max_iter
+        self.sample_weight=sample_weight
         self.show_high_vif_only=show_high_vif_only
         
     def predict_proba(self,X,y=None):
@@ -81,11 +86,11 @@ class stepLogit(BaseEstimator):
         '''        
         if self.custom_column:
             
-            self.logit_model=self.stepwise(X[self.custom_column].join(y),self.target,criterion=self.criterion,p_value_enter=self.p_value_enter,normalize=self.normalize,show_step=self.show_step) 
+            self.logit_model=self.stepwise(X[self.custom_column].join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,normalize=self.normalize,show_step=self.show_step,max_iter=self.max_iter) 
             
         else:
             
-            self.logit_model=self.stepwise(X.join(y),self.target,criterion=self.criterion,p_value_enter=self.p_value_enter,normalize=self.normalize,show_step=self.show_step) 
+            self.logit_model=self.stepwise(X.join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,normalize=self.normalize,show_step=self.show_step,max_iter=self.max_iter) 
             
         self.model_info=self.logit_model.summary()
         self.vif_info=self.vif(self.logit_model,X,show_high_vif_only=self.show_high_vif_only)
@@ -93,8 +98,7 @@ class stepLogit(BaseEstimator):
         return self
     
     def stepwise(self,df,response,intercept=True, normalize=False, criterion='aic', 
-                     p_value_enter=.05, direction='both', show_step=True, 
-                     criterion_enter=None,max_iter=200, **kw):
+                      p_value_enter=.05, show_step=True,max_iter=200):
             '''
             逐步回归
             Parameters:
@@ -110,13 +114,11 @@ class stepLogit(BaseEstimator):
                 criterion : str, 默认是'aic',可选bic
                     逐步回归优化规则。
                 p_value_enter : float, 默认是.05
-                    当选择derection=’both‘时，移除变量的pvalue阈值。
+                    移除变量的pvalue阈值。
                 direction : str, 默认是'both'
                     逐步回归方向。
                 show_step : bool, 默认是True
                     是否显示逐步回归过程。
-                criterion_enter : float, 默认是None
-                    当选择derection=’both‘时，模型加入变量的相应的criterion阈值。
                 max_iter : int, 默认是200
                     逐步法最大迭代次数。
             '''
@@ -124,98 +126,93 @@ class stepLogit(BaseEstimator):
             if criterion not in criterion_list:
                 raise IOError('criterion must in', '\n', criterion_list)
 
-            direction_list = ['both']
-            if direction not in direction_list:
-                raise IOError('direction must in：', '\n', direction_list)
-
             # 默认p_enter参数    
             p_enter = {'bic':0.0, 'aic':0.0}
-            if criterion_enter:  # 如果函数中对p_remove相应key传参，则变更该参数
-                p_enter[criterion] = criterion_enter
 
             if normalize: # 如果需要标准化数据
                 intercept = False  # 截距强制设置为0
                 df_std = StandardScaler().fit_transform(df)
                 df = pd.DataFrame(df_std, columns=df.columns, index=df.index)  
 
-            ''' both '''
-            if direction == 'both':
-                remaining = list(df.columns)  # 自变量集合
-                remaining.remove(response)
-                selected = []  # 初始化选入模型的变量列表
-                # 初始化当前评分,最优新评分
-                if intercept: # 是否有截距
-                    formula = "{} ~ {} + 1".format(response, remaining[0])
-                else:
-                    formula = "{} ~ {} - 1".format(response, remaining[0])
+            remaining = list(df.columns)  # 自变量集合
+            remaining.remove(response)
+            selected = []  # 初始化选入模型的变量列表
+            # 初始化当前评分,最优新评分
+            if intercept: # 是否有截距
+                formula = "{} ~ {} + 1".format(response, remaining[0])
+            else:
+                formula = "{} ~ {} - 1".format(response, remaining[0])
 
-                result = smf.logit(formula, df).fit(disp=0) # logit回归           
-                current_score = eval('result.' + criterion)
-                best_new_score = eval('result.' + criterion)
+            result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0) # logit回归           
+            current_score = eval('result.' + criterion)
+            best_new_score = eval('result.' + criterion)
 
-                if show_step:    
-                    print('\nstepwise starting:\n')
-                # 当变量未剔除完，并且当前评分更新时进行循环
-                iter_times = 0
-                while remaining and (current_score == best_new_score) and (iter_times<max_iter):
-                    scores_with_candidates = []  # 初始化变量以及其评分列表
-                    for candidate in remaining:  # 在未剔除的变量中每次选择一个变量进入模型，如此循环
-                        if intercept: # 是否有截距
-                            formula = "{} ~ {} + 1".format(response, ' + '.join(selected + [candidate]))
-                        else:
-                            formula = "{} ~ {} - 1".format(response, ' + '.join(selected + [candidate]))
-
-                        result = smf.logit(formula, df).fit(disp=0) # logit回归
-                        llf = result.llf
-                        llr_pvalue = result.llr_pvalue               
-                        score = eval('result.' + criterion)                    
-                        scores_with_candidates.append((score, candidate, llf, llr_pvalue)) # 记录此次循环的变量、评分列表
-
-                    if criterion in ['bic', 'aic']:  # 这几个指标取最小值进行优化
-                        scores_with_candidates.sort(reverse=True)  # 对评分列表进行降序排序
-                        best_new_score, best_candidate, best_new_llf, best_new_llr_pvalues = scores_with_candidates.pop()  # 提取最小分数及其对应变量
-                        if (current_score - best_new_score) > p_enter[criterion]:  # 如果当前评分大于最新评分
-                            remaining.remove(best_candidate)  # 从剩余未评分变量中剔除最新最优分对应的变量
-                            selected.append(best_candidate)  # 将最新最优分对应的变量放入已选变量列表
-                            current_score = best_new_score  # 更新当前评分
-                            if show_step:  # 是否显示逐步回归过程
-                                print('Adding %s, %s = %.3f' % (best_candidate, criterion, best_new_score))
-                        elif (current_score - best_new_score) >= 0 and iter_times == 0: # 当评分差大于等于0，且为第一次迭代
-                            remaining.remove(best_candidate)
-                            selected.append(best_candidate)
-                            current_score = best_new_score
-                            if show_step:  # 是否显示逐步回归过程                             
-                                print('Adding %s, %s = %.3f' % (best_candidate, criterion, best_new_score))
-                        elif iter_times == 0:  # 当评分差小于p_enter，且为第一次迭代
-                            selected.append(remaining[0])
-                            remaining.remove(remaining[0])
-                            if show_step:  # 是否显示逐步回归过程                             
-                                print('Adding %s, %s = %.3f' % (remaining[0], criterion, best_new_score))
-
+            if show_step:    
+                print('\nstepwise starting:\n')
+                
+            # 当变量未剔除完，并且当前评分更新时进行循环
+            iter_times = 0
+            while remaining and (current_score == best_new_score) and (iter_times<max_iter):
+                scores_with_candidates = []  # 初始化变量以及其评分列表
+                for candidate in remaining:  # 在未剔除的变量中每次选择一个变量进入模型，如此循环
                     if intercept: # 是否有截距
-                        formula = "{} ~ {} + 1".format(response, ' + '.join(selected))
+                        formula = "{} ~ {} + 1".format(response, ' + '.join(selected + [candidate]))
                     else:
-                        formula = "{} ~ {} - 1".format(response, ' + '.join(selected))                    
+                        formula = "{} ~ {} - 1".format(response, ' + '.join(selected + [candidate]))
 
-                    result = smf.logit(formula, df).fit(disp=0)  # 最优模型拟合                    
-                    if iter_times >= 1: # 当第二次循环时判断变量的pvalue是否达标
-                        if result.pvalues.max() > p_value_enter:
-                            var_removed = result.pvalues[result.pvalues == result.pvalues.max()].index[0]
-                            p_value_removed = result.pvalues[result.pvalues == result.pvalues.max()].values[0]
-                            selected.remove(result.pvalues[result.pvalues == result.pvalues.max()].index[0])
-                            if show_step:  # 是否显示逐步回归过程                
-                                print('Removing %s, Pvalue = %.3f' % (var_removed, p_value_removed))
-                    iter_times += 1
+                    result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0) # logit回归
+                    llf = result.llf
+                         
+                    score = eval('result.' + criterion)                    
+                    scores_with_candidates.append((score, candidate, llf)) # 记录此次循环的变量、评分列表
+
+                if criterion in ['bic', 'aic']:  # 这几个指标取最小值进行优化
+                    scores_with_candidates.sort(reverse=True)  # 对评分列表进行降序排序
+                    best_new_score, best_candidate, best_new_llf = scores_with_candidates.pop()  # 提取最小分数及其对应变量
+                    if (current_score - best_new_score) > p_enter[criterion]:  # 如果当前评分大于最新评分
+                        remaining.remove(best_candidate)  # 从剩余未评分变量中剔除最新最优分对应的变量
+                        selected.append(best_candidate)  # 将最新最优分对应的变量放入已选变量列表
+                        current_score = best_new_score  # 更新当前评分
+                        if show_step:  # 是否显示逐步回归过程
+                            print('Adding %s, %s = %.3f' % (best_candidate, criterion, best_new_score))
+                    elif (current_score - best_new_score) >= 0 and iter_times == 0: # 当评分差大于等于0，且为第一次迭代
+                        remaining.remove(best_candidate)
+                        selected.append(best_candidate)
+                        current_score = best_new_score
+                        if show_step:  # 是否显示逐步回归过程                             
+                            print('Adding %s, %s = %.3f' % (best_candidate, criterion, best_new_score))
+                    elif iter_times == 0:  # 当评分差小于p_enter，且为第一次迭代
+                        selected.append(remaining[0])
+                        remaining.remove(remaining[0])
+                        if show_step:  # 是否显示逐步回归过程                             
+                            print('Adding %s, %s = %.3f' % (remaining[0], criterion, best_new_score))
 
                 if intercept: # 是否有截距
                     formula = "{} ~ {} + 1".format(response, ' + '.join(selected))
                 else:
-                    formula = "{} ~ {} - 1".format(response, ' + '.join(selected))
+                    formula = "{} ~ {} - 1".format(response, ' + '.join(selected))                    
 
-                stepwise_model = smf.logit(formula, df).fit(disp=0)  # 最优模型拟合           
-                if show_step:  # 是否显示逐步回归过程                
-                    print('\nLinear regression model:', '\n  ', stepwise_model.model.formula)
-                    print('\n', stepwise_model.summary())                
+                result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0)  # 最优模型拟合                    
+                if iter_times >= 1: # 当第二次循环时判断变量的pvalue是否达标
+                
+                    if result.pvalues.max() > p_value_enter:
+                        var_removed = result.pvalues[result.pvalues == result.pvalues.max()].index[0]
+                        p_value_removed = result.pvalues[result.pvalues == result.pvalues.max()].values[0]
+                        selected.remove(result.pvalues[result.pvalues == result.pvalues.max()].index[0])
+                        if show_step:  # 是否显示逐步回归过程                
+                            print('Removing %s, Pvalue = %.3f' % (var_removed, p_value_removed))                            
+                    
+                iter_times += 1
+
+            if intercept: # 是否有截距
+                formula = "{} ~ {} + 1".format(response, ' + '.join(selected))
+            else:
+                formula = "{} ~ {} - 1".format(response, ' + '.join(selected))
+
+            stepwise_model = smf.glm(formula,data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0)  # 最优模型拟合           
+            if show_step:  # 是否显示逐步回归过程                
+                print('\nLinear regression model:', '\n  ', stepwise_model.model.formula)
+                print('\n', stepwise_model.summary())                
 
             return stepwise_model
 

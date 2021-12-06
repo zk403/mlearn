@@ -316,7 +316,7 @@ class preSelector(TransformerMixin):
 
 class corrSelector(TransformerMixin):
     
-    def __init__(self,corr_limit=0.8,by='IV'):
+    def __init__(self,corr_limit=0.8,by='IV',keep=None):
         """ 
         相关系数筛选
         Parameters:
@@ -325,6 +325,7 @@ class corrSelector(TransformerMixin):
             by:str or pd.Series,
                 + ’IV‘:按照iv筛选
                 + pd.Series:用户自定义权重,要求index为列名，value为权重值
+            keep:需保留的列名list
             
         Attribute:
         ----------
@@ -332,8 +333,13 @@ class corrSelector(TransformerMixin):
         """
         self.corr_limit=corr_limit
         self.by=by
+        self.keep=keep
         
     def transform(self,X,y=None):
+        
+        if self.keep and isinstance(self.keep,list):
+            
+            self.keep_col=list(set(self.keep_col+self.keep))
         
         return X[self.keep_col]
           
@@ -344,7 +350,7 @@ class corrSelector(TransformerMixin):
         ----------
             varbin:分箱结果,计算特征IV使用,由sc.woebin产生      
         """          
-        self.filterByCorr(X,y)
+        self.keep_col=self.filterByCorr(X,y)
         
         return self
     
@@ -382,7 +388,9 @@ class corrSelector(TransformerMixin):
         #使用toad
         X_drop=toad.selection.drop_corr(X.join(y),target=y.name,threshold=self.corr_limit,by=self.by).drop(y.name,axis=1)
     
-        self.keep_col=X_drop.columns.tolist()
+        keep_col=X_drop.columns.tolist()
+        
+        return keep_col
 
         
         

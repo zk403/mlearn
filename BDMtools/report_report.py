@@ -507,11 +507,13 @@ class varReport(TransformerMixin):
              var_bin['sample_weight']=1
          
          #print var_bin
-         rename_aggfunc=dict(zip(['sample_weight','target'],['count','bad']))
+         rename_aggfunc=dict(zip(['sample_weight',y.name],['count','bad']))
          result=pd.pivot_table(var_bin,index=col,values=[y.name,'sample_weight'],
                            margins=False,
                            aggfunc='sum').rename(columns=rename_aggfunc,level=0)#.droplevel(level=1,axis=1)          
-             
+         
+         print(result)
+         
          var_tab=self.getVarReport_ks(result,col) 
          
          if is_string_dtype(var_fillna):
@@ -739,11 +741,9 @@ class varGroupsReport(TransformerMixin):
                     index=X.index)
                 )
                        
-            result={}
-            
-            if is_array_like(self.sample_weight):
+            result={}            
                 
-                X['sample_weight']=self.sample_weight 
+            X['sample_weight']=self.sample_weight if is_array_like(self.sample_weight) else 1
             
             X_g_gen=X.groupby(self.columns)
             

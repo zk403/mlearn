@@ -22,7 +22,7 @@ from BDMtools.selector_simple import corrSelector
 class faSelector(BaseEstimator):
     
     def __init__(self,n_clusters=5,corr_limit=0.6,distance_threshold=None,linkage='average',
-                 scale=True,distance_metrics='pearson',by='r2-ratio',is_greater_better=True):
+                 scale=True,distance_metrics='pearson',by='r2-ratio',is_greater_better=True,keep=None):
         '''
         变量聚类:
         Parameters:
@@ -39,6 +39,7 @@ class faSelector(BaseEstimator):
                 + 'r2-ratio':与SAS一致，将筛选每一类特征集中r2-ratio最小的特征
                 + pd.Series:用户自定义权重,要求index为列名，value为权重值，例如iv,ks等                  
             is_greater_better=True,若by参数内容为用户自定义权重,is_greater_better=True表示权重越高特征越重要,反之则越不重要
+            keep=None,需保留的列名list
                
         Attribute:    
         --
@@ -55,6 +56,7 @@ class faSelector(BaseEstimator):
         self.scale=scale
         self.by=by
         self.is_greater_better=is_greater_better
+        self.keep=keep
         
     def distance(self):
         
@@ -154,7 +156,11 @@ class faSelector(BaseEstimator):
             
             warnings.warn('by in (r2-ratio,pd.Series),use r2-ratio instead')  
             
-            columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio'],ascending=[True,True]).groupby('Cluster').head(1).index      
+            columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio'],ascending=[True,True]).groupby('Cluster').head(1).index   
+            
+        if self.keep and isinstance(self.keep,list):
+            
+            columns=list(set(columns.tolist()+self.keep))
       
         return X[columns]
     
