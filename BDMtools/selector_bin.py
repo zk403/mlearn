@@ -10,178 +10,6 @@ from BDMtools.selector_bin_fun import binAdjusterKmeans,binAdjusterChi
 #from joblib import Parallel,delayed
 #from pandas.api.types import is_numeric_dtype
 
-# class finbinSelector(TransformerMixin):
-    
-#     def __init__(self,ivlimit=0.02,bin_num=20,bin_num_limit=5,special_values=[np.nan],method='freq',out_path=None,n_jobs=-1,verbose=0):
-#         """ 
-#         IV预筛选,适用于二分类模型
-#         Parameters:
-#         ----------
-#             ivlimit=0.02:float,IV阈值,IV低于该阈值特征将被剔除
-#             bin_num=20:int,连续特征等频分箱的分箱数,默认20,分类特征则将使用其原始类别
-#             method='freq',可选'freq'与'freq-kmeans'
-#                 + 'freq':等频分箱,分箱数由bin_num指定
-#                 + 'freq-kmeans':基于Kmeans，对等频分箱结果进行自动调整，以将badrate近似的箱进行合并
-#             bin_num_limit=10,method='freq-kmeans'时，合并分箱最低限制,bin_num_limit<bin_num时才有效果        
-#             special_values=[np.nan]:list,特殊值指代,列表,默认
-#             out_path:str,输出分箱结果报告至指定路径的模型文档中
-            
-#                 注意:finbinSelector所产生的特征分箱取决于fit中的in-sample数据,若希望基于in-sample信息对out-sample进行分箱并输出报告则可使用如下代码:
-                    
-#                     breaks_list_insample=finbinSelector(bin_num=10).getBreakslistFinbin(X_train_1,y_train)
-
-#                     varReport(breaks_list_dict=breaks_list_insample,
-#                                   out_path='report',sheet_name='_oot').fit(X_oot,y_oot)
-            
-#             n_jobs:int,输出特征分析报告和采用freq-kmeans分箱时并行计算job数,默认-1(使用全部的 CPU cores)
-#             verbose:int,并行计算信息输出等级
-                
-            
-#         Attribute:
-#         ----------
-#             features_info:dict,每一步筛选的特征进入记录
-#             iv_info:pd.Series,细分箱后所有特征的iv统计结果
-#             keep_col:list,经细分箱及指定ivlimit筛选后保留的特征名列表
-#             breaks_list:dict,细分箱产生的切分点信息列表
-#             finebin:所有特征细分箱明细dict(经iv筛选后)
-#             finebin_nonmonotonic:dict,非单调特征细分箱明细dict(经iv筛选后)
-#             finebin_monotonic:dict,单调特征细分箱明细dict(经iv筛选后)
-#         """
-#         self.ivlimit=ivlimit
-#         self.bin_num=bin_num
-#         self.method=method
-#         self.bin_num_limit=bin_num_limit
-#         self.special_values=special_values
-#         self.out_path=out_path
-#         self.n_jobs=n_jobs
-#         self.verbose=verbose
-    
-#     def fit(self,X,y):
-#         """ 
-#         细分箱筛选
-#         Parameters:   
-#         ----------
-#             X:特征数据,pd.DataFrame
-#             y:目标变量列,pd.Series,必须与X索引一致
-#         """ 
-#         ivlimit=self.ivlimit
-        
-#         #获取细分箱分箱点
-   
-#         if self.method=='freq-kmeans':
-            
-#             self.breaks_list=self.getBreakslistFinbin(X,y,self.special_values)
-#             self.breaks_list=binAdjusterKmeans(breaks_list=self.breaks_list,
-#                                                bin_limit=self.bin_num_limit,
-#                                                special_values=self.special_values,
-#                                                n_jobs=self.n_jobs,
-#                                                verbose=self.verbose,
-#                                                ).fit(X,y).breaks_list_adj
-            
-#         elif self.method=='freq':
-            
-#             self.breaks_list=self.getBreakslistFinbin(X,y,self.special_values)
-            
-#         else:
-#             raise IOError("method in ('freq','freq-kmeans')")
-            
-        
-#         bin_res=sc.woebin(X.join(y).replace(self.special_values,np.nan),
-#                               y=y.name,check_cate_num=False,count_distr_limit=0.01,
-#                               bin_num_limit=self.bin_num,breaks_list=self.breaks_list)
-        
-#         #进行细分箱
-#         if self.out_path:
-
-#             varReport(breaks_list_dict=self.breaks_list,
-#                       out_path=self.out_path,
-#                       special_values=self.special_values,
-#                       tab_suffix='_fin',
-#                       n_jobs=self.n_jobs,
-#                       verbose=self.verbose,
-#                       apply_dt=None).fit(X,y)
-
-#         #加入ks
-#         bin_res_ks={}
-#         for col in bin_res:
-#             df_var=bin_res[col]
-#             good_distr=df_var['good'].div(df_var['good'].sum())
-#             bad_distr=df_var['bad'].div(df_var['bad'].sum())
-#             df_var['ks']=good_distr.sub(bad_distr).abs()
-#             bin_res_ks[col]=df_var
-        
-#         finebindf=pd.concat(bin_res_ks.values())
-                
-#         self.iv_info=pd.concat([finebindf.groupby('variable')['bin_iv'].sum().rename('total_iv')])        
-#         self.ks_info=pd.concat([finebindf.groupby('variable')['ks'].max().rename('ks_max')])        
-#         self.keep_col=self.iv_info[self.iv_info>=ivlimit].index.tolist()
-#         self.finebin={column:bin_res.get(column) for column in self.keep_col}
-#         self.breaks_list={column:self.breaks_list[column] for column in self.keep_col}
-             
-#         return self
-    
-#     def transform(self,X):
-        
-#         return X[self.keep_col]
-    
-    
-    
-#     def getBreakslistFinbin(self,X,y,special_values):
-
-#         """
-#         等频分箱产生sc.woebin可用的breaklist,用于细分箱
-#         Parameters:
-#         --
-#             X:特征数据,pd.DataFrame
-#             y:目标变量列,pd.Series,必须与X索引一致
-#         """
-        
-#         CatCol=X.select_dtypes(include='object').columns.tolist() #分类列
-#         NumCol=X.select_dtypes(include='number').columns.tolist() #数值列
-
-#         breaklist={}
-        
-#         X=X
-
-#         #bin_num下若特征分布过于集中,等频分箱将合并集中的分箱区间为最终分箱区间
-#         for numcol in NumCol:
-            
-#             numcol_s=X[numcol].replace(special_values,np.nan)
-            
-#             if numcol_s.dropna().size:
-            
-#                 _,breaks=pd.qcut(numcol_s.dropna(),self.bin_num,duplicates='drop',retbins=True,precision=3)
-                
-#             else:
-                
-#                 breaks=[0]
-            
-#             if len(breaks)==2:
-                
-#                 breaklist[numcol]=breaks.tolist()[:-1]
-                
-#             elif len(breaks)==1:
-                
-#                 breaklist[numcol]=breaks.tolist()
-                
-#             elif len(breaks)==0:
-                
-#                 breaklist[numcol]=numcol_s.dropna().unique().tolist()
-                
-#             else:
-                
-#                 breaklist[numcol]=breaks.tolist()[1:-1]
-            
-#         #分类变量则根据类别数直接分箱    
-#         for catcol in CatCol:
-            
-#             catcol_s=X[catcol].replace(special_values,'missing')
-            
-#             breaklist[catcol]=catcol_s.unique().tolist()
-                
-#         return breaklist
-        
-    
 
 class binSelector(TransformerMixin):
     
@@ -205,7 +33,7 @@ class binSelector(TransformerMixin):
                 + method='dt'和'chi'时代表分箱数,
             min_samples,method为'dt'和'chi'时代表分箱最终箱样本占比限制
             bin_num_limit,method='freq-kmeans'时，合并分箱最低限制,bin_num_limit<n_bins时才有效果
-            special_values,list,特殊值指代值
+            special_values,list,缺失值、特殊值指代值,其将被填充为missing
             iv_limit=0.02:float,IV阈值,IV低于该阈值特征将被剔除
             keep=None,list or None,保留列的列名list
             out_path:str,输出分箱结果报告至指定路径的模型文档中                
@@ -247,9 +75,14 @@ class binSelector(TransformerMixin):
             #只选择需要调整分箱的特征进行分箱
             self.keep_col=list(self.break_list_adj.keys())
             
-            self.adjbin_woe=sc.woebin(X[self.keep_col].join(y).replace(self.special_values,np.nan),
-                                      y=y.name,
-                                      breaks_list=self.break_list_adj,check_cate_num=False)
+            # self.adjbin_woe=sc.woebin(X[self.keep_col].join(y).replace(self.special_values,np.nan),
+            #                           y=y.name,
+            #                           breaks_list=self.break_list_adj,check_cate_num=False)
+            
+            self.adjbin_woe=varReport(breaks_list_dict=self.break_list_adj,
+                          special_values=self.special_values,                       
+                          n_jobs=self.n_jobs,
+                          verbose=self.verbose).fit(X[self.keep_col],y).var_report_dict
             
             #是否输出报告
             if self.out_path:
@@ -303,23 +136,30 @@ class binSelector(TransformerMixin):
                 raise IOError("method in ('freq','freq-kmeans','chi_m','chi','dt')")                              
             
             
-            self.keep_col=list(self.breaks_list.keys())
+            keep_col=list(self.breaks_list.keys())
             #最优分箱的特征iv统计值
 
-            bin_res=sc.woebin(X[self.keep_col].join(y).replace(self.special_values,np.nan),
-                              y=y.name,breaks_list=self.breaks_list,check_cate_num=False)
+            # bin_res=sc.woebin(X[self.keep_col].join(y).replace(self.special_values,np.nan),
+            #                   y=y.name,breaks_list=self.breaks_list,check_cate_num=False)
             
-            bin_res_ks={}
-            for col in bin_res:
-                df_var=bin_res[col]
-                good_distr=df_var['good'].div(df_var['good'].sum())
-                bad_distr=df_var['bad'].div(df_var['bad'].sum())
+            bin_res=varReport(breaks_list_dict=self.breaks_list,
+                          special_values=self.special_values,                       
+                          n_jobs=self.n_jobs,
+                          verbose=self.verbose).fit(X[keep_col],y).var_report_dict
+            
+            # bin_res_ks={}
+            # for col in bin_res:
+            #     df_var=bin_res[col]
+            #     good_distr=df_var['good'].div(df_var['good'].sum())
+            #     bad_distr=df_var['bad'].div(df_var['bad'].sum())
                 
-                df_var['ks']=good_distr.cumsum().sub(bad_distr.cumsum()).abs()
-                df_var['ks_max']=df_var['ks'].max()
-                bin_res_ks[col]=df_var
+            #     df_var['ks']=good_distr.cumsum().sub(bad_distr.cumsum()).abs()
+            #     df_var['ks_max']=df_var['ks'].max()
+            #     bin_res_ks[col]=df_var
             
-            optbindf_ks=pd.concat(bin_res_ks.values())
+            # optbindf_ks=pd.concat(bin_res_ks.values())
+            
+            optbindf_ks=pd.concat(bin_res.values())           
 
             self.iv_info=optbindf_ks.groupby('variable')['bin_iv'].sum().rename('total_iv')
             self.ks_info=optbindf_ks.groupby('variable')['ks'].max().rename('ks_max')

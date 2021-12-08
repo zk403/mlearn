@@ -512,7 +512,6 @@ class varReport(TransformerMixin):
                            margins=False,
                            aggfunc='sum').rename(columns=rename_aggfunc,level=0)#.droplevel(level=1,axis=1)          
          
-         print(result)
          
          var_tab=self.getVarReport_ks(result,col) 
          
@@ -727,6 +726,8 @@ class varGroupsReport(TransformerMixin):
 
         if X.size:
             
+            X=X.copy()
+            
             
             self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,axis=1).columns}    
 
@@ -742,8 +743,14 @@ class varGroupsReport(TransformerMixin):
                 )
                        
             result={}            
+            
+            if is_array_like(self.sample_weight):
                 
-            X['sample_weight']=self.sample_weight if is_array_like(self.sample_weight) else 1
+                X['sample_weight']=self.sample_weight
+                
+            else:
+                
+                X['sample_weight']=1
             
             X_g_gen=X.groupby(self.columns)
             

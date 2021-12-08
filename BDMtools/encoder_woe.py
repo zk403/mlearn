@@ -79,11 +79,17 @@ class woeTransformer(TransformerMixin):
     
         if is_numeric_dtype(col):
             
-            bin_df_drop= bin_df[~bin_df['breaks'].isin(["-inf","inf"])]
+            bin_df_drop= bin_df[~bin_df['breaks'].isin(["-inf",'missing',"inf"])]
+            
+            woe_nan= bin_df[~bin_df['breaks'].isin(["missing"])]['woe'][0]
+            
             breaks=bin_df_drop['breaks'].astype('float64').tolist()
+            
             woe=bin_df['woe'].tolist()
     
             col_woe=pd.cut(col,[-np.inf]+breaks+[np.inf],labels=woe,right=False,ordered=False).astype('float32')
+
+            col_woe=col_woe.fillna(woe_nan)
             
         elif is_string_dtype(col):
             
@@ -93,7 +99,7 @@ class woeTransformer(TransformerMixin):
             
             breaks_to_woe=dict(zip(breaks,woe))
             
-            col_woe=col.replace(special_values,'missing').map(raw_to_breaks).map(breaks_to_woe).astype('float32')
+            col_woe=col.replace(special_values,'missing').map(raw_to_breaks).map(breaks_to_woe).astype('float32')            
             
         else:
             

@@ -15,6 +15,7 @@ import pandas as pd
 import scorecardpy as sc
 import numpy as np
 from statsmodels.discrete.discrete_model import BinaryResultsWrapper
+from statsmodels.genmod.generalized_linear_model import GLMResultsWrapper
 from sklearn.linear_model._logistic import LogisticRegression
 from pandas.api.types import is_numeric_dtype,is_string_dtype
 from itertools import product
@@ -27,7 +28,7 @@ class stepLogit(BaseEstimator):
                  normalize=False,show_step=False,max_iter=200,sample_weight=None,
                  show_high_vif_only=False):
         '''
-        逐步回归
+        逐步回归,请注意column name不能以数字开头
         Parameters:
         --
             custom_column=None:list,自定义列名,调整回归模型时使用,默认为None表示所有特征都会进行筛选
@@ -235,7 +236,6 @@ class stepLogit(BaseEstimator):
             return(vif)    
 
 
-
 class cardScorer(TransformerMixin):
     
     def __init__(self,logit_model,varbin,odds0=1/100,pdo=50,points0=600,digit=0,method='new',check_na=True,n_jobs=1,verbose=0):
@@ -280,7 +280,7 @@ class cardScorer(TransformerMixin):
         
     def fit(self):        
                 
-        if isinstance(self.logit_model,BinaryResultsWrapper):    
+        if isinstance(self.logit_model,(BinaryResultsWrapper,GLMResultsWrapper)):
             
             logit_model_coef=self.logit_model.params[1:].to_dict()
             logit_model_intercept=self.logit_model.params[0]
@@ -293,7 +293,7 @@ class cardScorer(TransformerMixin):
             self.columns=self.logit_model.feature_names_in_.tolist()
             
         else:
-            raise IOError('type(logit_model) in (statsmodels.discrete.discrete_model.BinaryResultsWrapper,sklearn.linear_model._logistic.LogisticRegression)')
+            raise IOError('type(logit_model) in (statsmodels..BinaryResultsWrapper;GLMResultsWrapper,sklearn.linear_model._logistic.LogisticRegression)')
             
         self.scorecard=self.getPoints(self.varbin,logit_model_coef,logit_model_intercept,self.digit)
         
@@ -362,13 +362,17 @@ class cardScorer(TransformerMixin):
     
         if is_numeric_dtype(col):
             
-            bin_df_drop= bin_df[~bin_df['breaks'].isin(["-inf","inf"])]
+            bin_df_drop= bin_df[~bin_df['breaks'].isin(["-inf",'missing',"inf"])]
             
             breaks=bin_df_drop['breaks'].astype('float64').tolist()
             
             points=bin_df['points'].tolist()
+            
+            points_nan= bin_df[bin_df['breaks'].isin(["missing"])]['points'][0]
     
             col_points=pd.cut(col,[-np.inf]+breaks+[np.inf],labels=points,right=False,ordered=False).astype('float32')
+            
+            col_points=col_points.fillna(points_nan)
             
         elif is_string_dtype(col):
             

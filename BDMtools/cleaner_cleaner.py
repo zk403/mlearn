@@ -116,7 +116,7 @@ class dtypeAllocator(TransformerMixin):
         ------
             dtypes_dict={}
                 + dict():是否自动处理输入数据并最终转换为object、number、date三种类型
-                    + 初始数据中的数值类型数据(float,int,bool)将被全部转换为float类型数据,注意timedelta的单位将自动转换为天
+                    + 初始数据中的数值类型数据(float,int,bool)将被全部转换为float类型数据
                     + 初始数据中的数值类型数据(str)将被全部转换为object类型数据
                     + 初始数据中的数值类型数据(category-unordered)将被全部转换为object类型数据
                     + 初始数据中的数值类型数据(category-ordered)将顺序被全部转换为int8类型数据(0,1,2,3...),其与原始数据的对应关系将被保存在self.order_info中
