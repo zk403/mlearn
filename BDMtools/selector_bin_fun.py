@@ -85,7 +85,7 @@ class binAdjusterKmeans(TransformerMixin):
     
     def combine_badprob_kmeans(self,X,y,combine_ratio,bin_limit,col,breaks_list_sc_var,random_state=123,special_values=['nan',np.nan]):    
     
-        global var_bin,res_km_s
+        #global var_bin,res_km_s
         var_raw=X[col].replace(special_values,np.nan)
     
         if is_string_dtype(var_raw):

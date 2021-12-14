@@ -1,4 +1,4 @@
-# BDMtools-0.1.0
+# BDMtools-0.1.1
 
 BDMtools是适用于常见商业数据分析数据挖掘场景下，中小数据量(建议n_sample<10w,n_cols<5000)的二分类模型的建模工具包。
 本模组将集成商业分析场景中二分类模型中常用的模型，并使之能够兼顾开发效率、报告制作与模型自动化。
@@ -32,6 +32,8 @@ BDMtools是适用于常见商业数据分析数据挖掘场景下，中小数据
 + 报告
     - BDMtools.EDAReport:数据质量报告
     - BDMtools.businessReport:业务分析报告   
+    - BDMtools.Report:业务分析报告  
+    - BDMtools.varReportSinge:单特征分析报告 
     - BDMtools.varReport:特征分析报告
     - BDMtools.varGroupsReport:分群特征分析报告
 

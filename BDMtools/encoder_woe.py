@@ -3,7 +3,6 @@ from sklearn.base import TransformerMixin
 #from category_encoders.ordinal import OrdinalEncoder
 #import numpy as np
 import pandas as pd
-import scorecardpy as sc
 from pandas.api.types import is_numeric_dtype,is_string_dtype
 from joblib import Parallel,delayed
 import numpy as np
@@ -18,57 +17,39 @@ class woeTransformer(TransformerMixin):
     Params:
     ------
         
-    varbin:scorecardpy格式的特征分析报告字典结构,{var_name:bin_df,...},由woebin产生
-    method:str,可选'old'和'new'
-        + ‘old’:使用sc.woebin_ply进行woe编码
-        + 'new':使用内置函数进行woe编码,其优化了效率与内存使用,注意,使用方法new时需对原始数据进行缺失值及特殊值进行填充处理，详见bm.nanTransformer
-                - 连续特征填充为有序值如-999,分类特可填充为missing
-                - 此时需使用sc.woebin对填充后的数据进行处理产生varbin作为本模块入参，且sc.woebin的special_values参数必须设定为None
-    n_jobs,int,并行数量,默认1(所有core),在数据量非常大的前提下可极大提升效率，若数据量较少可设定为1
+    varbin:BDMtools.varReport(...).fit(...).var_report_dict,dict格式,woe编码参照此编码产生
+    n_jobs,int,并行数量,默认1(所有core),在数据量非常大，列非常多的情况下可提升效率但会增加内存占用，若数据量较少可设定为1
     verbose,int,并行信息输出等级        
-    check_na:bool,为True时,在使用方法new时，若经woe编码后编码数据出现了缺失值，程序将报错终止   
+    special_values,list,缺失值指代值,注意special_values必须与varbin的缺失值指代值一致，否则缺失值的woe编码将出现错误结果
+    check_na:bool,为True时,若经woe编码后编码数据出现了缺失值，程序将报错终止   
             出现此类错误时多半是某箱样本量为1，或test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高     
             
     Attributes:
     -------   
     """        
     
-    def __init__(self,varbin,method='new',n_jobs=1,verbose=0,check_na=True):
+    def __init__(self,varbin,n_jobs=1,verbose=0,special_values=[np.nan],check_na=True):
         
         self.varbin=varbin
-        self.method=method
         self.n_jobs=n_jobs
         self.verbose=verbose
         self.check_na=check_na
+        self.special_values=special_values
         
     def transform(self,X,y):
         """ 
         WOE转换
         """
-        if self.method=='old':
-        
-            X_woe=pd.DataFrame(index=X.index).join(sc.woebin_ply(dt=X.join(y),bins=self.varbin,no_cores=None))
+        X=X.copy().replace(self.special_values,np.nan)        
             
-            X_woe=X_woe[X_woe.columns[X_woe.columns.str.contains('_woe')]]
-          
-            X_woe.columns=X_woe.columns.str[0:-4]
+        p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
             
-            return X_woe
-        
-        elif self.method=='new':
-            
-            p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
-            
-            res=p(delayed(self.woe_map)(X[key],self.varbin[key],np.nan,self.check_na) 
+        res=p(delayed(self.woe_map)(X[key],self.varbin[key],np.nan,self.check_na) 
                               for key in self.varbin)
             
-            X_woe=pd.concat({col:col_woe for col,col_woe in res},axis=1)
+        X_woe=pd.concat({col:col_woe for col,col_woe in res},axis=1)
             
-            return X_woe  
-        
-        else:
-            
-            raise IOError('method in ("old","new")')
+        return X_woe  
             
           
     def fit(self,X,y):
@@ -79,13 +60,13 @@ class woeTransformer(TransformerMixin):
     
         if is_numeric_dtype(col):
             
-            bin_df_drop= bin_df[~bin_df['breaks'].isin(["-inf",'missing',"inf"])]
+            bin_df_drop= bin_df[~bin_df['breaks'].isin([-np.inf,'missing',np.inf])]
             
-            woe_nan= bin_df[~bin_df['breaks'].isin(["missing"])]['woe'][0]
+            woe_nan= bin_df[bin_df['breaks'].eq("missing")]['woe'][0]
             
             breaks=bin_df_drop['breaks'].astype('float64').tolist()
             
-            woe=bin_df['woe'].tolist()
+            woe=bin_df[~bin_df['breaks'].eq('missing')]['woe'].tolist()
     
             col_woe=pd.cut(col,[-np.inf]+breaks+[np.inf],labels=woe,right=False,ordered=False).astype('float32')
 
@@ -93,7 +74,7 @@ class woeTransformer(TransformerMixin):
             
         elif is_string_dtype(col):
             
-            breaks=bin_df['bin'].tolist();woe=bin_df['woe'].tolist()
+            breaks=bin_df.index.tolist();woe=bin_df['woe'].tolist()
             
             raw_to_breaks=self.raw_to_bin_sc(col.unique().tolist(),breaks,special_values=special_values)
             

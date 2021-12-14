@@ -12,7 +12,6 @@ import statsmodels.formula.api as smf
 import statsmodels.api as sm
 from sklearn.preprocessing import StandardScaler
 import pandas as pd
-import scorecardpy as sc
 import numpy as np
 from statsmodels.discrete.discrete_model import BinaryResultsWrapper
 from statsmodels.genmod.generalized_linear_model import GLMResultsWrapper
@@ -24,7 +23,7 @@ from joblib import Parallel,delayed
 
 class stepLogit(BaseEstimator):
     
-    def __init__(self,custom_column=None,p_value_enter=.05,criterion='aic',
+    def __init__(self,custom_column=None,no_stepwise=False,p_value_enter=.05,criterion='aic',
                  normalize=False,show_step=False,max_iter=200,sample_weight=None,
                  show_high_vif_only=False):
         '''
@@ -32,6 +31,7 @@ class stepLogit(BaseEstimator):
         Parameters:
         --
             custom_column=None:list,自定义列名,调整回归模型时使用,默认为None表示所有特征都会进行筛选
+            no_stepwise=False,True时直接回归(不支持normalize=True)，不进行逐步回归筛选
             p_value_enter=.05:逐步法中特征进入的pvalue限制,默认0.05
             criterion='aic':逐步法筛选变量的准则,默认aic,可选bic
             normalize=False:是否进行数据标准化,默认False,若为True,则数据将先进行标准化,且不会拟合截距
@@ -47,6 +47,7 @@ class stepLogit(BaseEstimator):
             vif_info:pd.DataFrame,筛选后特征的方差膨胀系数,须先使用方法fit
         '''        
         self.custom_column=custom_column
+        self.no_stepwise=no_stepwise
         self.p_value_enter=p_value_enter
         self.criterion=criterion
         self.normalize=normalize
@@ -87,12 +88,32 @@ class stepLogit(BaseEstimator):
         '''        
         if self.custom_column:
             
-            self.logit_model=self.stepwise(X[self.custom_column].join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,normalize=self.normalize,show_step=self.show_step,max_iter=self.max_iter) 
+            if self.no_stepwise:
+                
+                formula = "{} ~ {} + 1".format(y.name,' + '.join(self.custom_column))
+                
+                self.logit_model=smf.glm(formula, data=X[self.custom_column].join(y),
+                                         family=sm.families.Binomial(),
+                                         freq_weights=self.sample_weight).fit(disp=0)
+                
+            else:
+            
+                self.logit_model=self.stepwise(X[self.custom_column].join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,normalize=self.normalize,show_step=self.show_step,max_iter=self.max_iter) 
             
         else:
             
-            self.logit_model=self.stepwise(X.join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,normalize=self.normalize,show_step=self.show_step,max_iter=self.max_iter) 
+            if self.no_stepwise:
+                
+                formula = "{} ~ {} + 1".format(y.name,' + '.join(X.columns.tolist()))
+                
+                self.logit_model=smf.glm(formula, data=X.join(y),
+                                         family=sm.families.Binomial(),
+                                         freq_weights=self.sample_weight).fit(disp=0)                                                
             
+            else:
+                
+                self.logit_model=self.stepwise(X.join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,normalize=self.normalize,show_step=self.show_step,max_iter=self.max_iter) 
+                    
         self.model_info=self.logit_model.summary()
         self.vif_info=self.vif(self.logit_model,X,show_high_vif_only=self.show_high_vif_only)
         
@@ -123,7 +144,7 @@ class stepLogit(BaseEstimator):
                 max_iter : int, 默认是200
                     逐步法最大迭代次数。
             '''
-            criterion_list = ['bic', 'aic']
+            criterion_list = ['bic', 'aic', 'bic_llf']
             if criterion not in criterion_list:
                 raise IOError('criterion must in', '\n', criterion_list)
 
@@ -238,27 +259,24 @@ class stepLogit(BaseEstimator):
 
 class cardScorer(TransformerMixin):
     
-    def __init__(self,logit_model,varbin,odds0=1/100,pdo=50,points0=600,digit=0,method='new',check_na=True,n_jobs=1,verbose=0):
+    def __init__(self,logit_model,varbin,odds0=1/100,pdo=50,points0=600,digit=0,special_values=[np.nan],
+                 check_na=True,n_jobs=1,verbose=0):
         '''
         评分转换
         Parameters:
         --
             logit_model:statsmodel/sklearn的logit回归模型对象
-                + statsmodel.discrete.discrete_model.BinaryResultsWrapper类
+                + statsmodel.discrete.discrete_model.BinaryResultsWrapper类或statsmodels.genmod.generalized_linear_model类
                 + sklearn.linear_model._logistic.LogisticRegression类
-            varbin:sc.woebin产生的分箱信息,dict格式,woe编码参照此编码产生
+            varbin:BDMtools.varReport(...).fit(...).var_report_dict,dict格式,woe编码参照此编码产生
             odds0=1/100:基准分对应的发生比(bad/good)
             pdo=50:int,评分翻番时间隔
             points0=600,int,基准分
             digit=0,评分卡打分保留的小数位数
-            method=‘new’:str,可选'old'和'new'
-                + ‘old’:使用sc.scorecard_ply对全量数据打分
-                + 'new':使用内置函数对全量数据打分,其优化了效率与内存使用，注意,使用方法new时需对原始数据进行缺失值填充处理，详见bm.nanTransformer
-                        - 连续特征填充为有序值如-999,分类特可填充为missing
-                        - 此时需使用sc.woebin对填充后的数据进行处理产生varbin作为本模块入参，且sc.woebin的special_values参数必须设定为None
-            check_na,bool,为True时,在使用方法new时，若经打分后编码数据出现了缺失值，程序将报错终止   
+            check_na,bool,为True时,若经打分后编码数据出现了缺失值，程序将报错终止   
                     出现此类错误时多半是某箱样本量为1，或test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高
-            n_jobs=1,并行数量,默认-1(所有core),在数据量非常大,特征非常多的前提下可极大提升效率，若数据量较少可设定为1    
+            special_values=[np.nan]:list,缺失值指代值,注意special_values必须与varbin的缺失值指代值一致，否则缺失值的score计算将出现错误结果
+            n_jobs=1,并行数量,默认1(所有core),在数据量非常大，列非常多的情况下可提升效率但会增加内存占用，若数据量较少可设定为1    
             verbose=0,并行信息输出等级  
             
         
@@ -273,12 +291,12 @@ class cardScorer(TransformerMixin):
         self.pdo=pdo
         self.points0=points0
         self.digit=digit
+        self.special_values=special_values
         self.check_na=check_na
         self.n_jobs=n_jobs
         self.verbose=verbose
-        self.method=method
-        
-    def fit(self):        
+
+    def fit(self,X,y=None):        
                 
         if isinstance(self.logit_model,(BinaryResultsWrapper,GLMResultsWrapper)):
             
@@ -300,31 +318,20 @@ class cardScorer(TransformerMixin):
         return self
     
     
-    def transform(self,X):
+    def transform(self,X,y=None):
         
-        
-        if self.method=='old':
+        X=X.copy().replace(self.special_values,np.nan)        
+
+        p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
             
-            score=sc.scorecard_ply(X[self.columns],self.scorecard,only_total_score=False)
-        
-            return score
-        
-        elif self.method=='new':
-            
-            p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
-            
-            res=p(delayed(self.points_map)(X[key],self.scorecard[key],np.nan,self.check_na) 
+        res=p(delayed(self.points_map)(X[key],self.scorecard[key],np.nan,self.check_na) 
                               for key in self.columns)
             
-            score=pd.concat({col:col_points for col,col_points in res},axis=1)
+        score=pd.concat({col:col_points for col,col_points in res},axis=1)
             
-            score['score']=score.sum(axis=1).add(self.scorecard['intercept']['points'][0])
+        score['score']=score.sum(axis=1).add(self.scorecard['intercept']['points'][0])
             
-            return score  
-        
-        else:
-            
-            raise IOError('method in ("old","new")')
+        return score  
 
     
     def getPoints(self,varbin,logit_model_coef,logit_model_intercept,digit):
@@ -334,16 +341,16 @@ class cardScorer(TransformerMixin):
         bin_keep={col:varbin[col] for col in logit_model_coef.keys()}
         
         points_intercept=round(A-B*(logit_model_intercept),digit)
+
         points_all={}
         points_all['intercept']=pd.DataFrame({'variable':'intercept',
-                                              'bin':np.nan,
-                                              'points':pd.Series(points_intercept)})
+                                              'points':np.array(points_intercept)},index=['intercept'])
         
         for col in bin_keep:
             
             bin_points=bin_keep[col].join(
                         bin_keep[col]['woe'].mul(logit_model_coef[col]).mul(B).mul(-1).round(digit).rename('points') 
-                    )[['variable','bin','points','woe','breaks']]
+                    )[['variable','points','woe','breaks']]
             
             points_all[col]=bin_points
             
@@ -362,13 +369,13 @@ class cardScorer(TransformerMixin):
     
         if is_numeric_dtype(col):
             
-            bin_df_drop= bin_df[~bin_df['breaks'].isin(["-inf",'missing',"inf"])]
+            bin_df_drop= bin_df[~bin_df['breaks'].isin([-np.inf,'missing',np.inf])]
             
             breaks=bin_df_drop['breaks'].astype('float64').tolist()
             
-            points=bin_df['points'].tolist()
+            points=bin_df[~bin_df['breaks'].eq('missing')]['points'].tolist()
             
-            points_nan= bin_df[bin_df['breaks'].isin(["missing"])]['points'][0]
+            points_nan= bin_df[bin_df['breaks'].eq("missing")]['points'][0]
     
             col_points=pd.cut(col,[-np.inf]+breaks+[np.inf],labels=points,right=False,ordered=False).astype('float32')
             
@@ -376,7 +383,7 @@ class cardScorer(TransformerMixin):
             
         elif is_string_dtype(col):
             
-            breaks=bin_df['bin'].tolist();points=bin_df['points'].tolist()
+            breaks=bin_df.index.tolist();points=bin_df['points'].tolist()
            
             raw_to_breaks=self.raw_to_bin_sc(col.unique().tolist(),breaks,special_values=special_values)
             

@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*- 
 
 from BDMtools.cleaner_cleaner import outliersTransformer,dtypeAllocator,nanTransformer,dtStandardization
-from BDMtools.report_report import businessReport,EDAReport,varReport,varGroupsReport
+from BDMtools.report_report import businessReport,EDAReport,varReport,varGroupsReport,varReportSinge
 from BDMtools.selector_bin import binSelector
 from BDMtools.selector_fa import faSelector
 from BDMtools.selector_logtit import stepLogit,cardScorer
@@ -15,7 +15,7 @@ from BDMtools.tuner_bayesian import BayesianXGBTuner,BayesianLgbmTuner
 from BDMtools.tuner_fun import shapCheck
 
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 
 __all__ = (    
     dtStandardization,
@@ -24,6 +24,7 @@ __all__ = (
     nanTransformer,
     businessReport,
     EDAReport,
+    varReportSinge,
     varReport,
     varGroupsReport,
     binSelector,

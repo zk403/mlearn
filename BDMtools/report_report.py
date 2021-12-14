@@ -307,10 +307,18 @@ class varReportSinge:
 
              #转换字原始符映射到分箱sc的breaklist的字符映射
              var_code_raw=var_cut.unique().tolist()
-                                   
+                          
              map_codes=self.raw_to_bin_sc(var_code_raw,breaklist_var,special_values)
+                        
+             var_bin=pd.Series(pd.Categorical(var_cut.map(map_codes)),index=var_fillna.index,name=col)
              
-             var_bin=var_cut.map(map_codes)
+             if 'missing' in var_bin.cat.categories:
+                 
+                 var_bin= var_bin.fillna('missing') 
+            
+             else:
+                 
+                 var_bin= var_bin.cat.add_categories('missing').fillna('missing')
              
          else:
              
@@ -481,7 +489,7 @@ class varReport(TransformerMixin):
              
              var_bin=var_cut.fillna('missing')
          
-         elif is_string_dtype(var_fillna):    
+         elif is_string_dtype(var_fillna):                 
              
              var_cut=pd.Series(np.where(var_fillna.isnull(),'missing',var_fillna),
                        index=var_fillna.index,
@@ -489,11 +497,19 @@ class varReport(TransformerMixin):
 
              #转换字原始符映射到分箱sc的breaklist的字符映射
              var_code_raw=var_cut.unique().tolist()
-                                   
+                          
              map_codes=self.raw_to_bin_sc(var_code_raw,breaklist_var,special_values)
+                        
+             var_bin=pd.Series(pd.Categorical(var_cut.map(map_codes)),index=var_fillna.index,name=col)
              
-             var_bin=var_cut.map(map_codes)
-             
+             if 'missing' in var_bin.cat.categories:
+                 
+                 var_bin= var_bin.fillna('missing') 
+            
+             else:
+                 
+                 var_bin= var_bin.cat.add_categories('missing').fillna('missing')
+            
          else:
              
              raise IOError('dtypes in X in (number,object),others not support')
@@ -504,7 +520,7 @@ class varReport(TransformerMixin):
              var_bin['sample_weight']=self.sample_weight
          else:
              var_bin=pd.concat([var_bin,y],axis=1)
-             var_bin['sample_weight']=1
+             var_bin['sample_weight']=1         
          
          #print var_bin
          rename_aggfunc=dict(zip(['sample_weight',y.name],['count','bad']))
