@@ -30,7 +30,7 @@ class binSelector(TransformerMixin):
             + method='chi_m'时代表卡方单调分箱的等频预分箱数  
             + method='dt'和'chi'时代表分箱数,
         min_samples,method为'dt'和'chi'时代表分箱最终箱样本占比限制
-        sample_weight=None,样本权重，主要用于调整分箱后的坏样本率,目前这一功能暂不完善
+        sample_weight=None,样本权重，主要用于调整分箱后的坏样本率,目前这一功能暂不完善,后续版本中在更新分箱算法后完成
         bin_num_limit,method='freq-kmeans'时，合并分箱最低限制,bin_num_limit<n_bins时才有效果
         special_values,list,缺失值、特殊值指代值,数值特征被替换为np.nan，分类特征将被替换为'missing'
         iv_limit=0.02:float,IV阈值,IV低于该阈值特征将被剔除
