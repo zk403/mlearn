@@ -23,29 +23,31 @@ from joblib import Parallel,delayed
 
 class stepLogit(BaseEstimator):
     
+    '''
+    逐步回归,请注意column name不能以数字开头
+    Parameters:
+    --
+        custom_column=None:list,自定义列名,调整回归模型时使用,默认为None表示所有特征都会进行筛选
+        no_stepwise=False,True时直接回归(不支持normalize=True)，不进行逐步回归筛选
+        p_value_enter=.05:逐步法中特征进入的pvalue限制,默认0.05
+        criterion='aic':逐步法筛选变量的准则,默认aic,可选bic
+        normalize=False:是否进行数据标准化,默认False,若为True,则数据将先进行标准化,且不会拟合截距
+        show_step=False:是否打印逐步回归过程
+        max_iter=200,逐步回归最大迭代次数
+        sample_weight=None,样本权重
+        show_high_vif_only=False:True时仅输出vif大于10的特征,False时将输出所有特征的vif
+    
+    Attribute:    
+    --
+        logit_model:逐步回归的statsmodel结果对象,须先使用方法fit
+        model_info: 回归结果报告,须先使用方法fit
+        vif_info:pd.DataFrame,筛选后特征的方差膨胀系数,须先使用方法fit
+    '''        
+    
     def __init__(self,custom_column=None,no_stepwise=False,p_value_enter=.05,criterion='aic',
                  normalize=False,show_step=False,max_iter=200,sample_weight=None,
                  show_high_vif_only=False):
-        '''
-        逐步回归,请注意column name不能以数字开头
-        Parameters:
-        --
-            custom_column=None:list,自定义列名,调整回归模型时使用,默认为None表示所有特征都会进行筛选
-            no_stepwise=False,True时直接回归(不支持normalize=True)，不进行逐步回归筛选
-            p_value_enter=.05:逐步法中特征进入的pvalue限制,默认0.05
-            criterion='aic':逐步法筛选变量的准则,默认aic,可选bic
-            normalize=False:是否进行数据标准化,默认False,若为True,则数据将先进行标准化,且不会拟合截距
-            show_step=False:是否打印逐步回归过程
-            max_iter=200,逐步回归最大迭代次数
-            sample_weight=None,样本权重
-            show_high_vif_only=False:True时仅输出vif大于10的特征,False时将输出所有特征的vif
-        
-        Attribute:    
-        --
-            logit_model:逐步回归的statsmodel结果对象,须先使用方法fit
-            model_info: 回归结果报告,须先使用方法fit
-            vif_info:pd.DataFrame,筛选后特征的方差膨胀系数,须先使用方法fit
-        '''        
+      
         self.custom_column=custom_column
         self.no_stepwise=no_stepwise
         self.p_value_enter=p_value_enter
@@ -259,32 +261,34 @@ class stepLogit(BaseEstimator):
 
 class cardScorer(TransformerMixin):
     
+    '''
+    评分转换
+    Parameters:
+    --
+        logit_model:statsmodel/sklearn的logit回归模型对象
+            + statsmodel.discrete.discrete_model.BinaryResultsWrapper类或statsmodels.genmod.generalized_linear_model类
+            + sklearn.linear_model._logistic.LogisticRegression类
+        varbin:BDMtools.varReport(...).fit(...).var_report_dict,dict格式,woe编码参照此编码产生
+        odds0=1/100:基准分对应的发生比(bad/good)
+        pdo=50:int,评分翻番时间隔
+        points0=600,int,基准分
+        digit=0,评分卡打分保留的小数位数
+        check_na,bool,为True时,若经打分后编码数据出现了缺失值，程序将报错终止   
+                出现此类错误时多半是某箱样本量为1，或test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高
+        special_values=[np.nan]:list,缺失值指代值,注意special_values必须与varbin的缺失值指代值一致，否则缺失值的score计算将出现错误结果
+        n_jobs=1,并行数量,默认1(所有core),在数据量非常大，列非常多的情况下可提升效率但会增加内存占用，若数据量较少可设定为1    
+        verbose=0,并行信息输出等级  
+        
+    
+    Attribute:    
+    --
+        scorecard:dict,产生的评分卡,须先使用方法fit
+        
+    ''' 
+    
     def __init__(self,logit_model,varbin,odds0=1/100,pdo=50,points0=600,digit=0,special_values=[np.nan],
                  check_na=True,n_jobs=1,verbose=0):
-        '''
-        评分转换
-        Parameters:
-        --
-            logit_model:statsmodel/sklearn的logit回归模型对象
-                + statsmodel.discrete.discrete_model.BinaryResultsWrapper类或statsmodels.genmod.generalized_linear_model类
-                + sklearn.linear_model._logistic.LogisticRegression类
-            varbin:BDMtools.varReport(...).fit(...).var_report_dict,dict格式,woe编码参照此编码产生
-            odds0=1/100:基准分对应的发生比(bad/good)
-            pdo=50:int,评分翻番时间隔
-            points0=600,int,基准分
-            digit=0,评分卡打分保留的小数位数
-            check_na,bool,为True时,若经打分后编码数据出现了缺失值，程序将报错终止   
-                    出现此类错误时多半是某箱样本量为1，或test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高
-            special_values=[np.nan]:list,缺失值指代值,注意special_values必须与varbin的缺失值指代值一致，否则缺失值的score计算将出现错误结果
-            n_jobs=1,并行数量,默认1(所有core),在数据量非常大，列非常多的情况下可提升效率但会增加内存占用，若数据量较少可设定为1    
-            verbose=0,并行信息输出等级  
-            
-        
-        Attribute:    
-        --
-            scorecard:dict,产生的评分卡,须先使用方法fit
-            
-        '''        
+       
         self.logit_model=logit_model
         self.varbin=varbin
         self.odds0=odds0

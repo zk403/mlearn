@@ -11,38 +11,39 @@ from BDMtools.selector_bin_fun import binAdjusterKmeans,binAdjusterChi
 #from pandas.api.types import is_numeric_dtype
 
 
-class binSelector(TransformerMixin):
+class binSelector(TransformerMixin):    
     
-    def __init__(self,method='freq',n_bins=10,min_samples=0.05,bin_num_limit=7,special_values=[np.nan],iv_limit=0.02,keep=None,
-                 out_path=None,break_list_adj=None,n_jobs=-1,verbose=0):
-        """ 
-        最优分箱与交互分箱
-        Parameters:
-        ----------
-            method:str,分箱方法
-                + ‘freq’:等频分箱
-                + ‘freq-kmeans’:等频kmeans分箱，基于Kmeans，对等频分箱结果进行自动调整，以将badrate近似的箱进行合并
-                + 'dt':决策树,递归分裂gini增益最高的切分点形成新分箱直到达到终止条件
-                + 'chi':卡方,先等频预分箱,再递归合并低于卡方值(交叉表卡方检验的差异不显著)的分箱
-                + 'chi_m':卡方单调,先等频预分箱,再合并低于卡方值(交叉表卡方检验的差异不显著)的分箱或不单调(badrate)的分箱    
-                          注意chi_m只适用于数值列,字符列将在breaks_list中被剔除
-            n_bins:int,
-                + method=‘freq’时代表等频分箱数
-                + method=‘freq-kmeans’时代表等频预分箱数              
-                + method='chi_m'时代表卡方单调分箱的等频预分箱数  
-                + method='dt'和'chi'时代表分箱数,
-            min_samples,method为'dt'和'chi'时代表分箱最终箱样本占比限制
-            bin_num_limit,method='freq-kmeans'时，合并分箱最低限制,bin_num_limit<n_bins时才有效果
-            special_values,list,缺失值、特殊值指代值,其将被填充为missing
-            iv_limit=0.02:float,IV阈值,IV低于该阈值特征将被剔除
-            keep=None,list or None,保留列的列名list
-            out_path:str,输出分箱结果报告至指定路径的模型文档中                
-            n_jobs:int,并行计算job数,默认-1(使用全部的 CPU cores)
-            verbose:int,并行计算信息输出等级
-        Attribute:
-        ----------
-            features_info:dict,每一步筛选的特征进入记录
-        """
+    """ 
+    最优分箱与交互分箱
+    Parameters:
+    ----------
+        method:str,分箱方法
+            + ‘freq’:等频分箱
+            + ‘freq-kmeans’:等频kmeans分箱，基于Kmeans，对等频分箱结果进行自动调整，以将badrate近似的箱进行合并
+            + 'dt':决策树,递归分裂gini增益最高的切分点形成新分箱直到达到终止条件
+            + 'chi':卡方,先等频预分箱,再递归合并低于卡方值(交叉表卡方检验的差异不显著)的分箱
+            + 'chi_m':卡方单调,先等频预分箱,再合并低于卡方值(交叉表卡方检验的差异不显著)的分箱或不单调(badrate)的分箱    
+                      注意chi_m只适用于数值列,字符列将在breaks_list中被剔除
+        n_bins:int,
+            + method=‘freq’时代表等频分箱数
+            + method=‘freq-kmeans’时代表等频预分箱数              
+            + method='chi_m'时代表卡方单调分箱的等频预分箱数  
+            + method='dt'和'chi'时代表分箱数,
+        min_samples,method为'dt'和'chi'时代表分箱最终箱样本占比限制
+        sample_weight=None,样本权重，主要用于调整分箱后的坏样本率,目前这一功能暂不完善
+        bin_num_limit,method='freq-kmeans'时，合并分箱最低限制,bin_num_limit<n_bins时才有效果
+        special_values,list,缺失值、特殊值指代值,数值特征被替换为np.nan，分类特征将被替换为'missing'
+        iv_limit=0.02:float,IV阈值,IV低于该阈值特征将被剔除
+        keep=None,list or None,保留列的列名list             
+        n_jobs:int,列并行计算job数,默认-1,并行在数据量较大，特征较多时能够提升效率，但会增加内存消耗
+        verbose:int,并行计算信息输出等级
+    Attribute:
+    ----------
+        features_info:dict,每一步筛选的特征进入记录
+    """
+    
+    def __init__(self,method='freq',n_bins=10,min_samples=0.05,bin_num_limit=7,special_values=[np.nan],iv_limit=0.02,keep=None,sample_weight=None,
+                 break_list_adj=None,n_jobs=-1,verbose=0):
         self.method=method
         self.n_bins=n_bins
         self.min_samples=min_samples
@@ -50,8 +51,8 @@ class binSelector(TransformerMixin):
         self.iv_limit=iv_limit
         self.keep=keep
         self.special_values=special_values
-        self.out_path=out_path
         self.break_list_adj=break_list_adj
+        self.sample_weight=sample_weight
         self.n_jobs=n_jobs
         self.verbose=verbose
         
@@ -84,15 +85,6 @@ class binSelector(TransformerMixin):
                           n_jobs=self.n_jobs,
                           verbose=self.verbose).fit(X[self.keep_col],y).var_report_dict
             
-            #是否输出报告
-            if self.out_path:
-                
-                varReport(breaks_list_dict=self.break_list_adj,
-                          special_values=self.special_values,
-                          out_path=self.out_path,                          
-                          n_jobs=self.n_jobs,
-                          verbose=self.verbose,
-                          tab_suffix='_adj').fit(X[self.keep_col],y)
                     
         #若不给定breaklist，则进行最优分箱                                   
         else:

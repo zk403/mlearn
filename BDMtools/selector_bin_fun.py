@@ -19,27 +19,29 @@ from scipy.stats import chi2
 
 class binAdjusterKmeans(TransformerMixin):
     
+    """ 
+    基于Kmeans的分箱调整算法:一种自动非优化分箱算法        
+    一般通过细分箱后各个分箱的BadRate近似时需要合并,本算法可自动实现这一过程。
+    
+    Params:
+    ------
+    
+        breaks_list:分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构 
+        combine_ratio,float,分箱合并阈值,在bin_limit=1的情况下,阈值越大合并的箱数越多,建议范围0.01-0.1
+        bin_limit:int,分箱合并阈值,最终分箱的最低分箱数限制,越低则合并的箱数越多,建议4-6,同时若特征初始分箱小于bin_limit则不执行合并算法
+        seed:int,kmeans随机种子,
+            + 本算法在合并差距较大的barprob箱时,kmeans的随机性会被放大导致合并结果不可复现,设定seed值以复现合并结果
+            + 设定合理的combine_ratio与bin_limit可极大的降低kmeans的随机性
+        special_values,特殊值指代值,需与breaks_list一致            
+        n_jobs,int,并行数量,默认-1(所有core),在数据量较大的前提下可极大提升效率
+        verbose,int,并行信息输出等级        
+        
+    Attributes:
+    -------
+    """    
+    
     def __init__(self,breaks_list,combine_ratio=0.1,bin_limit=5,seed=123,special_values=[np.nan],n_jobs=-1,verbose=0):
-        """ 
-        基于Kmeans的分箱调整算法:一种自动非优化分箱算法        
-        一般通过细分箱后各个分箱的BadRate近似时需要合并,本算法可自动实现这一过程。
-        
-        Params:
-        ------
-        
-            breaks_list:分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构 
-            combine_ratio,float,分箱合并阈值,在bin_limit=1的情况下,阈值越大合并的箱数越多,建议范围0.01-0.1
-            bin_limit:int,分箱合并阈值,最终分箱的最低分箱数限制,越低则合并的箱数越多,建议4-6,同时若特征初始分箱小于bin_limit则不执行合并算法
-            seed:int,kmeans随机种子,
-                + 本算法在合并差距较大的barprob箱时,kmeans的随机性会被放大导致合并结果不可复现,设定seed值以复现合并结果
-                + 设定合理的combine_ratio与bin_limit可极大的降低kmeans的随机性
-            special_values,特殊值指代值,需与breaks_list一致            
-            n_jobs,int,并行数量,默认-1(所有core),在数据量较大的前提下可极大提升效率
-            verbose,int,并行信息输出等级        
-            
-        Attributes:
-        -------
-        """
+
         self.combine_ratio = combine_ratio       
         self.bin_limit=bin_limit
         self.breaks_list=breaks_list

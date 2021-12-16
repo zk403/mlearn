@@ -16,120 +16,123 @@ import pandas as pd
 
 class hgirdTuner(BaseEstimator):
     
+    '''
+    Xgb与Lgbm的sucessive halving搜索与sucessive halving搜索
+    Parameters:
+    --
+        Estimator:拟合器,XGBClassifier或LGBMClassifier
+        method:str,可选"h_gird"或"h_random"
+        para_space:dict,参数空间,注意随机搜索与网格搜索对应不同的dict结构,参数空间写法见后                       
+        n_candidates:int or 'exhaust',halving random_search的抽样候选参数个数,当method="h_gird"时该参数会被忽略
+        factor:int,halving search中，1/factor的候选参数将被用于下一次迭代
+        scoring:str,寻优准则,可选'auc','ks','lift'
+        repeats:int,RepeatedStratifiedKFold交叉验证重复次数
+        cv:int,交叉验证的折数
+        n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
+        verbose,int,并行信息输出等级
+        random_state:随机种子
+        sample_weight:样本权重
+        calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准
+        cv_calibration:CalibratedClassifierCV的交叉验证数,注意此处不接受验证数据，不推荐设定为'prefit'            
+        
+        """参数空间写法
+            当Estimator=XGBClassifier,method="h_gird":
+                
+                param_space={
+                     'n_estimators':[100]
+                     'learning_rate':[0.1],
+                    
+                     'max_depth':[3],
+                     'gamma': [0,10],
+                     'min_child_weight': 
+                     
+                     'subsample':[0.6,0.8],
+                     'colsample_bytree' :[0.6,0.8],
+                     'reg_lambda':[0,10], 
+                     'scale_pos_weight':[1,11],
+                     'max_delta_step':[0]
+                     }
+            
+            当Estimator=XGBClassifier,method="h_random":     
+               
+               from scipy.stats import randint as sp_randint
+               from scipy.stats import uniform as sp_uniform 
+               
+               param_distributions={
+                     'n_estimators':sp_randint(low=60,high=120),#迭代次数
+                     'learning_rate':sp_uniform(loc=0.05,scale=0.15), #学习率
+                    
+                     'max_depth':sp_randint(low=2,high=4),
+                     'gamma': sp_uniform(loc=0,scale=21),
+                     'min_child_weight': sp_uniform(loc=0,scale=21),
+                     
+                     'subsample':sp_uniform(loc=0.5,scale=0.5),
+                     'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),
+                     
+                     'reg_lambda':sp_randint(low=0,high=1), 
+                     'scale_pos_weight':sp_uniform(loc=1,scale=0), 
+                     'max_delta_step':sp_uniform(loc=0,scale=0)
+                     } 
+              
+             当Estimator=LGBMClassifier,method="h_gird": 
+                 
+                para_space={
+                     'boosting_type':['gbdt','goss'], 
+                     'n_estimators':[100],
+                     'learning_rate':[0.1], 
+                    
+                     'max_depth':[3],#[0,∞],
+                     'min_split_gain': [0],
+                     'min_child_weight':[0],
+                     
+                     'scale_pos_weight':[1],
+                     'subsample':[0.6,0.8],
+                     'colsample_bytree' :[0.6,0.8],
+                     'reg_lambda':[0,10], 
+                     }
+                
+             当Estimator=LGBMClassifier,method="h_random": 
+                 
+                 from scipy.stats import randint as sp_randint
+                 from scipy.stats import uniform as sp_uniform 
+                 
+                 para_space={
+                     'boosting_type':['gbdt','goss'], #'goss','gbdt'
+                     'n_estimators':sp_randint(low=100,high=110),
+                     'learning_rate':sp_uniform(loc=0.1,scale=0), 
+                    
+                     'max_depth':sp_randint(low=2,high=4),#[0,∞],
+                     'min_split_gain': sp_uniform(loc=0,scale=0),
+                     'min_child_weight': sp_uniform(loc=0,scale=0),
+                     
+                     'scale_pos_weight':[1,11],
+                     'subsample':sp_uniform(loc=0.5,scale=0.5),
+                     'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),
+                     'reg_lambda':sp_uniform(loc=0,scale=20),
+                     }
+                
+        """   
+    
+    Attribute:    
+    --
+        cv_result:交叉验证结果,需先使用fit
+        params_best:最优参数组合,需先使用fit
+        h_gird_res:method="h_gird"下的优化结果,需先使用fit
+        h_random_res:method="h_random"下的优化结果,需先使用fit
+        model_refit:最优参数下的模型,需先使用fit
+        
+    Examples
+    --
+    
+    
+
+    '''     
+    
+    
     def __init__(self,Estimator,para_space,method='h_random',scoring='auc',repeats=1,cv=5,
                  factor=3,n_candidates='exhaust',
                  n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
-        '''
-        Xgb与Lgbm的sucessive halving搜索与sucessive halving搜索
-        Parameters:
-        --
-            Estimator:拟合器,XGBClassifier或LGBMClassifier
-            method:str,可选"h_gird"或"h_random"
-            para_space:dict,参数空间,注意随机搜索与网格搜索对应不同的dict结构,参数空间写法见后                       
-            n_candidates:int or 'exhaust',halving random_search的抽样候选参数个数,当method="h_gird"时该参数会被忽略
-            factor:int,halving search中，1/factor的候选参数将被用于下一次迭代
-            scoring:str,寻优准则,可选'auc','ks','lift'
-            repeats:int,RepeatedStratifiedKFold交叉验证重复次数
-            cv:int,交叉验证的折数
-            n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
-            verbose,int,并行信息输出等级
-            random_state:随机种子
-            sample_weight:样本权重
-            calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准
-            cv_calibration:CalibratedClassifierCV的交叉验证数,注意此处不接受验证数据，不推荐设定为'prefit'            
-            
-            """参数空间写法
-                当Estimator=XGBClassifier,method="h_gird":
-                    
-                    param_space={
-                         'n_estimators':[100]
-                         'learning_rate':[0.1],
-                        
-                         'max_depth':[3],
-                         'gamma': [0,10],
-                         'min_child_weight': 
-                         
-                         'subsample':[0.6,0.8],
-                         'colsample_bytree' :[0.6,0.8],
-                         'reg_lambda':[0,10], 
-                         'scale_pos_weight':[1,11],
-                         'max_delta_step':[0]
-                         }
-                
-                当Estimator=XGBClassifier,method="h_random":     
-                   
-                   from scipy.stats import randint as sp_randint
-                   from scipy.stats import uniform as sp_uniform 
-                   
-                   param_distributions={
-                         'n_estimators':sp_randint(low=60,high=120),#迭代次数
-                         'learning_rate':sp_uniform(loc=0.05,scale=0.15), #学习率
-                        
-                         'max_depth':sp_randint(low=2,high=4),
-                         'gamma': sp_uniform(loc=0,scale=21),
-                         'min_child_weight': sp_uniform(loc=0,scale=21),
-                         
-                         'subsample':sp_uniform(loc=0.5,scale=0.5),
-                         'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),
-                         
-                         'reg_lambda':sp_randint(low=0,high=1), 
-                         'scale_pos_weight':sp_uniform(loc=1,scale=0), 
-                         'max_delta_step':sp_uniform(loc=0,scale=0)
-                         } 
-                  
-                 当Estimator=LGBMClassifier,method="h_gird": 
-                     
-                    para_space={
-                         'boosting_type':['gbdt','goss'], 
-                         'n_estimators':[100],
-                         'learning_rate':[0.1], 
-                        
-                         'max_depth':[3],#[0,∞],
-                         'min_split_gain': [0],
-                         'min_child_weight':[0],
-                         
-                         'scale_pos_weight':[1],
-                         'subsample':[0.6,0.8],
-                         'colsample_bytree' :[0.6,0.8],
-                         'reg_lambda':[0,10], 
-                         }
-                    
-                 当Estimator=LGBMClassifier,method="h_random": 
-                     
-                     from scipy.stats import randint as sp_randint
-                     from scipy.stats import uniform as sp_uniform 
-                     
-                     para_space={
-                         'boosting_type':['gbdt','goss'], #'goss','gbdt'
-                         'n_estimators':sp_randint(low=100,high=110),
-                         'learning_rate':sp_uniform(loc=0.1,scale=0), 
-                        
-                         'max_depth':sp_randint(low=2,high=4),#[0,∞],
-                         'min_split_gain': sp_uniform(loc=0,scale=0),
-                         'min_child_weight': sp_uniform(loc=0,scale=0),
-                         
-                         'scale_pos_weight':[1,11],
-                         'subsample':sp_uniform(loc=0.5,scale=0.5),
-                         'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),
-                         'reg_lambda':sp_uniform(loc=0,scale=20),
-                         }
-                    
-            """   
-        
-        Attribute:    
-        --
-            cv_result:交叉验证结果,需先使用fit
-            params_best:最优参数组合,需先使用fit
-            h_gird_res:method="h_gird"下的优化结果,需先使用fit
-            h_random_res:method="h_random"下的优化结果,需先使用fit
-            model_refit:最优参数下的模型,需先使用fit
-            
-        Examples
-        --
-        
-        
-
-        '''       
+      
         self.Estimator=Estimator
         self.para_space=para_space
         self.method=method

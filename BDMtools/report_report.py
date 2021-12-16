@@ -19,24 +19,26 @@ from joblib import Parallel,delayed
 
 class EDAReport(TransformerMixin):
     
+    """ 
+    产生数据质量报告
+    Params:
+    ------
+        categorical_col:list,类别特征列名
+        numeric_col:list,连续特征列名
+        miss_value:list,缺失值指代值
+        is_nacorr:bool,是否输出缺失率相关性报告
+        out_path:str or None,将数据质量报告输出到本地工作目录的str文件夹下，None代表不输出            
+    
+    Attributes:
+    -------
+        num_report:pd.DataFrame,连续特征质量报告a
+        char_report:pd.DataFrame,分类特征质量报告
+        na_report:pd.DataFrame,单特征缺失率报告
+        nacorr_report:pd.DataFrame,缺失率相关性报告
+    """
+    
     def __init__(self,categorical_col=None,numeric_col=None,special_values=[np.nan,'nan'],is_nacorr=False,out_path="report"):
-        """ 
-        产生数据质量报告
-        Params:
-        ------
-            categorical_col:list,类别特征列名
-            numeric_col:list,连续特征列名
-            miss_value:list,缺失值指代值
-            is_nacorr:bool,是否输出缺失率相关性报告
-            out_path:str or None,将数据质量报告输出到本地工作目录的str文件夹下，None代表不输出            
         
-        Attributes:
-        -------
-            num_report:pd.DataFrame,连续特征质量报告a
-            char_report:pd.DataFrame,分类特征质量报告
-            na_report:pd.DataFrame,单特征缺失率报告
-            nacorr_report:pd.DataFrame,缺失率相关性报告
-        """
         self.categorical_col = categorical_col
         self.numeric_col = numeric_col
         self.special_values=special_values
@@ -180,22 +182,24 @@ class EDAReport(TransformerMixin):
         
 class businessReport(TransformerMixin):
     
+    """ 
+    产生业务报告
+    Params:
+    ------
+        target:str,目标变量名
+        index:list,汇总到行的列名
+        columns:list,汇总到列的列名
+        rename_columns:list,重命名汇总到行的列名
+        rename_index:list,重命名汇总到列的列名     
+        out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
+    
+    Attributes:
+    -------
+        ptable:pd.DataFrame,业务透视表
+    """    
+    
     def __init__(self,target,index,columns,rename_columns=None,rename_index=None,out_path=None):
-        """ 
-        产生业务报告
-        Params:
-        ------
-            target:str,目标变量名
-            index:list,汇总到行的列名
-            columns:list,汇总到列的列名
-            rename_columns:list,重命名汇总到行的列名
-            rename_index:list,重命名汇总到列的列名     
-            out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
-        
-        Attributes:
-        -------
-            ptable:pd.DataFrame,业务透视表
-        """
+
         self.target = target
         self.index = index
         self.columns=columns
@@ -410,23 +414,25 @@ class varReportSinge:
 
 class varReport(TransformerMixin):
     
+    """ 
+    产生业务报告
+    Params:
+    ------
+        breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
+        special_values:list,缺失值指代值
+        sample_weight:numpy.array or pd.Series or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标
+        out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
+        tab_suffix:本地excel报告名后缀
+        n_jobs:int,并行计算job数
+        verbose:int,并行计算信息输出等级
+    
+    Attributes:
+    -------
+        var_report_dict:dict,特征分析报告字典
+    """
+    
     def __init__(self,breaks_list_dict,special_values=[np.nan],sample_weight=None,out_path=None,tab_suffix='',n_jobs=-1,verbose=0):
-        """ 
-        产生业务报告
-        Params:
-        ------
-            breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
-            special_values:list,缺失值指代值
-            sample_weight:numpy.array or pd.Series or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标
-            out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
-            tab_suffix:本地excel报告名后缀
-            n_jobs:int,并行计算job数
-            verbose:int,并行计算信息输出等级
-        
-        Attributes:
-        -------
-            var_report_dict:dict,特征分析报告字典
-        """
+
         self.breaks_list_dict = breaks_list_dict
         self.special_values=special_values
         self.sample_weight=sample_weight
@@ -693,36 +699,39 @@ class varReport(TransformerMixin):
         
 class varGroupsReport(TransformerMixin):
     
+    """ 
+    产生组业务报告
+    Params:
+    ------
+    
+    breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
+    columns:list,组变量名,最终报告将组变量置于报告列上,组特征可以在breaks_list_dict中
+    target:目标变量名
+    output_psi:bool,是否输出群组psi报告
+    psi_base:str,psi计算的基准,可选all，也可用户自定义
+        + 'all':以特征在全量数据的分布为基准
+        + user-define:用户输入支持X.query的表达式以确定base           
+    row_limit,int,分组行数限制，建议设定该参数至合理水平
+        + 默认每组最少1000行，小于限制的组不统计其任何指标，返回空，
+        + 当数据中存在组样本过少时，分组进行统计的bin可能会在某些分段内缺失导致concat时出现index overlapping错误，此时可适当提高row_limit以避免此类错误
+    special_values:list,缺失值指代值
+    sample_weight:numpy.array or pd.Series(...,index=X.index) or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标以还原抽样对分析影响
+    n_jobs:int,并行计算job数
+    verbose:int,并行计算信息输出等级
+    out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
+    tab_suffix:本地excel报告名后缀
+    
+    Attributes:
+    -------
+        report_dict:dict,所有产生的报告
+    """
+        
+    
+    
     def __init__(self,breaks_list_dict,columns,sort_columns=None,target='target',row_limit=1000,output_psi=False,psi_base='all',
                  special_values=[np.nan],sample_weight=None,
                  n_jobs=-1,verbose=0,out_path=None,tab_suffix='_group'):
-        """ 
-        产生组业务报告
-        Params:
-        ------
-        
-        breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
-        columns:list,组变量名,最终报告将组变量置于报告列上,组特征可以在breaks_list_dict中
-        target:目标变量名
-        output_psi:bool,是否输出群组psi报告
-        psi_base:str,psi计算的基准,可选all，也可用户自定义
-            + 'all':以特征在全量数据的分布为基准
-            + user-define:用户输入支持X.query的表达式以确定base           
-        row_limit,int,分组行数限制，建议设定该参数至合理水平
-            + 默认每组最少1000行，小于限制的组不统计其任何指标，返回空，
-            + 当数据中存在组样本过少时，分组进行统计的bin可能会在某些分段内缺失导致concat时出现index overlapping错误，此时可适当提高row_limit以避免此类错误
-        special_values:list,缺失值指代值
-        sample_weight:numpy.array or pd.Series(...,index=X.index) or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标以还原抽样对分析影响
-        n_jobs:int,并行计算job数
-        verbose:int,并行计算信息输出等级
-        out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
-        tab_suffix:本地excel报告名后缀
-        
-        Attributes:
-        -------
-            report_dict:dict,所有产生的报告
-        """
-        
+
         self.breaks_list_dict=breaks_list_dict
         self.target=target
         self.columns=columns

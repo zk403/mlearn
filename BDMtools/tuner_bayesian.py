@@ -19,56 +19,59 @@ import pandas as pd
 
 class BayesianXGBTuner(BaseEstimator):
     
+    '''
+    使用贝叶斯优化参数的Xgboost
+    Parameters:
+    --
+        para_space:dict,xgboost的参数空间
+        n_iter:贝叶斯优化搜索迭代次数
+        init_points:int,贝叶斯优化起始搜索点的个数
+        scoring:str,寻优准则,可选'auc','ks','lift'
+        cv:int,RepeatedStratifiedKFold交叉验证的折数
+        repeats:int,RepeatedStratifiedKFold交叉验证重复次数
+        refit:bool,最优参数下是否重新在全量数据上拟合模型，默认True
+        n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
+        verbose,int,并行信息输出等级
+        random_state,随机种子
+        sample_weight:样本权重
+        calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准
+        cv_calibration:CalibratedClassifierCV的交叉验证数,注意因无验证数据，不推荐设定为'prefit'
+        
+        """参数空间写法
+    
+        para_space={
+             'n_estimators': (80, 150),
+             'learning_rate': (0.05, 0.2),
+             'max_depth': (3, 10),
+             'gamma': (0, 20),
+             'min_child_weight': (0, 10),
+             'max_delta_step': (0, 0),
+             'scale_pos_weight': (11,11),
+             'subsample': (0.5, 1),
+             'colsample_bytree': (0.5, 1),
+             'reg_lambda': (0, 10)
+                       }
+        
+        """
+         
+    
+    Attribute:    
+    --
+        Optimize:贝叶斯优化迭代器,需先使用fit
+        params_best:最优参数组合,需先使用fit
+        model_refit:最优参数下的xgboost模型,需先使用fit且参数refit=True 
+    
+    Examples
+    --
+    
+    
+
+    '''     
+    
+    
     def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,
                  n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
-        '''
-        使用贝叶斯优化参数的Xgboost
-        Parameters:
-        --
-            para_space:dict,xgboost的参数空间
-            n_iter:贝叶斯优化搜索迭代次数
-            init_points:int,贝叶斯优化起始搜索点的个数
-            scoring:str,寻优准则,可选'auc','ks','lift'
-            cv:int,RepeatedStratifiedKFold交叉验证的折数
-            repeats:int,RepeatedStratifiedKFold交叉验证重复次数
-            refit:bool,最优参数下是否重新在全量数据上拟合模型，默认True
-            n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
-            verbose,int,并行信息输出等级
-            random_state,随机种子
-            sample_weight:样本权重
-            calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准
-            cv_calibration:CalibratedClassifierCV的交叉验证数,注意因无验证数据，不推荐设定为'prefit'
-            
-            """参数空间写法
-        
-            para_space={
-                 'n_estimators': (80, 150),
-                 'learning_rate': (0.05, 0.2),
-                 'max_depth': (3, 10),
-                 'gamma': (0, 20),
-                 'min_child_weight': (0, 10),
-                 'max_delta_step': (0, 0),
-                 'scale_pos_weight': (11,11),
-                 'subsample': (0.5, 1),
-                 'colsample_bytree': (0.5, 1),
-                 'reg_lambda': (0, 10)
-                           }
-            
-            """
-             
-        
-        Attribute:    
-        --
-            Optimize:贝叶斯优化迭代器,需先使用fit
-            params_best:最优参数组合,需先使用fit
-            model_refit:最优参数下的xgboost模型,需先使用fit且参数refit=True 
-        
-        Examples
-        --
-        
-        
-
-        '''        
+       
         self.para_space=para_space
         self.n_iter=n_iter
         self.init_points=init_points
@@ -250,56 +253,58 @@ class BayesianXGBTuner(BaseEstimator):
 
 class BayesianLgbmTuner(BaseEstimator):
     
+    '''
+    使用贝叶斯优化参数的LightGBM
+    Parameters:
+    --
+        para_space:dict,lgb的参数空间
+        n_iter:贝叶斯优化搜索迭代次数
+        init_points:int,贝叶斯优化起始搜索点的个数
+        scoring:str,寻优准则,可选'auc','ks','lift'
+        cv:int,RepeatedStratifiedKFold交叉验证的折数
+        repeats:int,RepeatedStratifiedKFold交叉验证重复次数
+        refit:bool,最优参数下是否重新在全量数据上拟合模型，默认True  
+        n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
+        verbose,int,并行信息输出等级
+        random_state,随机种子
+        sample_weight:样本权重
+        calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准
+        cv_calibration:CalibratedClassifierCV的交叉验证数,注意因无验证数据，不推荐设定为'prefit'
+        
+        """参数空间写法        
+    
+        para_space={
+                 'boosting_type':'gbdt', 
+                 'n_estimators':(30,120),
+                 'learning_rate':(0.05,0.2), 
+                
+                 'max_depth':(2,4),
+                 'min_split_gain': (0,20),
+                 'min_sum_hessian_in_leaf': (0,20),
+                 
+                 'scale_pos_weight':(1,1),
+                 'subsample':(0.5,1),
+                 'colsample_bytree' :(0.5,1),
+                 'reg_lambda':(0,10), 
+                 }
+        
+          """
+    
+    
+    Attribute:    
+    --
+        Optimize:贝叶斯优化迭代器,需先使用fit
+        params_best:最优参数组合,需先使用fit
+        model_refit:最优参数下的lgbm模型,需先使用fit
+    
+    Examples
+    --
+
+    '''    
+    
     def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,
                  n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
-        '''
-        使用贝叶斯优化参数的LightGBM
-        Parameters:
-        --
-            para_space:dict,lgb的参数空间
-            n_iter:贝叶斯优化搜索迭代次数
-            init_points:int,贝叶斯优化起始搜索点的个数
-            scoring:str,寻优准则,可选'auc','ks','lift'
-            cv:int,RepeatedStratifiedKFold交叉验证的折数
-            repeats:int,RepeatedStratifiedKFold交叉验证重复次数
-            refit:bool,最优参数下是否重新在全量数据上拟合模型，默认True  
-            n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
-            verbose,int,并行信息输出等级
-            random_state,随机种子
-            sample_weight:样本权重
-            calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准
-            cv_calibration:CalibratedClassifierCV的交叉验证数,注意因无验证数据，不推荐设定为'prefit'
-            
-            """参数空间写法        
         
-            para_space={
-                     'boosting_type':'gbdt', 
-                     'n_estimators':(30,120),
-                     'learning_rate':(0.05,0.2), 
-                    
-                     'max_depth':(2,4),
-                     'min_split_gain': (0,20),
-                     'min_sum_hessian_in_leaf': (0,20),
-                     
-                     'scale_pos_weight':(1,1),
-                     'subsample':(0.5,1),
-                     'colsample_bytree' :(0.5,1),
-                     'reg_lambda':(0,10), 
-                     }
-            
-              """
-        
-        
-        Attribute:    
-        --
-            Optimize:贝叶斯优化迭代器,需先使用fit
-            params_best:最优参数组合,需先使用fit
-            model_refit:最优参数下的lgbm模型,需先使用fit
-        
-        Examples
-        --
-
-        '''        
         self.para_space=para_space
         self.n_iter=n_iter
         self.init_points=init_points

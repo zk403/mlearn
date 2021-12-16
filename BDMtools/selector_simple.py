@@ -11,37 +11,31 @@ from glob import glob
 
 class preSelector(TransformerMixin):
     
-    def __init__(self,
-                 na_pct=0.99,
-                 unique_pct=0.99,
-                 variance=0,
-                 chif_pvalue=0.05,
-                 tree_imps=0,
-                 tree_size=100,
-                 iv_limit=0.02,
-                 out_path="report",
-                 special_values=[np.nan],
-                 keep=None
+    """ 
+    线性预筛选,适用于二分类模型
+    Parameters:
+    ----------
+        na_pct:float or None,(0,1),默认0.99,缺失率高于na_pct的列将被筛除，设定为None将跳过此步骤
+        unique_pct:float or None,(0,1),默认0.99,唯一值占比高于unique_pct的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
+        variance:float or None,默认0,方差低于variance的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
+        chif_pvalue:float or None,(0,1),默认0.05,大于chif_pvalue的列将被剔除,缺失值将被视为单独一类,为None将跳过此步骤
+        tree_imps:float or None,lightgbm树的梯度gain小于等于tree_imps的列将被剔除,默认0，设定为None将跳过此步骤
+        tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
+        iv_limit:float or None使用toad.quality进行iv快速筛选的iv阈值
+        out_path:str or None,模型报告路径,将预筛选过程每一步的筛选过程输出到模型报告中
+        special_values:list,特殊值指代值列表,其将被替换为np.nan
+        keep:list or None,需保留列的列名list
+        
+    Attribute:
+    ----------
+        features_info:dict,每一步筛选的特征进入记录
+    """    
+    
+    
+    def __init__(self,na_pct=0.99,unique_pct=0.99,variance=0,chif_pvalue=0.05,tree_imps=0,
+                 tree_size=100,iv_limit=0.02,out_path="report",special_values=[np.nan],keep=None
                  ):
-        """ 
-        线性预筛选,适用于二分类模型
-        Parameters:
-        ----------
-            na_pct:float or None,(0,1),默认0.99,缺失率高于na_pct的列将被筛除，设定为None将跳过此步骤
-            unique_pct:float or None,(0,1),默认0.99,唯一值占比高于unique_pct的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
-            variance:float or None,默认0,方差低于variance的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
-            chif_pvalue:float or None,(0,1),默认0.05,大于chif_pvalue的列将被剔除,缺失值将被视为单独一类,为None将跳过此步骤
-            tree_imps:float or None,lightgbm树的梯度gain小于等于tree_imps的列将被剔除,默认0，设定为None将跳过此步骤
-            tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
-            iv_limit:float or None使用toad.quality进行iv快速筛选的iv阈值
-            out_path:str or None,模型报告路径,将预筛选过程每一步的筛选过程输出到模型报告中
-            special_values:list,特殊值指代值列表,其将被替换为np.nan
-            keep:list or None,需保留列的列名list
-            
-        Attribute:
-        ----------
-            features_info:dict,每一步筛选的特征进入记录
-        """
+
         self.na_pct=na_pct
         self.unique_pct=unique_pct #
         self.variance=variance
@@ -316,21 +310,23 @@ class preSelector(TransformerMixin):
 
 class corrSelector(TransformerMixin):
     
+    """ 
+    相关系数筛选
+    Parameters:
+    ----------
+        corr_limit:float,相关系数阈值
+        by:str or pd.Series,
+            + ’IV‘:按照iv筛选
+            + pd.Series:用户自定义权重,要求index为列名，value为权重值
+        keep:需保留的列名list
+        
+    Attribute:
+    ----------
+        features_info:dict,每一步筛选的特征进入记录
+    """    
+    
     def __init__(self,corr_limit=0.8,by='IV',keep=None):
-        """ 
-        相关系数筛选
-        Parameters:
-        ----------
-            corr_limit:float,相关系数阈值
-            by:str or pd.Series,
-                + ’IV‘:按照iv筛选
-                + pd.Series:用户自定义权重,要求index为列名，value为权重值
-            keep:需保留的列名list
-            
-        Attribute:
-        ----------
-            features_info:dict,每一步筛选的特征进入记录
-        """
+
         self.corr_limit=corr_limit
         self.by=by
         self.keep=keep
