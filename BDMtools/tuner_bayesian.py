@@ -52,8 +52,7 @@ class BayesianXGBTuner(BaseEstimator):
              'reg_lambda': (0, 10)
                        }
         
-        """
-         
+        """        
     
     Attribute:    
     --
@@ -184,7 +183,7 @@ class BayesianXGBTuner(BaseEstimator):
         elif self.scoring=='lift':
             scorer=metrics.make_scorer(self.custom_score_Lift,greater_is_better=True,needs_proba=True)
         else:
-            raise IOError('scoring not understood,should be "ks","auc","lift")')
+            raise ValueError('scoring not understood,should be "ks","auc","lift")')
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)        
                         
@@ -417,7 +416,7 @@ class BayesianLgbmTuner(BaseEstimator):
         elif self.scoring=='lift':
             scorer=metrics.make_scorer(self.custom_score_Lift,greater_is_better=True,needs_proba=True)
         else:
-            raise IOError('scoring not understood,should be "ks","auc","lift")')
+            raise ValueError('scoring not understood,should be "ks","auc","lift")')
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)
                         

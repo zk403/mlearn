@@ -148,7 +148,7 @@ class stepLogit(BaseEstimator):
             '''
             criterion_list = ['bic', 'aic', 'bic_llf']
             if criterion not in criterion_list:
-                raise IOError('criterion must in', '\n', criterion_list)
+                raise ValueError('criterion must in', '\n', criterion_list)
 
             # 默认p_enter参数    
             p_enter = {'bic':0.0, 'aic':0.0}
@@ -315,7 +315,7 @@ class cardScorer(TransformerMixin):
             self.columns=self.logit_model.feature_names_in_.tolist()
             
         else:
-            raise IOError('type(logit_model) in (statsmodels..BinaryResultsWrapper;GLMResultsWrapper,sklearn.linear_model._logistic.LogisticRegression)')
+            raise ValueError('type(logit_model) in (statsmodels..BinaryResultsWrapper;GLMResultsWrapper,sklearn.linear_model._logistic.LogisticRegression)')
             
         self.scorecard=self.getPoints(self.varbin,logit_model_coef,logit_model_intercept,self.digit)
         

@@ -209,7 +209,7 @@ class girdTuner(BaseEstimator):
                                                      n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
             
         else:
-            raise IOError('method should be "gird" or "random_gird".')
+            raise ValueError('method should be "gird" or "random_gird".')
             
         #交叉验证结果保存             
         
@@ -226,7 +226,7 @@ class girdTuner(BaseEstimator):
         elif self.scoring=='lift':
             scorer=metrics.make_scorer(self.custom_score_Lift,greater_is_better=True,needs_proba=True)
         else:
-            raise IOError('scoring not understood,should be "ks","auc","lift")')
+            raise ValueError('scoring not understood,should be "ks","auc","lift")')
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state) 
         
@@ -253,7 +253,7 @@ class girdTuner(BaseEstimator):
         elif self.scoring=='lift':
             scorer=metrics.make_scorer(self.custom_score_Lift,greater_is_better=True,needs_proba=True)
         else:
-            raise IOError('scoring not understood,should be "ks","auc","lift")')
+            raise ValueError('scoring not understood,should be "ks","auc","lift")')
         
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state) 
         

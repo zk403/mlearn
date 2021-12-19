@@ -295,7 +295,7 @@ class varReportSinge:
          
          #breaklist_var=list(breaks_list_dict[col])
          
-         #第1步:判断数据类型
+         #判断数据类型
          if is_numeric_dtype(var_fillna):
            
              #按照分箱sc的breaklist的区间进行分箱
@@ -326,7 +326,7 @@ class varReportSinge:
              
          else:
              
-             raise IOError('dtypes in X in (number,object),others not support')
+             raise ValueError('dtypes in X in (number,object),others not support')
          
          #若只计算全量数据则只输出全量的特征分析报告
              
@@ -388,8 +388,7 @@ class varReportSinge:
         
         map_codes={}
         
-        for raw,map_code in product(var_code_raw,breaklist_var_new):
-            
+        for raw,map_code in product(var_code_raw,breaklist_var_new):            
             
             #多项组合情况
             if '%,%' in raw:
@@ -518,7 +517,7 @@ class varReport(TransformerMixin):
             
          else:
              
-             raise IOError('dtypes in X in (number,object),others not support')
+             raise ValueError('dtypes in X in (number,object),others not support')
          
          #加权         
          if is_array_like(self.sample_weight):         
@@ -638,7 +637,7 @@ class varReport(TransformerMixin):
             num_colname=X[columns].select_dtypes(include='number').columns.tolist()
             oth_colname=X[columns].select_dtypes(exclude=['number','object']).columns.tolist()
             if oth_colname:
-                raise IOError('supported X.dtypes only in (number,object),use bm.dtypeAllocator to format X')
+                raise ValueError('supported X.dtypes only in (number,object),use bm.dtypeAllocator to format X')
                 
             break_list_sc=dict()
 
@@ -870,7 +869,7 @@ class varGroupsReport(TransformerMixin):
                 
                 if not X_q.size:
                     
-                    raise IOError('X.query has 0 row, check the query expr.')
+                    raise ValueError('X.query has 0 row, check the query expr.')
                 
                 all_var=varReport(breaks_list_dict=self.breaks_list_dict,
                                   special_values=self.special_values,

@@ -53,7 +53,7 @@ class dtStandardization(TransformerMixin):
         
         if not X.index.is_unique:
             
-            raise IOError('X.index is not unique,recommend set unique single index')
+            raise ValueError('X.index is not unique,recommend set unique single index')
             
         X = X.copy()
         
@@ -175,7 +175,7 @@ class dtypeAllocator(TransformerMixin):
             
             else:
                 
-                raise IOError("dtypes_dict={'num':colname_list,'str':colname_list,'date':colname_list} or {}")
+                raise ValueError("dtypes_dict={'num':colname_list,'str':colname_list,'date':colname_list} or {}")
                            
             return(pd.concat([X_rm,X_out],axis=1))            
         
@@ -219,7 +219,7 @@ class dtypeAllocator(TransformerMixin):
             
         else:
             
-            raise IOError("duplicated colnames or col_rm in colname_list")
+            raise ValueError("duplicated colnames or col_rm in colname_list")
             
         return X_out
     
@@ -401,7 +401,7 @@ class nanTransformer(TransformerMixin):
                     
                 else:
                     
-                    raise IOError("method for numcol in ('knn','constant','mean','median','most_frequent')")
+                    raise ValueError("method for numcol in ('knn','constant','mean','median','most_frequent')")
                 
                 
                 X_num_fill=pd.DataFrame(imputer_num.transform(X_num),
@@ -423,7 +423,7 @@ class nanTransformer(TransformerMixin):
                     
                 else:
                     
-                    raise IOError("method for strcol in ('constant','most_frequent')")
+                    raise ValueError("method for strcol in ('constant','most_frequent')")
                     
                 
                 X_str_fill=pd.DataFrame(imputer_str.transform(X_str),

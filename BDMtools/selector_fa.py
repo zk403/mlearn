@@ -114,7 +114,7 @@ class faSelector(BaseEstimator):
             
         else:
             
-            raise IOError("n_clusters in (int,'auto')")
+            raise ValueError("n_clusters in (int,'auto')")
             
         self.components_infos=self.getComponentsInfos(X,self.model.labels_)
         

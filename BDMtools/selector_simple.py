@@ -1,4 +1,4 @@
-from sklearn.base import TransformerMixin
+from sklearn.base import TransformerMixin,BaseEstimator
 from sklearn.feature_selection import VarianceThreshold,f_oneway,chi2
 from lightgbm import LGBMClassifier
 from category_encoders.ordinal import OrdinalEncoder
@@ -7,6 +7,46 @@ import pandas as pd
 import toad
 import os
 from glob import glob
+
+
+
+class prefitModel(BaseEstimator):
+    """ 
+    预拟合数据，在不进行任何特征工程的前提下，使用全量特征预拟合数据并输出模型指标
+    此功能用于在建模之前预估现有取数范围下模型的最终的性能，为取数、y定义的合理性提供参考
+    
+    Parameters:
+    ----------
+        method='ceiling',预拟合数据方法，可选‘floor’,‘ceiling’,'both'
+            floor:地板算法，这里使用线性模型(sklearn对的logit回归)进行prefit  
+                 + 分类变量处理方式:进行onehot编码
+            ceiling:天花板算法,这里使用lightgbm进行prefit，且不进行任何交叉验证
+            
+            both:使用地板算法与天花板算法进行prefit            
+        params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},method='ceiling'时lightgbm的参数设定        
+        col_rm=None or list,需要移除的列名list，例如id类
+        target='target',目标变量列列名
+        split='split',数据分区标识列列名，
+        
+        
+    Attribute:
+    ----------
+        features_info:dict,每一步筛选的特征进入记录
+    """      
+    def __init__(self,method,params,col_rm=None):
+
+        self.method=method
+
+        
+    def transform(self,X,y=None):
+        
+        return X
+       
+    def fit(self,X,y):
+        
+        return self
+
+
 
 
 class preSelector(TransformerMixin):
@@ -89,7 +129,7 @@ class preSelector(TransformerMixin):
             
         else:
             
-            raise IOError("na_pct in (0,1)")
+            raise ValueError("na_pct in (0,1)")
                 
         if self.variance==None or self.unique_pct==None:            
             
@@ -105,7 +145,7 @@ class preSelector(TransformerMixin):
             
         else:
             
-            raise IOError("variance in [0,inf) and unique_pct in [0,1)")                          
+            raise ValueError("variance in [0,inf) and unique_pct in [0,1)")                          
         
         
         if self.chif_pvalue==None:
@@ -122,7 +162,7 @@ class preSelector(TransformerMixin):
         
         else:
             
-            raise IOError("pvalue in (0,1]") 
+            raise ValueError("pvalue in (0,1]") 
             
         if self.tree_imps==None:
             
@@ -138,7 +178,7 @@ class preSelector(TransformerMixin):
             
         else:
             
-            raise IOError("tree_imps in [0,inf)")         
+            raise ValueError("tree_imps in [0,inf)")         
    
         
         if self.iv_limit==None:   
@@ -155,7 +195,7 @@ class preSelector(TransformerMixin):
             
         else:
             
-            raise IOError("iv_limit in [0,inf)")      
+            raise ValueError("iv_limit in [0,inf)")      
         
         print('Done_________________________________________________')  
         
