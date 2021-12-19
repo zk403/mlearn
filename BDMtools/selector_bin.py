@@ -33,6 +33,8 @@ class binSelector(TransformerMixin):
             + method='freq-kmeans'时，合并分箱最低限制,bin_num_limit<n_bins时才有效果
             + method='tree'时,代表分箱数限制
             + method='chi':卡方,代表分箱数限制,开发中 
+        coerce_monotonic=False,是否强制bad_prob单调，默认否
+            强制bad_prob单调目前仅作用于method='tree'，后续将支持更多分箱算法
         sample_weight=None,样本权重，主要用于调整分箱后的坏样本率
         special_values,list,缺失值、特殊值指代值,数值特征被替换为np.nan，分类特征将被替换为'missing'
         iv_limit=0.02:float,IV阈值,IV低于该阈值特征将被剔除
@@ -44,7 +46,8 @@ class binSelector(TransformerMixin):
         features_info:dict,每一步筛选的特征进入记录
     """
     
-    def __init__(self,method='freq',max_bin=50,distr_limit=0.05,bin_num_limit=8,special_values=[np.nan,'nan'],iv_limit=0.02,keep=None,sample_weight=None,
+    def __init__(self,method='freq',max_bin=50,distr_limit=0.05,bin_num_limit=8,special_values=[np.nan,'nan'],
+                 iv_limit=0.02,keep=None,sample_weight=None,coerce_monotonic=False,
                  breaks_list_adj=None,n_jobs=-1,verbose=0):
         
         self.method=method
@@ -55,6 +58,7 @@ class binSelector(TransformerMixin):
         self.keep=keep
         self.special_values=special_values
         self.breaks_list_adj=breaks_list_adj
+        self.coerce_monotonic=coerce_monotonic
         self.sample_weight=sample_weight
         self.n_jobs=n_jobs
         self.verbose=verbose
@@ -146,6 +150,7 @@ class binSelector(TransformerMixin):
                 #使用决策树最优分箱，卡方分箱仍在开发中后续会进行更新
                 res_tree=binTree(max_bin=self.max_bin,criteria='iv',distr_limit=self.distr_limit,
                                  bin_num_limit=self.bin_num_limit,ws=self.sample_weight,
+                                 coerce_monotonic=self.coerce_monotonic,
                                  special_values=self.special_values,n_jobs=self.n_jobs,
                                  verbose=self.verbose).fit(X,y)
                     

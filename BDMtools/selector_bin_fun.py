@@ -724,6 +724,7 @@ class binTree(TransformerMixin):
     tol=1e-4,决策树进行分割的指标的增益小于tol时停止分割
     distr_limit=0.05,每一箱的样本占比限制
     bin_num_limit=8,分箱总数限制
+    coerce_monotonic=False,是否强制bad_prob单调，默认否
     ws=None,None or pandas.core.series.Series,样本权重
     special_values=[np.nan,'nan'],特殊值指代值列表，其将被转换为np.nan(数值列)或missing(字符列),若不同列的特殊指代值存在冲突，请先处理好这些冲突
     n_jobs=-1,int,并行数量,默认-1,在数据量较大、列较多的前提下可极大提升效率但会增加内存占用
@@ -734,7 +735,7 @@ class binTree(TransformerMixin):
     """    
     
     def __init__(self,max_bin=50,criteria='iv',max_iters=100,
-                 tol=1e-4,distr_limit=0.05,bin_num_limit=8,
+                 tol=1e-4,distr_limit=0.05,bin_num_limit=8,coerce_monotonic=False,
                  ws=None,special_values=[np.nan,'nan'],n_jobs=-1,verbose=0):
 
         self.max_bin=max_bin
@@ -744,6 +745,7 @@ class binTree(TransformerMixin):
         self.distr_limit=distr_limit
         self.bin_num_limit=bin_num_limit
         self.ws=ws
+        self.coerce_monotonic=coerce_monotonic
         self.special_values=special_values
         self.n_jobs=n_jobs
         self.verbose=verbose
@@ -758,7 +760,8 @@ class binTree(TransformerMixin):
                                             self.criteria,self.max_iters,
                                             self.tol,self.distr_limit,
                                             self.bin_num_limit,
-                                            self.ws,self.special_values) for col in X.iteritems())
+                                            self.ws,self.special_values,
+                                            self.coerce_monotonic) for col in X.iteritems())
             
             self.breaks_list={col_name:breaks for col_name,breaks,_ in res}
             self.bin={col_name:vtab for col_name,_,vtab in res}
@@ -779,7 +782,7 @@ class binTree(TransformerMixin):
             return pd.DataFrame(None)
         
         
-    def get_treecut(self,col,y,max_bin,criteria,max_iters,tol,distr_limit,bin_num_limit,ws,special_values):
+    def get_treecut(self,col,y,max_bin,criteria,max_iters,tol,distr_limit,bin_num_limit,ws,special_values,coerce_monotonic):
         
         #sample_wieght
         if ws is not None:
@@ -819,6 +822,7 @@ class binTree(TransformerMixin):
                                      ws=ws,
                                      distr_limit=distr_limit,
                                      is_str_dtype=False,
+                                     coerce_monotonic=coerce_monotonic,
                                      bin_num_limit=bin_num_limit)
                 
                 vtab=varReportSinge().report(col,y,breaks,special_values=special_values,sample_weight=ws)
@@ -858,7 +862,8 @@ class binTree(TransformerMixin):
 
 
     def get_bestsplit(self,col,y,max_bin=50,ws=None,criteria='iv',tol=1e-4,
-                      max_iters=100,distr_limit=0.05,bin_num_limit=8,is_str_dtype=False): 
+                      max_iters=100,distr_limit=0.05,bin_num_limit=8,
+                      is_str_dtype=False,coerce_monotonic=False): 
         
         #get sample_weight
         if is_array_like(ws):
@@ -872,15 +877,16 @@ class binTree(TransformerMixin):
             count=np.ones(col.size)    
         
         
+        nan_sum=pd.isnull(col).sum()
             
         #string dtype variable
         if is_str_dtype:
             
-            cuts_remain=np.unique(col)
+            cuts_remain=np.unique(col)            
         
         #number dtype variable
         else:
-        
+                    
             #adjust max_bin for improving performance
             if np.unique(col).size<max_bin:
 
@@ -943,7 +949,8 @@ class binTree(TransformerMixin):
                         b=np.append(b,np.sum(y_g))
                         g=np.append(g,np.sum(unit_g) - np.sum(y_g))   
     
-                        
+                    
+                    bad_prob=b/count_g    
                     # count_g=pd.Series(count).groupby(col_group).sum().ravel()
                     # b=pd.Series(y).groupby(col_group).sum().ravel()
                     # g=count_g-b
@@ -956,7 +963,15 @@ class binTree(TransformerMixin):
                     #if no good or bad sample in cut of the point,then pass the iteration 
                     if 0 in b.tolist() or 0 in g.tolist():
                         
-                        cuts_remain=cuts_remain[cuts_remain!=point]                    
+                        cuts_remain=cuts_remain[cuts_remain!=point]    
+                        
+                    elif coerce_monotonic and not is_str_dtype and not self.is_monotonic(bad_prob) and nan_sum==0:                    
+
+                        cuts_remain=cuts_remain[cuts_remain!=point]
+                
+                    elif coerce_monotonic and not is_str_dtype and not self.is_monotonic(bad_prob[:-1]) and nan_sum>0:                 
+
+                        cuts_remain=cuts_remain[cuts_remain!=point]
     
                     else:
     
@@ -966,7 +981,7 @@ class binTree(TransformerMixin):
                         b_dis_cs=np.cumsum(b_dis)   
     
                         # nan distr will not be calculated
-                        if np.isnan(col).sum()>0:
+                        if nan_sum>0:
                             
                             c_dis=(count_g/count_g.sum())[:-1]
     
@@ -1118,6 +1133,11 @@ class binTree(TransformerMixin):
             col_rm_outlier=col
             
         return col_rm_outlier
+    
+    
+    def is_monotonic(self,col):    
+    
+        return np.all(np.diff(col) > 0) or np.all(np.diff(col) <0)
 
 
 
