@@ -65,7 +65,7 @@ setup(
                       'scikit-learn>=1.0',
                       'xgboost>=1.4.2',
                       'scipy>=1.5.0',
-                      'category_encoders',
+                      'category_encoders>=2.3.0',
                       'lightgbm>=3.3.0', 
                       'toad>=0.1.0',
                       'patsy>=0.5.2',

@@ -2,12 +2,13 @@ from sklearn.base import TransformerMixin,BaseEstimator
 from sklearn.feature_selection import VarianceThreshold,f_oneway,chi2
 from lightgbm import LGBMClassifier
 from category_encoders.ordinal import OrdinalEncoder
+from category_encoders import WOEEncoder
+from sklearn.linear_model import LogisticRegression
 import numpy as np
 import pandas as pd
 import toad
 import os
 from glob import glob
-
 
 
 class prefitModel(BaseEstimator):
@@ -17,38 +18,127 @@ class prefitModel(BaseEstimator):
     
     Parameters:
     ----------
-        method='ceiling',预拟合数据方法，可选‘floor’,‘ceiling’,'both'
-            floor:地板算法，这里使用线性模型(sklearn对的logit回归)进行prefit  
-                 + 分类变量处理方式:进行onehot编码
+        method='ceiling',预拟合数据方法，可选‘floor’,‘ceiling’
+            floor:地板算法，这里使用线性模型(sklearn对的logit回归(C=0.1))进行prefit  
+                 + 分类变量处理方式:进行woe编码
+                 + 数值特征缺失值:填补为-999
             ceiling:天花板算法,这里使用lightgbm进行prefit，且不进行任何交叉验证
-            
-            both:使用地板算法与天花板算法进行prefit            
+                + 分类变量处理方式:进行woe编码
+                + 数值特征缺失值:不处理
         params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},method='ceiling'时lightgbm的参数设定        
         col_rm=None or list,需要移除的列名list，例如id类
-        target='target',目标变量列列名
-        split='split',数据分区标识列列名，
-        
+        sample_weight=None or pd.Series,样本权重
         
     Attribute:
     ----------
         features_info:dict,每一步筛选的特征进入记录
     """      
-    def __init__(self,method,params,col_rm=None):
+    def __init__(self,method,params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},
+                 col_rm=None,sample_weight=None):
 
         self.method=method
+        self.params=params
+        self.col_rm=col_rm
+        self.sample_weight=sample_weight
 
         
     def transform(self,X,y=None):
+           
+        f_names=self.model.feature_names_in_ if self.method=='floor' else self.model.feature_name_
         
-        return X
+        X=X[f_names]
+        
+        X_numeric=X.select_dtypes('number');X_categoty=X.select_dtypes('object')
+        
+        X_numeric=X_numeric.fillna(-999) if self.method=='floor' else X_numeric
+
+        if self.encoder:
+            
+            X_categoty_encode=self.encoder.transform(X_categoty)           
+        
+        X_new=pd.concat([X_numeric,X_categoty_encode],axis=1)[f_names]
+        
+        return X_new
+    
+    
+    def predict_proba(self,X,y=None):
+        
+        X_model=self.transform(X)
+        
+        pred=self.model.predict_proba(X_model)[:,1]        
+        
+        return pred
+    
        
     def fit(self,X,y):
         
+        X=X.drop(self.col_rm,axis=1) if self.col_rm else X
+        
+        if self.method=='ceiling':
+            
+            self.model=self.fit_lgbm(X,y,self.params,self.sample_weight)
+            
+        elif self.method=='floor':
+            
+            self.model=self.fit_reg(X,y,self.sample_weight)
+            
+        else:
+            
+            raise ValueError("method in ('ceiling','floor')")              
+        
         return self
+    
+    def fit_lgbm(self,X,y,params,sample_weight):
+        
+        X_numeric,X_categoty_encode=self.get_X(X,y)
+        
+        X_new=pd.concat([X_numeric,X_categoty_encode],axis=1)
+        
+        
+        max_depth=params['max_depth']
+        learning_rate=params['learning_rate']
+        n_estimators=params['n_estimators']
+        
 
+        lgb=LGBMClassifier(
+                boosting_type='gbdt',
+                objective = 'binary',
+                learning_rate=learning_rate,
+                n_estimators=n_estimators,
+                max_depth=max_depth,
+            ).fit(X_new,y,sample_weight=sample_weight)         
+            
+        return lgb
+    
+    
+    def fit_reg(self,X,y,sample_weight):
+        
+        X_numeric,X_categoty_encode=self.get_X(X,y)
+        
+        X_new=pd.concat([X_numeric,X_categoty_encode],axis=1)
+        
+        logit=LogisticRegression(C=0.1,penalty='l1',solver='saga').fit(X_new,y,sample_weight=sample_weight)  
+        
+        return logit
+                
+    
+    def get_X(self,X,y):
+        
+        X_numeric=X.select_dtypes('number')
+        X_categoty=X.select_dtypes('object')
+        
+        X_numeric=X_numeric.fillna(-999) if self.method=='floor' else X_numeric
+        
+        if X_categoty.columns.size:
+                
+            self.encoder=WOEEncoder(regularization=1e-3).fit(X_categoty,y)
+                
+            X_categoty_encode=self.encoder.transform(X_categoty)      
+            
+        return X_numeric,X_categoty_encode
+          
 
-
-
+    
 class preSelector(TransformerMixin):
     
     """ 
