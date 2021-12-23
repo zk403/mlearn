@@ -5,7 +5,7 @@ from BDMtools.report_report import businessReport,EDAReport,varReport,varGroupsR
 from BDMtools.selector_bin import binSelector
 from BDMtools.selector_fa import faSelector
 from BDMtools.selector_logtit import stepLogit,cardScorer
-from BDMtools.selector_simple import preSelector,corrSelector
+from BDMtools.selector_simple import preSelector,corrSelector,prefitModel
 from BDMtools.selector_wrapper import RFECVSelector
 from BDMtools.selector_embeded import lassoSelector,sequentialSelector
 from BDMtools.encoder_woe import woeTransformer
@@ -23,6 +23,7 @@ __all__ = (
     dtypeAllocator,
     nanTransformer,
     businessReport,
+    prefitModel,
     EDAReport,
     varReportSinge,
     varReport,

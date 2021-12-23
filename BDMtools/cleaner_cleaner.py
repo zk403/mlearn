@@ -14,6 +14,7 @@ from sklearn.impute import SimpleImputer,KNNImputer,MissingIndicator
 import numpy as np
 from pandas.api.types import is_numeric_dtype
 import warnings
+from BDMtools.fun import sp_replace
 #import time
 
 
@@ -337,8 +338,10 @@ class nanTransformer(TransformerMixin):
         + 'median':以中位数填补
         + 'knn':KNN填补,注意本方法中事前将不对数据进行任何标准化
         + 'most_frequent':众数填补
-    missing_values:list,缺失值指代值,数据中无论分类与连续都适用此指代值,若不同列的缺失指代值存在冲突，请先处理好这些冲突再使用本模块
-    fill_value:str,int,float,method=constant时的填补设定值
+    special_values:list or dict,缺失值指代值
+        + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被填补
+        + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被填补
+    fill_value=(num_fill_values,str_fill_values),tuple,method=constant时的填补设定值=(数值列填充值，字符列填充值)
     indicator:bool,是否生成缺失值指代特征
     n_neighbors:knn算法中的邻近个数k
     weights_knn:str,knn算法中的预测权重，可选‘uniform’, ‘distance’
@@ -352,13 +355,13 @@ class nanTransformer(TransformerMixin):
     """    
     
     def __init__(self,method=('constant','constant'),
-                      missing_values=[np.nan],
-                      fill_value=(-9999,'missing'),  
+                      special_values=[np.nan,'nan'],
+                      fill_value=(np.nan,'missing'),  
                       n_neighbors=10,
                       weights_knn='uniform',
                       indicator=False,dtype_num='float32'):
 
-        self.missing_values=missing_values
+        self.special_values=special_values
         self.method=method
         self.fill_value=fill_value
         self.indicator=indicator
@@ -373,7 +376,7 @@ class nanTransformer(TransformerMixin):
     
     def transform(self,X, y=None):
         
-        X=X.copy().replace(self.missing_values,np.nan)
+        X=sp_replace(X,self.special_values,fill_num=np.nan,fill_str=np.nan)
         
         if X.size:
             
@@ -423,7 +426,7 @@ class nanTransformer(TransformerMixin):
                     
                 else:
                     
-                    raise ValueError("method for strcol in ('constant','most_frequent')")
+                    raise ValueError("method for string-col in ('constant','most_frequent')")
                     
                 
                 X_str_fill=pd.DataFrame(imputer_str.transform(X_str),

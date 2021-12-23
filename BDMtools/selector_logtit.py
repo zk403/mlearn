@@ -17,7 +17,7 @@ from statsmodels.discrete.discrete_model import BinaryResultsWrapper
 from statsmodels.genmod.generalized_linear_model import GLMResultsWrapper
 from sklearn.linear_model._logistic import LogisticRegression
 from pandas.api.types import is_numeric_dtype,is_string_dtype
-from itertools import product
+from BDMtools.fun import raw_to_bin_sc,sp_replace
 from joblib import Parallel,delayed
 
 
@@ -275,18 +275,20 @@ class cardScorer(TransformerMixin):
         digit=0,评分卡打分保留的小数位数
         check_na,bool,为True时,若经打分后编码数据出现了缺失值，程序将报错终止   
                 出现此类错误时多半是某箱样本量为1，或test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高
-        special_values=[np.nan]:list,缺失值指代值,注意special_values必须与varbin的缺失值指代值一致，否则缺失值的score计算将出现错误结果
+        special_values=[np.nan,'nan']:缺失值指代值
+            请特别注意:special_values必须与产生varbin的函数的special_values一致，否则缺失值的score将出现错误结果
+            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
+            + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
         n_jobs=1,并行数量,默认1(所有core),在数据量非常大，列非常多的情况下可提升效率但会增加内存占用，若数据量较少可设定为1    
         verbose=0,并行信息输出等级  
-        
-    
+            
     Attribute:    
     --
         scorecard:dict,产生的评分卡,须先使用方法fit
         
     ''' 
     
-    def __init__(self,logit_model,varbin,odds0=1/100,pdo=50,points0=600,digit=0,special_values=[np.nan],
+    def __init__(self,logit_model,varbin,odds0=1/100,pdo=50,points0=600,digit=0,special_values=[np.nan,'nan'],
                  check_na=True,n_jobs=1,verbose=0):
        
         self.logit_model=logit_model
@@ -324,11 +326,11 @@ class cardScorer(TransformerMixin):
     
     def transform(self,X,y=None):
         
-        X=X.copy().replace(self.special_values,np.nan)        
+        X=sp_replace(X,self.special_values)      
 
         p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
             
-        res=p(delayed(self.points_map)(X[key],self.scorecard[key],np.nan,self.check_na) 
+        res=p(delayed(self.points_map)(X[key],self.scorecard[key],self.check_na) 
                               for key in self.columns)
             
         score=pd.concat({col:col_points for col,col_points in res},axis=1)
@@ -369,7 +371,7 @@ class cardScorer(TransformerMixin):
         return a,b
     
     
-    def points_map(self,col,bin_df,special_values,check_na=True):
+    def points_map(self,col,bin_df,check_na=True):
     
         if is_numeric_dtype(col):
             
@@ -389,11 +391,11 @@ class cardScorer(TransformerMixin):
             
             breaks=bin_df.index.tolist();points=bin_df['points'].tolist()
            
-            raw_to_breaks=self.raw_to_bin_sc(col.unique().tolist(),breaks,special_values=special_values)
+            raw_to_breaks=raw_to_bin_sc(col.unique().tolist(),breaks)
             
             breaks_to_points=dict(zip(breaks,points))
             
-            col_points=col.replace(special_values,'missing').map(raw_to_breaks).map(breaks_to_points).astype('float32')
+            col_points=col.map(raw_to_breaks).map(breaks_to_points).astype('float32')
             
         else:
             
@@ -406,44 +408,7 @@ class cardScorer(TransformerMixin):
                 raise ValueError(col.name+"_points contains nans")
             
         return col.name,col_points
-        
-    
-    def raw_to_bin_sc(self,var_code_raw,breaklist_var,special_values):
-        
-        """ 
-        分箱转换，将分类特征的值与breaks对应起来
-        1.只适合分类bin转换
-        2.此函数只能合并分类的类不能拆分分类的类        
-        """ 
-        
-        breaklist_var_new=[i.replace(special_values,'missing').unique().tolist()
-                                   for i in [pd.Series(i.split('%,%')) 
-                                             for i in breaklist_var]]
-        
-        map_codes={}
-        
-        for raw,map_code in product(var_code_raw,breaklist_var_new):
-            
-            
-            #多项组合情况
-            if '%,%' in raw:
-                
-                raw_set=set(raw.split('%,%'))
-                
-                #原始code包含于combine_code中时
-                if not raw_set-set(map_code):
-
-                    map_codes[raw]='%,%'.join(map_code)
-            
-            #单项情况
-            elif raw in map_code:
-                
-                map_codes[raw]='%,%'.join(map_code)
-            
-            #print(raw,map_code)
-   
-        return map_codes
-    
+ 
     
     
     

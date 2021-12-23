@@ -2,10 +2,10 @@
 from sklearn.base import TransformerMixin
 import numpy as np
 import pandas as pd
-import scorecardpy as sc
 import warnings
 from BDMtools.report_report import varReport
-from BDMtools.selector_bin_fun import binAdjusterKmeans,binAdjusterChi,binTree
+from BDMtools.selector_bin_fun import binAdjusterKmeans,binTree
+from BDMtools.fun import sp_replace
 #from joblib import Parallel,delayed
 #from pandas.api.types import is_numeric_dtype
 
@@ -21,11 +21,8 @@ class binSelector(TransformerMixin):
             + ‘freq-kmeans’:等频kmeans分箱，基于Kmeans，对等频分箱结果进行自动调整，以将badrate近似的箱进行合并
             + 'tree':决策树,递归分裂iv/ks增益最高的切分点形成新分箱直到达到终止条件
             + 'chi':卡方,先等频预分箱,再递归合并低于卡方值(交叉表卡方检验的差异不显著)的分箱，开发中
-            + 'chi_m':卡方单调,先等频预分箱,再合并低于卡方值(交叉表卡方检验的差异不显著)的分箱或不单调(badrate)的分箱    
-                      注意chi_m只适用于数值列,字符列将在breaks_list中被剔除
         max_bin:int,预分箱数,越多的预分箱数能够得到越好的分箱点，但会增加计算量
-            + method=‘freq-kmeans’时代表等频预分箱数              
-            + method='chi_m'时代表卡方单调分箱的等频预分箱数   
+            + method=‘freq-kmeans’时代表等频预分箱数               
             + method='tree'时,代表pretty预分箱数              
         distr_limit,method为'tree'和'chi'时代表分箱最终箱样本占比限制
         bin_num_limit,
@@ -36,7 +33,9 @@ class binSelector(TransformerMixin):
         coerce_monotonic=False,是否强制bad_prob单调，默认否
             强制bad_prob单调目前仅作用于method='tree'，后续将支持更多分箱算法
         sample_weight=None,样本权重，主要用于调整分箱后的坏样本率
-        special_values,list,缺失值、特殊值指代值,数值特征被替换为np.nan，分类特征将被替换为'missing'
+        special_values,list,dict,缺失值指代值
+            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
+            + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
         iv_limit=0.02:float,IV阈值,IV低于该阈值特征将被剔除
         keep=None,list or None,保留列的列名list             
         n_jobs:int,列并行计算job数,默认-1,并行在数据量较大，特征较多时能够提升效率，但会增加内存消耗
@@ -83,10 +82,6 @@ class binSelector(TransformerMixin):
             #只选择需要调整分箱的特征进行分箱
             self.keep_col=list(self.breaks_list_adj.keys())
             
-            # self.adjbin_woe=sc.woebin(X[self.keep_col].join(y).replace(self.special_values,np.nan),
-            #                           y=y.name,
-            #                           breaks_list=self.break_list_adj,check_cate_num=False)
-            
             self.adjbin_woe=varReport(breaks_list_dict=self.breaks_list_adj,
                           special_values=self.special_values,                       
                           n_jobs=self.n_jobs,
@@ -122,28 +117,7 @@ class binSelector(TransformerMixin):
                 bin_res=varReport(breaks_list_dict=self.breaks_list,
                               special_values=self.special_values,                       
                               n_jobs=self.n_jobs,
-                              verbose=self.verbose).fit(X[keep_col],y).var_report_dict
-            
-            #卡方单调分箱
-            elif self.method == 'chi_m':
-            
-                #注意chi_m只适用于数值列,字符列将在breaks_list中被剔除
-                self.breaks_list=binAdjusterChi(bin_num=self.max_bin,
-                                                   chi2_p=0.1,
-                                                   special_values=self.special_values,
-                                                   n_jobs=self.n_jobs,
-                                                   verbose=self.verbose).fit(X, y).breaks_list_chi2m
-                
-                self.breaks_list=self.getBreakslistFinbin(X,y,self.max_bin,self.special_values)
-                
-                keep_col=list(self.breaks_list.keys())
-                #最优分箱的特征iv统计值
-                
-                bin_res=varReport(breaks_list_dict=self.breaks_list,
-                              special_values=self.special_values,                       
-                              n_jobs=self.n_jobs,
-                              verbose=self.verbose).fit(X[keep_col],y).var_report_dict
-                                
+                              verbose=self.verbose).fit(X[keep_col],y).var_report_dict                                            
                 
             elif self.method in('chi','tree'):  
                 
@@ -266,6 +240,8 @@ class binSelector(TransformerMixin):
             y:目标变量列,pd.Series,必须与X索引一致
         """
         
+        X=sp_replace(X,special_values)
+        
         CatCol=X.select_dtypes(include='object').columns.tolist() #分类列
         NumCol=X.select_dtypes(include='number').columns.tolist() #数值列
         OthCol=X.select_dtypes(exclude=['number','object']).columns.tolist()
@@ -279,11 +255,11 @@ class binSelector(TransformerMixin):
         #bin_num下若特征分布过于集中,等频分箱将合并集中的分箱区间为最终分箱区间
         for numcol in NumCol:
             
-            numcol_s=X[numcol].replace(special_values,np.nan)
+            numcol_s=X[numcol]
             
             if numcol_s.dropna().size:
             
-                _,breaks=pd.qcut(numcol_s.dropna(),bin_num,duplicates='drop',retbins=True,precision=3)
+                _,breaks=pd.qcut(X[numcol].dropna(),bin_num,duplicates='drop',retbins=True,precision=3)
                 
             else:
                 
@@ -308,51 +284,14 @@ class binSelector(TransformerMixin):
         #分类变量则根据类别数直接分箱    
         for catcol in CatCol:
             
-            catcol_s=X[catcol].replace(special_values,'missing')
-            
-            breaklist[catcol]=catcol_s.unique().tolist()
+            breaklist[catcol]=X[catcol].unique().tolist()
                 
         return breaklist                  
     
     
-    def fit_adjustBin(self,X,y,br_to_adjusted,special_values):
+    def fit_adjustBin(self):
         """
-        根据最优分箱结果调整分箱，需先运行fit
-        plt.rcParams["figure.figsize"] = [10, 5]
-        Parameters:
-        --       
-        br_to_adjusted:
-        
-        Return:
-        --
-        self.break_list_adj
-        self.adjbin_woe
+        开发中
         
         """          
-            
-        keep_col=list(br_to_adjusted.keys())
-        
-        
-        bin_sc=sc.woebin(X[keep_col].join(y),
-                         y=y.name,
-                         breaks_list=br_to_adjusted)
-        
-        breaks_str=sc.woebin_adj(
-            dt=X[keep_col].join(y),
-            y=y.name,
-            adj_all_var=True,
-            count_distr_limit=0.05,
-            bins=bin_sc,
-            method='chimerge'
-        ) 
-        
-        exec('self.breaks_dict_raw='+breaks_str)
-
-        self.break_list_adj={key:np.sort(self.breaks_dict_raw[key]).tolist() for key in list(self.breaks_dict_raw.keys())}
-        
-        del self.breaks_dict_raw
-        
-        self.adjbin_woe=sc.woebin(X[keep_col].join(y).replace(special_values,np.nan),
-                                  y=y.name,breaks_list=self.break_list_adj)
-                    
         return self   

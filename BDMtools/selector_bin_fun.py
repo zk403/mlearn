@@ -12,145 +12,54 @@ from pandas.api.types import is_numeric_dtype,is_string_dtype,is_array_like
 from sklearn.base import TransformerMixin
 from joblib import Parallel,delayed
 import warnings
-from itertools import product,groupby
+from itertools import groupby
 from sklearn.cluster import KMeans
-from scipy.stats import chi2
+#from scipy.stats import chi2
+from BDMtools.fun import raw_to_bin_sc,sp_replace
+from BDMtools.report_report import varReportSinge
 
 
-class varReportSinge:
+
+def binFreq(X,bin_num=10,special_values=['nan',np.nan]):
+
+    """
+    等频分箱产生sc.woebin可用的breaklist,用于细分箱
+    Parameters:
+    --
+        X:特征数据,pd.DataFrame
+        y:目标变量列,pd.Series,必须与X索引一致
+    """
     
-    def report(self, X, y,breaks,special_values=[np.nan,'nan'],sample_weight=None):
-        
-        report_var=self.getReport_Single(X,y,breaks,special_values,sample_weight)
-        
-        return report_var
-        
-    def getReport_Single(self,X,y,breaklist_var,special_values,sample_weight):
-         
-
-         col=X.name
-
-         #处理缺失值
-         var_fillna=X.replace(special_values,np.nan)
-         
-         #breaklist_var=list(breaks_list_dict[col])
-         
-         #判断数据类型
-         if is_numeric_dtype(var_fillna):
-           
-             #按照分箱sc的breaklist的区间进行分箱
-             var_cut=pd.cut(var_fillna,[-np.inf]+breaklist_var+[np.inf],duplicates='drop',right=False).cat.add_categories('missing')
-             
-             var_bin=var_cut.fillna('missing')
-         
-         elif is_string_dtype(var_fillna):    
-             
-             var_cut=pd.Series(np.where(var_fillna.isnull(),'missing',var_fillna),
-                       index=var_fillna.index,
-                       name=var_fillna.name)
-
-             #转换字原始符映射到分箱sc的breaklist的字符映射
-             var_code_raw=var_cut.unique().tolist()
-                          
-             map_codes=self.raw_to_bin_sc(var_code_raw,breaklist_var,special_values)
-                        
-             var_bin=pd.Series(pd.Categorical(var_cut.map(map_codes)),index=var_fillna.index,name=col)
-             
-             if 'missing' in var_bin.cat.categories:
-                 
-                 var_bin= var_bin.fillna('missing') 
-            
-             else:
-                 
-                 var_bin= var_bin.cat.add_categories('missing').fillna('missing')
-             
-         else:
-             
-             raise ValueError('dtypes in X in (number,object),others not support')
-         
-         #若只计算全量数据则只输出全量的特征分析报告
-             
-         if is_array_like(sample_weight):         
-             var_bin=pd.concat([var_bin,y.mul(sample_weight).rename(y.name)],axis=1) 
-             var_bin['sample_weight']=sample_weight
-         else:
-             var_bin=pd.concat([var_bin,y],axis=1)
-             var_bin['sample_weight']=1
-         
-         #print var_bin
-         rename_aggfunc=dict(zip(['sample_weight','target'],['count','bad']))
-         result=pd.pivot_table(var_bin,index=col,values=[y.name,'sample_weight'],
-                           margins=False,
-                           aggfunc='sum').rename(columns=rename_aggfunc,level=0)#.droplevel(level=1,axis=1) 
-
-         var_tab=self.getVarReport_ks(result,col) 
-         
-         if is_string_dtype(var_fillna):
-             
-             var_tab.index=var_tab.index.astype('category') 
-
-         return  var_tab.assign(
-             
-             breaks=var_tab.index.categories.map(lambda x:x if isinstance(x,str) else x.right))
-            
-    def getVarReport_ks(self,var_ptable,col):
-        
-        var_ptable['badprob']=var_ptable['bad'].div(var_ptable['count'])
-        var_ptable['count_distr']=var_ptable['count'].div(var_ptable['count'].sum())
-        var_ptable['good']=var_ptable['count'].sub(var_ptable['bad'])
-        var_ptable['good_dis']=var_ptable['good'].div(var_ptable['good'].sum())
-        var_ptable['bad_dis']=var_ptable['bad'].div(var_ptable['bad'].sum())
-        var_ptable['bin_iv']=var_ptable['bad_dis'].sub(var_ptable['good_dis']).mul(
-            (var_ptable["bad_dis"]+1e-10).div((var_ptable["good_dis"]+1e-10)).apply(np.log)
-        )
-        var_ptable['total_iv']=var_ptable['bin_iv'].sum()
-        var_ptable['woe']=(var_ptable["bad_dis"]+1e-10).div((var_ptable["good_dis"]+1e-10)).apply(np.log)
-        var_ptable['ks']=var_ptable['good_dis'].cumsum().sub(var_ptable['bad_dis'].cumsum()).abs()
-        var_ptable['ks_max']=var_ptable['ks'].max()
-        var_ptable['variable']=col
-        var_ptable.index.name='bin'
-        #var_ptable=var_ptable.reset_index()
-        #var_ptable['bin']=var_ptable['bin'].astype('str')
-        var_ptable=var_ptable[['variable', 'count', 'count_distr', 'good', 'bad', 'badprob','woe', 'bin_iv', 'total_iv','ks','ks_max']]
-        
-        return var_ptable
+    X=sp_replace(X,special_values)
     
-    def raw_to_bin_sc(self,var_code_raw,breaklist_var,special_values):
-        """ 
-        分箱转换，将分类特征的值与breaks对应起来
-        1.只适合分类bin转换
-        2.此函数只能合并分类的类不能拆分分类的类        
-        """ 
+    def get_breaks(col,bin_num=10):
         
-        breaklist_var_new=[i.replace(special_values,'missing').unique().tolist()
-                                   for i in [pd.Series(i.split('%,%')) 
-                                             for i in breaklist_var]]
-        
-        map_codes={}
-        
-        for raw,map_code in product(var_code_raw,breaklist_var_new):
+        if is_numeric_dtype(col):
             
+            breaks=np.percentile(col[~np.isnan(col)],np.arange(bin_num+1)*10,interpolation='midpoint')
+            breaks=np.unique(np.round(breaks,2)).tolist()
+               
+        elif is_string_dtype(col):
             
-            #多项组合情况
-            if '%,%' in raw:
-                
-                raw_set=set(raw.split('%,%'))
-                
-                #原始code包含于combine_code中时
-                if not raw_set-set(map_code):
-
-                    map_codes[raw]='%,%'.join(map_code)
+            breaks=col.unique().tolist()
             
-            #单项情况
-            elif raw in map_code:
-                
-                map_codes[raw]='%,%'.join(map_code)
+        else:
             
-            #print(raw,map_code)
+            raise ValueError('dtype in only number and object')
+            
+        return breaks
+    
+    d={}
+    
+    
+    #注意使用此种分箱时需把区间改为"(]"
+    for name,value in X.iteritems():
+        l=get_breaks(value)
+        d[name]=l
+        #varReportSinge().report(value,y_train,l)
    
-        return map_codes
-    
-    
+    return d
+
 
 class binAdjusterKmeans(TransformerMixin):
     
@@ -168,7 +77,9 @@ class binAdjusterKmeans(TransformerMixin):
         seed:int,kmeans随机种子,
             + 本算法在合并差距较大的barprob箱时,kmeans的随机性会被放大导致合并结果不可复现,设定seed值以复现合并结果
             + 设定合理的combine_ratio与bin_limit可极大的降低kmeans的随机性
-        special_values,特殊值指代值,需与breaks_list一致            
+        special_values,list,dict,缺失值值指代值     
+            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
+            + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan 
         n_jobs,int,并行数量,默认-1,在数据量较大、列较多的前提下可极大提升效率但会增加内存占用
         verbose,int,并行信息输出等级        
         
@@ -176,7 +87,7 @@ class binAdjusterKmeans(TransformerMixin):
     -------
     """    
     
-    def __init__(self,breaks_list,combine_ratio=0.1,bin_limit=5,seed=123,special_values=[np.nan],n_jobs=-1,verbose=0):
+    def __init__(self,breaks_list,combine_ratio=0.1,bin_limit=5,seed=123,special_values=['nan',np.nan],n_jobs=-1,verbose=0):
 
         self.combine_ratio = combine_ratio       
         self.bin_limit=bin_limit
@@ -191,6 +102,8 @@ class binAdjusterKmeans(TransformerMixin):
         
         if X.size:
             
+            X=sp_replace(X, self.special_values)
+            
             breaks_list=self.get_Breaklist_sc(self.breaks_list,X,y)
             
             parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
@@ -199,8 +112,7 @@ class binAdjusterKmeans(TransformerMixin):
                                                                     self.combine_ratio,
                                                                     self.bin_limit,col,
                                                                     breaks_list[col],
-                                                                    self.seed,
-                                                                    self.special_values)
+                                                                    self.seed)
                                for col in list(breaks_list.keys()))     
             
             self.breaks_list_adj={col:breaks for col,breaks in col_break}
@@ -221,10 +133,10 @@ class binAdjusterKmeans(TransformerMixin):
             return pd.DataFrame(None)
         
     
-    def combine_badprob_kmeans(self,X,y,combine_ratio,bin_limit,col,breaks_list_sc_var,random_state=123,special_values=['nan',np.nan]):    
+    def combine_badprob_kmeans(self,X,y,combine_ratio,bin_limit,col,breaks_list_sc_var,random_state=123):    
     
         #global var_bin,res_km_s
-        var_raw=X[col].replace(special_values,np.nan)
+        var_raw=X[col]
     
         if is_string_dtype(var_raw):
             
@@ -236,7 +148,7 @@ class binAdjusterKmeans(TransformerMixin):
             #分类特征进行原始数据到其breaklist的映射
             var_code_raw=var_cut_fillna.unique().tolist()
                                        
-            map_codes=self.raw_to_bin_sc(var_code_raw,breaks_list_sc_var,special_values)
+            map_codes=raw_to_bin_sc(var_code_raw,breaks_list_sc_var)
                  
             var_map=var_cut_fillna.map(map_codes)
     
@@ -299,7 +211,7 @@ class binAdjusterKmeans(TransformerMixin):
     
                     #映射新breaks到原数据  
                     var_code_raw=var_map.unique().tolist()
-                    mapcode=self.raw_to_bin_sc(var_code_raw,breaks,special_values=['0.0%,%2.0%,%missing'])  
+                    mapcode=raw_to_bin_sc(var_code_raw,breaks)  
                     var_map=var_map.map(mapcode)
     
                     #重新分箱
@@ -406,42 +318,6 @@ class binAdjusterKmeans(TransformerMixin):
         else:
             
             return col,breaks
-
-    def raw_to_bin_sc(self,var_code_raw,breaklist_var,special_values):
-        
-        """ 
-        分箱转换，将分类特征的值与breaks对应起来
-        1.只适合分类bin转换
-        2.此函数只能合并分类的类不能拆分分类的类        
-        """ 
-        
-        breaklist_var_new=[i.replace(special_values,'missing').unique().tolist()
-                                   for i in [pd.Series(i.split('%,%')) 
-                                             for i in breaklist_var]]
-        
-        map_codes={}
-        
-        for raw,map_code in product(var_code_raw,breaklist_var_new):
-            
-            
-            #多项组合情况
-            if '%,%' in raw:
-                
-                raw_set=set(raw.split('%,%'))
-                
-                #原始code包含于combine_code中时
-                if not raw_set-set(map_code):
-
-                    map_codes[raw]='%,%'.join(map_code)
-            
-            #单项情况
-            elif raw in map_code:
-                
-                map_codes[raw]='%,%'.join(map_code)
-            
-            #print(raw,map_code)
-   
-        return map_codes
     
 
     def getindex(self,g_index_list):
@@ -531,185 +407,8 @@ class binAdjusterKmeans(TransformerMixin):
             break_list_sc=break_list
                 
         return break_list_sc 
-    
-
-
-class binAdjusterChi(TransformerMixin):
-    
-    def __init__(self,bin_num=10,chi2_p=0.1,special_values=[np.nan],n_jobs=-1,verbose=0):
-        """ 
-        卡方单调分箱:先等频分箱,再合并低于卡方值(交叉表卡方检验的差异不显著)的分箱或不单调(badrate)的分箱
-        + 只针对连续特征,分类特征将被忽略
-        + 结果只提供参考，需与其他分箱方法一起使用
-        
-        Params:
-        ------
-            bin_num:int,预分箱(等频)箱数,越大的值会使卡方分箱计算量越大,同时会增加分箱精度
-            chi2_p:float,卡方分箱的p值,一般p值越小合并的箱越少,越大则合并的箱越多
-            special_values:list,特殊值,分箱中将被替换为np.nan
-            n_jobs,int,并行数量,默认-1(所有core),在数据量较大特征较多的前提下可极大提升效率
-            verbose,int,并行信息输出等级   
-            
-        Attributes:
-        -------
-        """    
-        self.bin_num=bin_num
-        self.chi2_p=chi2_p
-        self.special_values=special_values
-        self.n_jobs=n_jobs
-        self.verbose=verbose
 
     
-    def fit(self, X, y):
-        
-        if X.size:
-            
-            X=X.select_dtypes(include='number')
-            #print(X.shape)
-            
-            if X.size:
-            
-                parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
-                col_break=parallel(delayed(self.chi2_bin)(X[col],y,self.bin_num,self.chi2_p,self.special_values) 
-                                   for col in X.columns)
-                
-                self.col_break=col_break
-                self.breaks_list_chi2m = {col:breaks for col,breaks in col_break}
-                
-            else:
-                
-                raise ValueError('no numeric columns find in X')                                 
-                                    
-        return self
-    
-    
-    def transform(self, X):       
-        
-        if X.size:
-            
-            return X
-        
-        else:
-            
-            warnings.warn('0 rows in input X,return None')
-            
-            return pd.DataFrame(None)
-        
-        
-    def chi2_bin(self,X,y,max_bin=10,chi2_p=0.5,special_values=[np.nan]): 
-    
-    
-        #global count
-        target = y.values
-        var_single = X.replace(special_values,np.nan)
-        threshold = chi2.isf(chi2_p, df=1)
-
-        if max_bin < 2 or var_single.dropna().unique().size<=1:
-
-            cuts = [0]
-
-            return X.name,cuts
-
-        else:
-
-            #1.eq-freq cut
-            cuts = sorted(list(
-                set(np.nanpercentile(var_single,np.linspace(0, 1, max_bin + 1)[1:-1] * 100, interpolation='lower')))
-                         )
-            cutoff = [-np.inf] + cuts + [np.inf]
-
-
-            #2.produce cutoff pair between each breaks
-            seg = [cutoff[i:i + 2] for i in range(len(cutoff) - 1)]
-
-
-            tb = []
-            cutoffs = []        
-
-            #calculate good and bad count
-            for index, (p1, p2) in enumerate(seg):
-
-                #fliter y in the X range of cutoffs
-                mask = (var_single > p1) & (var_single <= p2)
-                yy = target[mask]
-
-                #
-                cntr = len(yy) #freq
-                cntb = int(yy.sum()) #bad count
-                cntg = cntr - cntb #good count
-                if cntr > 0:
-                    tb.append([cntb, cntg])
-                    if p2 < np.inf:
-                        cutoffs.append(p2)
-
-            freq_tb = np.array(tb)#二维数组
-            cutoffs = sorted(cutoffs)
-            monot_ok = False
-
-            count=0
-            while (len(freq_tb) > 1):
-
-                count=count+1
-                minidx = 0
-                minvalue = np.inf
-                for i in range(len(freq_tb) - 1):
-
-                    a, b = freq_tb[i]
-                    c, d = freq_tb[i + 1]
-                    N = (a + b + c + d)
-
-                    #calculate chi2
-
-                    #ccsq,_,_,_,=chi2_contingency(freq_tb[i:i+2],correction=False) #calculate chi2 using scipy
-                    ccsq = N*(a*d-b*c)**2/((a+b)*(a+c)*(c+d)*(b+d))
-
-                    chiv = ccsq
-                    chiv = 0 if (a + c) == 0 or (b + d) == 0 else chiv
-
-                    #chiv should not be infinite
-                    if minvalue > chiv:
-                        minvalue = chiv
-                        minidx = i
-
-                #chi2<user defined threshold or not monot_ok then combine
-                if (minvalue < threshold) or (not monot_ok):
-                    #print(cutoffs,cutoffs[minidx])
-                    cutoffs = np.delete(cutoffs, minidx)
-
-                    tmp = freq_tb[minidx] + freq_tb[minidx + 1]
-
-                    freq_tb[minidx] = tmp
-                    freq_tb = np.delete(freq_tb, minidx + 1, 0)
-                    bad_rate = [i[0]/(i[1]+i[0]) for i in freq_tb]
-                    bad_rate_monotone = [(bad_rate[i-1]<bad_rate[i]<bad_rate[i+1])or
-                                     (bad_rate[i-1]>bad_rate[i]>bad_rate[i+1]) 
-                                     for i in range(1,len(bad_rate)-1)]
-
-                    monot_ok = np.array(bad_rate_monotone).all()
-
-                else:
-
-                    break
-
-            if cutoffs.tolist():
-                
-                if len(cutoffs)==1:
-                
-                    return X.name,[0]
-                
-                elif var_single.max()==max(cutoffs):
-                    
-                    return X.name,cutoffs[:-1].tolist()
-                
-                else:
-                    
-                    return X.name,[0]
-
-            else:
-
-                return X.name,[0]
-            
-
 
 class binTree(TransformerMixin):
     
@@ -726,7 +425,9 @@ class binTree(TransformerMixin):
     bin_num_limit=8,分箱总数限制
     coerce_monotonic=False,是否强制bad_prob单调，默认否
     ws=None,None or pandas.core.series.Series,样本权重
-    special_values=[np.nan,'nan'],特殊值指代值列表，其将被转换为np.nan(数值列)或missing(字符列),若不同列的特殊指代值存在冲突，请先处理好这些冲突
+    special_values:缺失值指代值
+        + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
+        + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
     n_jobs=-1,int,并行数量,默认-1,在数据量较大、列较多的前提下可极大提升效率但会增加内存占用
     verbose=0,并行信息输出等级    
         
@@ -755,12 +456,13 @@ class binTree(TransformerMixin):
         
         if X.size:
             
+            X=sp_replace(X, self.special_values)
             p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
             res=p(delayed(self.get_treecut)(col[1],y,self.max_bin,
                                             self.criteria,self.max_iters,
                                             self.tol,self.distr_limit,
                                             self.bin_num_limit,
-                                            self.ws,self.special_values,
+                                            self.ws,
                                             self.coerce_monotonic) for col in X.iteritems())
             
             self.breaks_list={col_name:breaks for col_name,breaks,_ in res}
@@ -782,7 +484,7 @@ class binTree(TransformerMixin):
             return pd.DataFrame(None)
         
         
-    def get_treecut(self,col,y,max_bin,criteria,max_iters,tol,distr_limit,bin_num_limit,ws,special_values,coerce_monotonic):
+    def get_treecut(self,col,y,max_bin,criteria,max_iters,tol,distr_limit,bin_num_limit,ws,coerce_monotonic):
         
         #sample_wieght
         if ws is not None:
@@ -797,20 +499,19 @@ class binTree(TransformerMixin):
         #numeric column
         if is_numeric_dtype(col):
                       
-            col=col.replace(special_values,np.nan)
             
             #no cut applied when col's unique value pop too high               
             if col.value_counts(dropna=False).div(col.size).max()>0.95:
                 
                 breaks=[]       
                 
-                vtab=varReportSinge().report(col,y,breaks,special_values=special_values,sample_weight=ws)
+                vtab=varReportSinge().report(col,y,breaks,sample_weight=ws)
                 
             elif np.unique(col[~np.isnan(col)]).size==1:
                 
                 breaks=[]
                 
-                vtab=varReportSinge().report(col,y,breaks,special_values=special_values,sample_weight=ws)
+                vtab=varReportSinge().report(col,y,breaks,sample_weight=ws)
             
             #tree cut
             else:
@@ -825,12 +526,10 @@ class binTree(TransformerMixin):
                                      coerce_monotonic=coerce_monotonic,
                                      bin_num_limit=bin_num_limit)
                 
-                vtab=varReportSinge().report(col,y,breaks,special_values=special_values,sample_weight=ws)
+                vtab=varReportSinge().report(col,y,breaks,sample_weight=ws)
         
         #string columns         
         elif is_string_dtype(col):
-            
-            col=col.replace(special_values,'missing')
             
             #sort levels by bad_rate
             codes=y.groupby(col).mean().sort_values().index.tolist()
@@ -851,7 +550,7 @@ class binTree(TransformerMixin):
         
             breaks=['%,%'.join(i) for i in np.split(codes,breaks_raw)]    
             
-            vtab=varReportSinge().report(col,y,breaks,special_values=special_values,sample_weight=ws)
+            vtab=varReportSinge().report(col,y,breaks,sample_weight=ws)
             
         else:
             

@@ -7,8 +7,7 @@ import copy
 from pandas.api.types import is_numeric_dtype,is_string_dtype
 from joblib import Parallel,delayed
 import numpy as np
-from itertools import product
-
+from BDMtools.fun import raw_to_bin_sc,sp_replace
 
 class woeTransformer(TransformerMixin):
     
@@ -19,9 +18,12 @@ class woeTransformer(TransformerMixin):
     ------
         
     varbin:BDMtools.varReport(...).fit(...).var_report_dict,dict格式,woe编码参照此编码产生       
-    special_values,list,缺失值指代值,注意special_values必须与varbin的缺失值指代值一致，否则缺失值的woe编码将出现错误结果
+    special_values,list,缺失值指代值,
+            请特别注意:special_values必须与产生varbin的函数的special_values一致，否则缺失值的woe编码将出现错误结果
+            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
+            + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
     woe_missing=None,float,缺失值的woe调整值，默认None即不调整.当missing箱样本量极少时，woe值可能不具备代表性，此时可调整wvarbin中的woe替换值至合理水平，例如设定为0
-                经过替换后的varbin将覆盖原始的varbin保存在self.varbin中.本模块暂不支持对不同特征的woe调整值做区别处理，所有特征的woe调整值均为woe_missing
+            经过替换后的varbin=保存在self.varbin中.本模块暂不支持对不同特征的woe调整值做区别处理，所有特征的woe调整值均为woe_missing
     distr_limit=0.01,float,当woe_missing不为None时,若missing箱占比低于distr_limit时才执行替换
     check_na:bool,为True时,若经woe编码后编码数据出现了缺失值，程序将报错终止   
             出现此类错误时多半是某箱样本量为1，或test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高     
@@ -32,7 +34,7 @@ class woeTransformer(TransformerMixin):
     -------   
     """        
     
-    def __init__(self,varbin,n_jobs=1,verbose=0,special_values=[np.nan],check_na=True,woe_missing=None,distr_limit=0.01):
+    def __init__(self,varbin,n_jobs=1,verbose=0,special_values=[np.nan,'nan'],check_na=True,woe_missing=None,distr_limit=0.01):
         
         self.varbin=varbin
         self.n_jobs=n_jobs
@@ -46,8 +48,8 @@ class woeTransformer(TransformerMixin):
         """ 
         WOE转换
         """
-        X=X.copy().replace(self.special_values,np.nan) 
-        
+        X=sp_replace(X,self.special_values)
+
         self.varbin=copy.deepcopy(self.varbin)
         
         if isinstance(self.woe_missing,float):        
@@ -82,7 +84,7 @@ class woeTransformer(TransformerMixin):
    
         return self      
     
-    def woe_map(self,col,bin_df,special_values,check_na=True):
+    def woe_map(self,col,bin_df,check_na=True):
     
         if is_numeric_dtype(col):
             
@@ -102,11 +104,11 @@ class woeTransformer(TransformerMixin):
             
             breaks=bin_df.index.tolist();woe=bin_df['woe'].tolist()
             
-            raw_to_breaks=self.raw_to_bin_sc(col.unique().tolist(),breaks,special_values=special_values)
+            raw_to_breaks=raw_to_bin_sc(col.unique().tolist(),breaks)
             
             breaks_to_woe=dict(zip(breaks,woe))
             
-            col_woe=col.replace(special_values,'missing').map(raw_to_breaks).map(breaks_to_woe).astype('float32')            
+            col_woe=col.map(raw_to_breaks).map(breaks_to_woe).astype('float32')            
             
         else:
             
@@ -119,42 +121,5 @@ class woeTransformer(TransformerMixin):
                 raise ValueError(col.name+"_woe contains nans")
             
         return col.name,col_woe
-        
-    
-    def raw_to_bin_sc(self,var_code_raw,breaklist_var,special_values):
-        
-        """ 
-        分箱转换，将分类特征的值与breaks对应起来
-        1.只适合分类bin转换
-        2.此函数只能合并分类的类不能拆分分类的类        
-        """ 
-        
-        breaklist_var_new=[i.replace(special_values,'missing').unique().tolist()
-                                   for i in [pd.Series(i.split('%,%')) 
-                                             for i in breaklist_var]]
-        
-        map_codes={}
-        
-        for raw,map_code in product(var_code_raw,breaklist_var_new):
-            
-            
-            #多项组合情况
-            if '%,%' in raw:
-                
-                raw_set=set(raw.split('%,%'))
-                
-                #原始code包含于combine_code中时
-                if not raw_set-set(map_code):
-
-                    map_codes[raw]='%,%'.join(map_code)
-            
-            #单项情况
-            elif raw in map_code:
-                
-                map_codes[raw]='%,%'.join(map_code)
-            
-            #print(raw,map_code)
-   
-        return map_codes
     
     

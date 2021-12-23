@@ -11,11 +11,10 @@ import numpy as np
 #import time
 from pandas.api.types import is_string_dtype,is_array_like,is_numeric_dtype
 from glob import glob
-from itertools import product
 import os
 import warnings
 from joblib import Parallel,delayed
-
+from BDMtools.fun import raw_to_bin_sc,sp_replace
 
 class EDAReport(TransformerMixin):
     
@@ -25,7 +24,9 @@ class EDAReport(TransformerMixin):
     ------
         categorical_col:list,类别特征列名
         numeric_col:list,连续特征列名
-        miss_value:list,缺失值指代值
+        special_values:缺失值指代值
+            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
+            + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
         is_nacorr:bool,是否输出缺失率相关性报告
         out_path:str or None,将数据质量报告输出到本地工作目录的str文件夹下，None代表不输出            
     
@@ -46,11 +47,11 @@ class EDAReport(TransformerMixin):
         self.out_path=out_path
         
     def fit(self, X, y=None):
-        
+
         if X.size:
             
             #填充缺失值
-            X=X.replace(self.special_values,np.nan)   
+            X=sp_replace(X,self.special_values)   
             
             #产生报告
             self.num_report=self.num_info(X)
@@ -278,20 +279,20 @@ class businessReport(TransformerMixin):
 
 class varReportSinge:
     
-    def report(self, X, y,breaks,special_values=[np.nan],sample_weight=None):
+    def report(self, X, y,breaks,sample_weight=None):
         
-        report_var=self.getReport_Single(X,y,breaks,special_values,sample_weight)
+        report_var=self.getReport_Single(X,y,breaks,sample_weight)
         
         return report_var
  
         
-    def getReport_Single(self,X,y,breaklist_var,special_values,sample_weight):
+    def getReport_Single(self,X,y,breakslist_var,sample_weight):
          
 
          col=X.name
 
          #处理缺失值
-         var_fillna=X.replace(special_values,np.nan)
+         var_fillna=X
          
          #breaklist_var=list(breaks_list_dict[col])
          
@@ -299,7 +300,7 @@ class varReportSinge:
          if is_numeric_dtype(var_fillna):
            
              #按照分箱sc的breaklist的区间进行分箱
-             var_cut=pd.cut(var_fillna,[-np.inf]+breaklist_var+[np.inf],duplicates='drop',right=False).cat.add_categories('missing')
+             var_cut=pd.cut(var_fillna,[-np.inf]+breakslist_var+[np.inf],duplicates='drop',right=False).cat.add_categories('missing')
              
              var_bin=var_cut.fillna('missing')
          
@@ -312,7 +313,7 @@ class varReportSinge:
              #转换字原始符映射到分箱sc的breaklist的字符映射
              var_code_raw=var_cut.unique().tolist()
                           
-             map_codes=self.raw_to_bin_sc(var_code_raw,breaklist_var,special_values)
+             map_codes=raw_to_bin_sc(var_code_raw,breakslist_var)
                         
              var_bin=pd.Series(pd.Categorical(var_cut.map(map_codes)),index=var_fillna.index,name=col)
              
@@ -374,40 +375,6 @@ class varReportSinge:
         var_ptable=var_ptable[['variable', 'count', 'count_distr', 'good', 'bad', 'badprob','woe', 'bin_iv', 'total_iv','ks','ks_max']]
         
         return var_ptable
-    
-    def raw_to_bin_sc(self,var_code_raw,breaklist_var,special_values):
-        """ 
-        分箱转换，将分类特征的值与breaks对应起来
-        1.只适合分类bin转换
-        2.此函数只能合并分类的类不能拆分分类的类        
-        """ 
-        
-        breaklist_var_new=[i.replace(special_values,'missing').unique().tolist()
-                                   for i in [pd.Series(i.split('%,%')) 
-                                             for i in breaklist_var]]
-        
-        map_codes={}
-        
-        for raw,map_code in product(var_code_raw,breaklist_var_new):            
-            
-            #多项组合情况
-            if '%,%' in raw:
-                
-                raw_set=set(raw.split('%,%'))
-                
-                #原始code包含于combine_code中时
-                if not raw_set-set(map_code):
-
-                    map_codes[raw]='%,%'.join(map_code)
-            
-            #单项情况
-            elif raw in map_code:
-                
-                map_codes[raw]='%,%'.join(map_code)
-            
-            #print(raw,map_code)
-   
-        return map_codes    
         
         
 
@@ -418,7 +385,9 @@ class varReport(TransformerMixin):
     Params:
     ------
         breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
-        special_values:list,缺失值指代值
+        special_values:缺失值指代值
+            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
+            + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
         sample_weight:numpy.array or pd.Series or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标
         out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
         tab_suffix:本地excel报告名后缀
@@ -430,7 +399,7 @@ class varReport(TransformerMixin):
         var_report_dict:dict,特征分析报告字典
     """
     
-    def __init__(self,breaks_list_dict,special_values=[np.nan],sample_weight=None,out_path=None,tab_suffix='',n_jobs=-1,verbose=0):
+    def __init__(self,breaks_list_dict,special_values=[np.nan,'nan'],sample_weight=None,out_path=None,tab_suffix='',n_jobs=-1,verbose=0):
 
         self.breaks_list_dict = breaks_list_dict
         self.special_values=special_values
@@ -445,11 +414,13 @@ class varReport(TransformerMixin):
 
         if X.size:
             
+            X=sp_replace(X, self.special_values)
+            
             self.breaks_list_dict=self.get_Breaklist_sc(self.breaks_list_dict,X,y)
             
             parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
             
-            out_list=parallel(delayed(self.getReport_Single)(X,y,col,self.breaks_list_dict[col],self.special_values) 
+            out_list=parallel(delayed(self.getReport_Single)(X,y,col,self.breaks_list_dict[col]) 
                                for col in list(self.breaks_list_dict.keys())) 
             
             self.var_report_dict={col:total for col,total,_ in out_list}
@@ -476,25 +447,26 @@ class varReport(TransformerMixin):
             return pd.DataFrame(None)
         
     
-    def getReport_Single(self,X,y,col,breaklist_var,special_values):
+    def getReport_Single(self,X,y,col,breaklist_var):
          
          #print(col)
          #global psi_base_mon1,dis_mon
-
-         #处理缺失值
-         var_fillna=X[col].replace(special_values,np.nan)
          
          #breaklist_var=list(breaks_list_dict[col])
          
          #第1步:判断数据类型
-         if is_numeric_dtype(var_fillna):
+         if is_numeric_dtype(X[col]):
+             
+             var_fillna=X[col]
            
              #按照分箱sc的breaklist的区间进行分箱
              var_cut=pd.cut(var_fillna,[-np.inf]+breaklist_var+[np.inf],duplicates='drop',right=False).cat.add_categories('missing')
              
              var_bin=var_cut.fillna('missing')
          
-         elif is_string_dtype(var_fillna):                 
+         elif is_string_dtype(X[col]):   
+
+             var_fillna=X[col]
              
              var_cut=pd.Series(np.where(var_fillna.isnull(),'missing',var_fillna),
                        index=var_fillna.index,
@@ -503,7 +475,7 @@ class varReport(TransformerMixin):
              #转换字原始符映射到分箱sc的breaklist的字符映射
              var_code_raw=var_cut.unique().tolist()
                           
-             map_codes=self.raw_to_bin_sc(var_code_raw,breaklist_var,special_values)
+             map_codes=raw_to_bin_sc(var_code_raw,breaklist_var)
                         
              var_bin=pd.Series(pd.Categorical(var_cut.map(map_codes)),index=var_fillna.index,name=col)
              
@@ -567,41 +539,6 @@ class varReport(TransformerMixin):
         var_ptable=var_ptable[['variable', 'count', 'count_distr', 'good', 'bad', 'badprob','woe', 'bin_iv', 'total_iv','ks','ks_max']]
         
         return var_ptable
-    
-    def raw_to_bin_sc(self,var_code_raw,breaklist_var,special_values):
-        """ 
-        分箱转换，将分类特征的值与breaks对应起来
-        1.只适合分类bin转换
-        2.此函数只能合并分类的类不能拆分分类的类        
-        """ 
-        
-        breaklist_var_new=[i.replace(special_values,'missing').unique().tolist()
-                                   for i in [pd.Series(i.split('%,%')) 
-                                             for i in breaklist_var]]
-        
-        map_codes={}
-        
-        for raw,map_code in product(var_code_raw,breaklist_var_new):
-            
-            
-            #多项组合情况
-            if '%,%' in raw:
-                
-                raw_set=set(raw.split('%,%'))
-                
-                #原始code包含于combine_code中时
-                if not raw_set-set(map_code):
-
-                    map_codes[raw]='%,%'.join(map_code)
-            
-            #单项情况
-            elif raw in map_code:
-                
-                map_codes[raw]='%,%'.join(map_code)
-            
-            #print(raw,map_code)
-   
-        return map_codes
     
     
     def psi(self,base,col):
@@ -714,6 +651,8 @@ class varGroupsReport(TransformerMixin):
         + 默认每组最少1000行，小于限制的组不统计其任何指标，返回空，
         + 当数据中存在组样本过少时，分组进行统计的bin可能会在某些分段内缺失导致concat时出现index overlapping错误，此时可适当提高row_limit以避免此类错误
     special_values:list,缺失值指代值
+            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
+            + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
     sample_weight:numpy.array or pd.Series(...,index=X.index) or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标以还原抽样对分析影响
     n_jobs:int,并行计算job数
     verbose:int,并行计算信息输出等级
@@ -728,7 +667,7 @@ class varGroupsReport(TransformerMixin):
     
     
     def __init__(self,breaks_list_dict,columns,sort_columns=None,target='target',row_limit=1000,output_psi=False,psi_base='all',
-                 special_values=[np.nan],sample_weight=None,
+                 special_values=['nan',np.nan],sample_weight=None,
                  n_jobs=-1,verbose=0,out_path=None,tab_suffix='_group'):
 
         self.breaks_list_dict=breaks_list_dict

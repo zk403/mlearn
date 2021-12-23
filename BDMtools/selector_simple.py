@@ -4,6 +4,7 @@ from lightgbm import LGBMClassifier
 from category_encoders.ordinal import OrdinalEncoder
 from category_encoders import WOEEncoder
 from sklearn.linear_model import LogisticRegression
+from BDMtools.fun import sp_replace
 import numpy as np
 import pandas as pd
 import toad
@@ -21,7 +22,7 @@ class prefitModel(BaseEstimator):
         method='ceiling',预拟合数据方法，可选‘floor’,‘ceiling’
             floor:地板算法，这里使用线性模型(sklearn对的logit回归(C=0.1))进行prefit  
                  + 分类变量处理方式:进行woe编码
-                 + 数值特征缺失值:填补为-999
+                 + 数值特征缺失值:填补为-999,当数据缺失值较多时，建议使用ceiling
             ceiling:天花板算法,这里使用lightgbm进行prefit，且不进行任何交叉验证
                 + 分类变量处理方式:进行woe编码
                 + 数值特征缺失值:不处理
@@ -33,7 +34,7 @@ class prefitModel(BaseEstimator):
     ----------
         features_info:dict,每一步筛选的特征进入记录
     """      
-    def __init__(self,method,params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},
+    def __init__(self,method='ceiling',params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},
                  col_rm=None,sample_weight=None):
 
         self.method=method
@@ -153,7 +154,9 @@ class preSelector(TransformerMixin):
         tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
         iv_limit:float or None使用toad.quality进行iv快速筛选的iv阈值
         out_path:str or None,模型报告路径,将预筛选过程每一步的筛选过程输出到模型报告中
-        special_values:list,特殊值指代值列表,其将被替换为np.nan
+        special_values:list,特殊值指代值列表
+                + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换
+                + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换
         keep:list or None,需保留列的列名list
         
     Attribute:
@@ -163,7 +166,7 @@ class preSelector(TransformerMixin):
     
     
     def __init__(self,na_pct=0.99,unique_pct=0.99,variance=0,chif_pvalue=0.05,tree_imps=0,
-                 tree_size=100,iv_limit=0.02,out_path="report",special_values=[np.nan],keep=None
+                 tree_size=100,iv_limit=0.02,out_path="report",special_values=[np.nan,'nan'],keep=None
                  ):
 
         self.na_pct=na_pct
@@ -194,9 +197,9 @@ class preSelector(TransformerMixin):
        
     def fit(self,X,y):
         
-        X=X.replace(self.special_values,np.nan)
-        
         X=X.drop(self.keep,axis=1) if self.keep else X
+       
+        X=sp_replace(X,self.special_values,fill_num=np.nan,fill_str=np.nan)
         
         self.features_info={}
     
@@ -205,11 +208,12 @@ class preSelector(TransformerMixin):
         
         print('1.start______________________________________complete')
         
+        #fliter by nan
         if self.na_pct==None:
             
             pass
         
-        elif self.na_pct<1 and self.na_pct>0:
+        elif 0<self.na_pct<1:
             
             var_pre_na=self.features_info[max(list(self.features_info.keys()))]
             
@@ -220,12 +224,14 @@ class preSelector(TransformerMixin):
         else:
             
             raise ValueError("na_pct in (0,1)")
-                
+        
+            
+        #fliter by variance and unique_pct
         if self.variance==None or self.unique_pct==None:            
             
             pass        
         
-        elif self.variance>=0 and self.unique_pct>=0 and self.unique_pct<1:
+        elif self.variance>=0 and 0<=self.unique_pct<1:
             
             var_pre_vari=self.features_info[max(list(self.features_info.keys()))]
             
@@ -238,11 +244,12 @@ class preSelector(TransformerMixin):
             raise ValueError("variance in [0,inf) and unique_pct in [0,1)")                          
         
         
+        #fliter by chi and f-value
         if self.chif_pvalue==None:
             
             pass
         
-        elif self.chif_pvalue>0 and self.chif_pvalue<=1: 
+        elif 0<self.chif_pvalue<=1: 
             
             var_pre_chi=self.features_info[max(list(self.features_info.keys()))]
             
@@ -253,7 +260,8 @@ class preSelector(TransformerMixin):
         else:
             
             raise ValueError("pvalue in (0,1]") 
-            
+        
+        #fliter by lgbm-tree-imp  
         if self.tree_imps==None:
             
             pass
@@ -271,6 +279,7 @@ class preSelector(TransformerMixin):
             raise ValueError("tree_imps in [0,inf)")         
    
         
+        #fliter by iv 
         if self.iv_limit==None:   
             
             pass
