@@ -12,6 +12,7 @@ import numpy as np
 from pandas.api.types import is_string_dtype,is_array_like,is_numeric_dtype
 from glob import glob
 import os
+from itertools import product
 import warnings
 from joblib import Parallel,delayed
 from BDMtools.fun import raw_to_bin_sc,sp_replace
@@ -25,6 +26,7 @@ class EDAReport(TransformerMixin):
         categorical_col:list,类别特征列名
         numeric_col:list,连续特征列名
         special_values:缺失值指代值
+            + None,保证数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
         is_nacorr:bool,是否输出缺失率相关性报告
@@ -38,7 +40,7 @@ class EDAReport(TransformerMixin):
         nacorr_report:pd.DataFrame,缺失率相关性报告
     """
     
-    def __init__(self,categorical_col=None,numeric_col=None,special_values=[np.nan,'nan'],is_nacorr=False,out_path="report"):
+    def __init__(self,categorical_col=None,numeric_col=None,special_values=None,is_nacorr=False,out_path="report"):
         
         self.categorical_col = categorical_col
         self.numeric_col = numeric_col
@@ -386,6 +388,7 @@ class varReport(TransformerMixin):
     ------
         breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
         special_values:缺失值指代值
+            + None,保证数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
         sample_weight:numpy.array or pd.Series or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标
@@ -399,7 +402,7 @@ class varReport(TransformerMixin):
         var_report_dict:dict,特征分析报告字典
     """
     
-    def __init__(self,breaks_list_dict,special_values=[np.nan,'nan'],sample_weight=None,out_path=None,tab_suffix='',n_jobs=-1,verbose=0):
+    def __init__(self,breaks_list_dict,special_values=None,sample_weight=None,out_path=None,tab_suffix='',n_jobs=-1,verbose=0):
 
         self.breaks_list_dict = breaks_list_dict
         self.special_values=special_values
@@ -642,6 +645,10 @@ class varGroupsReport(TransformerMixin):
     
     breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
     columns:list,组变量名,最终报告将组变量置于报告列上,组特征可以在breaks_list_dict中
+    sort_columns:dict or None,组变量名输出的列顺序,排序后的报告中多重列索引的列顺序将与设定一致
+        + sort_columns必须是dict格式，例如sort_columns={col_name1:[value1,value2,...],col_name2:[...],...}
+        + sort_columns的key必须与columns一致，即排序的组变量名要写全，例如columns=['col1','col2'],那么sort_columns={col1:[value1,value2,...],col2:[...]}
+        + sort_columns中某列的排序值[value1,value2,...]必须与原始数据X的中改列的唯一值一致,即set([value1,value2,...])==set(X[col_name1].unique)
     target:目标变量名
     output_psi:bool,是否输出群组psi报告
     psi_base:str,psi计算的基准,可选all，也可用户自定义
@@ -650,7 +657,8 @@ class varGroupsReport(TransformerMixin):
     row_limit,int,分组行数限制，建议设定该参数至合理水平
         + 默认每组最少1000行，小于限制的组不统计其任何指标，返回空，
         + 当数据中存在组样本过少时，分组进行统计的bin可能会在某些分段内缺失导致concat时出现index overlapping错误，此时可适当提高row_limit以避免此类错误
-    special_values:list,缺失值指代值
+    special_values:缺失值指代值
+            + None,保持数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
     sample_weight:numpy.array or pd.Series(...,index=X.index) or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标以还原抽样对分析影响
@@ -667,7 +675,7 @@ class varGroupsReport(TransformerMixin):
     
     
     def __init__(self,breaks_list_dict,columns,sort_columns=None,target='target',row_limit=1000,output_psi=False,psi_base='all',
-                 special_values=['nan',np.nan],sample_weight=None,
+                 special_values=None,sample_weight=None,
                  n_jobs=-1,verbose=0,out_path=None,tab_suffix='_group'):
 
         self.breaks_list_dict=breaks_list_dict
@@ -695,15 +703,6 @@ class varGroupsReport(TransformerMixin):
             self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,axis=1).columns}    
 
             X=pd.concat([X.drop(self.columns,axis=1),X[self.columns].astype('str')],axis=1)
-
-            
-            if self.sort_columns:
-                
-                X=X.drop(list(self.sort_columns.keys()),axis=1).join(
-                    pd.DataFrame(                      
-                    {col:pd.Categorical(X[col],categories=self.sort_columns[col],ordered=True) for col in self.sort_columns},               
-                    index=X.index)
-                )
                        
             result={}            
             
@@ -742,7 +741,13 @@ class varGroupsReport(TransformerMixin):
             
    
             report=pd.concat(result,axis=1)
+            
+            if self.sort_columns:       
                 
+                sort_columns_list=self.check_columns_sort(self.sort_columns, self.columns, X)                                    
+        
+                report=self.vtab_column_sort(sort_columns_list,report)                
+                      
             self.report_dict=self.getReport(X,report,output_psi=self.output_psi,psi_base=self.psi_base)                    
                 
             if self.out_path:
@@ -832,6 +837,59 @@ class varGroupsReport(TransformerMixin):
         psi_out=base.sub(col).mul(base.div(col).map(np.log))
 
         return psi_out            
+    
+    def vtab_column_sort(self,sort_columns,report):
+        
+        sort_columns=sort_columns.copy()
+        
+        vt_cols=['variable', 'count', 'count_distr', 'good', 'bad', 'badprob', 'woe',
+                 'bin_iv', 'total_iv', 'ks', 'ks_max', 'breaks']
+
+        sort_columns.append(vt_cols)
+        
+        cols_sorted=list(product(*sort_columns))
+        
+        cols_sorted_c=cols_sorted.copy()
+        
+        for col in cols_sorted_c:
+            
+            if not col in report.columns.tolist():
+                
+                cols_sorted.remove(col)
+                
+        return report[cols_sorted]
+    
+
+    def check_columns_sort(self,sort_columns,columns,X):
+        
+        #check format of sort_columns:must dict
+        
+        if isinstance(sort_columns,dict):     
+
+            #check format of sort_columns:len must equal to self.columns
+            if len(sort_columns)==len(columns):
+            
+                #check format of sort_columns:defined sort value must equal to unique values of sort column
+                for col in sort_columns:
+                    
+                    col_values=X[col].astype('str').unique()
+                    
+                    if set(col_values) != set(sort_columns[col]):                        
+                        
+                        raise ValueError("sort_values of '{}' not equal to unique values of X['{}'],check and re-define them".format(col,col))
+                        
+                #get sort_columns list      
+                sort_columns=[sort_columns[col] for col in columns]
+                        
+                return sort_columns
+                        
+            else:
+                
+                raise ValueError("len(sort_columns) must equal to self.columns")
+                   
+        else:
+            
+            raise ValueError("sort_columns={col_name1:[value1,value2,...],col_name2:[...],...}")  
     
     
     def writeExcel(self):

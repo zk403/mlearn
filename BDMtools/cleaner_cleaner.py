@@ -115,15 +115,15 @@ class dtypeAllocator(TransformerMixin):
     Params:
     ------
         dtypes_dict={}
-            + dict():是否自动处理输入数据并最终转换为object、number、date三种类型
+            + dtypes_dict=dict():自动处理输入数据并最终转换为object、number、date三种类型
                 + 初始数据中的数值类型数据(float,int,bool)将被全部转换为float类型数据
                 + 初始数据中的字符类型数据(str)将被全部转换为object类型数据
                 + 初始数据中的无序分类类型数据(category-unordered)将被全部转换为object类型数据
                 + 初始数据中的有序分类类型数据(category-ordered)将顺序被全部转换为int8类型数据(0,1,2,3...),其与原始数据的对应关系将被保存在self.order_info中
-                + 初始数据中的时间类型数据(datetime,datetimetz)类型数据将保持默认,可通过参数选择是否剔除掉日期型数据
-                + 初始数据中的时间差类型数据(timedelta)类型数据将被转换为float,时间单位需自行指定,且作用于全部的timedelta类型
+                + 初始数据中的时间类型数据(datetime,datetimetz)将保持默认,可通过参数选择是否剔除掉日期型数据
+                + 初始数据中的时间差类型数据(timedelta)将被转换为float,时间单位需自行指定,且作用于全部的timedelta类型
                 + 其他类型的列与col_rm列将不进行转换直接输出
-            + dict={'num':colname_list,'str':colname_list,'date':colname_list}
+            + dtypes_dict={'num':colname_list,'str':colname_list,'date':colname_list}:手动处理输入数据的数据类型，通过dtypes_dict对列的类型进行分配转换
                 + colname_list是列名列表,可以为None,代表无此类特征,注意各个类的列名列表不能出现交集与重复,否则将报错终止
                 + 若所有colname_list的特征只是数据所有列的一部分，则剩下部分的列将不做转换
                 + colname_list不能含有col_rm中的列,否则会报错终止
@@ -131,7 +131,9 @@ class dtypeAllocator(TransformerMixin):
         dtype_num='float64',数值类型列转换方式，默认为float64，可以选择float32/float16，注意其可以有效减少数据的内存占用，但会损失数据精度。请注意数据中的数值id列,建议不进行32或16转换
         t_unit=‘1 D’,timedelta类列处理为数值的时间单位，默认天
         drop_date=False,是否剔除原始数据中的日期列，默认False
-        precision=5,数值类数据的精度,precision=5代表保留小数点后5位小数，设定好设定此值以获得数值的近似结果，否则后续分析比如分箱、woe编码等会在一些极端条件下产生错误结果。
+        precision=3,数值类数据的精度,precision=3代表保留小数点后5位小数，设定好设定此值以获得数值的近似结果。
+                建议与生产环境的数据精度一致，否则在极端情况下生产环境与分析环境的数据分箱与woe编码会出现错误结果
+        
 
     Returns:
     ------
@@ -141,7 +143,7 @@ class dtypeAllocator(TransformerMixin):
     """    
 
     
-    def __init__(self,dtypes_dict={},col_rm=None,t_unit='1 D',dtype_num='float64',drop_date=False,precision=6):
+    def __init__(self,dtypes_dict={},col_rm=None,t_unit='1 D',dtype_num='float64',drop_date=False,precision=3):
 
         self.dtypes_dict=dtypes_dict
         self.dtype_num = dtype_num
@@ -396,7 +398,7 @@ class nanTransformer(TransformerMixin):
                                                n_neighbors=self.n_neighbors,
                                                weights=self.weights_knn).fit(X_num)
                     
-                elif self.method[0] in ('constant','mean','median','most_frequent'):
+                elif self.method[0] in ('x','mean','median','most_frequent'):
                     
                     imputer_num=SimpleImputer(missing_values=np.nan,
                                            strategy=self.method[0],

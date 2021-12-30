@@ -275,8 +275,9 @@ class cardScorer(TransformerMixin):
         digit=0,评分卡打分保留的小数位数
         check_na,bool,为True时,若经打分后编码数据出现了缺失值，程序将报错终止   
                 出现此类错误时多半是某箱样本量为1，或test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高
-        special_values=[np.nan,'nan']:缺失值指代值
+        special_values,缺失值指代值
             请特别注意:special_values必须与产生varbin的函数的special_values一致，否则缺失值的score将出现错误结果
+            + None,保证数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
         n_jobs=1,并行数量,默认1(所有core),在数据量非常大，列非常多的情况下可提升效率但会增加内存占用，若数据量较少可设定为1    
@@ -288,7 +289,7 @@ class cardScorer(TransformerMixin):
         
     ''' 
     
-    def __init__(self,logit_model,varbin,odds0=1/100,pdo=50,points0=600,digit=0,special_values=[np.nan,'nan'],
+    def __init__(self,logit_model,varbin,odds0=1/100,pdo=50,points0=600,digit=0,special_values=None,
                  check_na=True,n_jobs=1,verbose=0):
        
         self.logit_model=logit_model

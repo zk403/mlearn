@@ -95,7 +95,7 @@ def sp_replace_col(col,special_values,fill_num=np.nan,fill_str='missing'):
     Return:
     -------
         X,pd.DataFrame,替换后的数据
-    """         
+    """             
 
     if is_numeric_dtype(col):
         
@@ -138,8 +138,11 @@ def sp_replace(X,special_values,fill_num=np.nan,fill_str='missing'):
         X,pd.DataFrame,替换后的数据
     """    
     
+    if special_values is None:
+        
+        X=X
     
-    if isinstance(special_values, list):
+    elif isinstance(special_values, list):
         
         X=sp_replace_df(X,special_values,fill_num,fill_str)
         
@@ -149,13 +152,64 @@ def sp_replace(X,special_values,fill_num=np.nan,fill_str='missing'):
         
     else:
         
-        raise ValueError('special_values is list or dict')
+        raise ValueError('special_values is list,dict or None')
        
     return X
 
 
 
+def get_Breaklist_sc(break_list,X,y):
+ 
+    
+    count=0
+    for var_list in list(break_list.values()):
+        
+        for value in var_list:
+            if isinstance(value,list):
+                count=count+1           
+            break
+        
+    columns=list(break_list.keys())
+    
+    if count>0:
+    
+        cate_colname=X[columns].select_dtypes(include='object').columns.tolist()
+        num_colname=X[columns].select_dtypes(include='number').columns.tolist()
+        oth_colname=X[columns].select_dtypes(exclude=['number','object']).columns.tolist()
+        if oth_colname:
+            raise ValueError('supported X.dtypes only in (number,object),use bm.dtypeAllocator to format X')
 
+        break_list_sc=dict()
+
+        #将toad的breaklist转化为scorecardpy的breaklist
+        for key in break_list.keys():
+            
+            #分类列需调整格式
+            if key in cate_colname and break_list[key]: 
+
+                bin_value_list=[]
+                
+                for value in break_list[key]:
+                    #if 'nan' in value:
+                    #    value=pd.Series(value).replace('nan','missing').tolist()
+                    bin_value_list.append('%,%'.join(value))
+
+                break_list_sc[key]=bin_value_list
+            
+            #数值列默认
+            elif key in num_colname and break_list[key]:
+                
+                break_list_sc[key]=break_list[key]
+            
+            #空breaklist调整格式
+            else:
+
+                break_list_sc[key]=[-np.inf,np.inf]
+    #sc格式
+    else:   
+        break_list_sc=break_list
+            
+    return break_list_sc 
 
 
 

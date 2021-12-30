@@ -4,6 +4,7 @@ from lightgbm import LGBMClassifier
 from category_encoders.ordinal import OrdinalEncoder
 from category_encoders import WOEEncoder
 from sklearn.linear_model import LogisticRegression
+from sklearn.impute import SimpleImputer
 from BDMtools.fun import sp_replace
 import numpy as np
 import pandas as pd
@@ -22,7 +23,7 @@ class prefitModel(BaseEstimator):
         method='ceiling',预拟合数据方法，可选‘floor’,‘ceiling’
             floor:地板算法，这里使用线性模型(sklearn对的logit回归(C=0.1))进行prefit  
                  + 分类变量处理方式:进行woe编码
-                 + 数值特征缺失值:填补为-999,当数据缺失值较多时，建议使用ceiling
+                 + 数值特征缺失值:均值填补,当数据缺失值较多时，建议使用ceiling的lightbgm,其可应对缺失数据
             ceiling:天花板算法,这里使用lightgbm进行prefit，且不进行任何交叉验证
                 + 分类变量处理方式:进行woe编码
                 + 数值特征缺失值:不处理
@@ -51,7 +52,11 @@ class prefitModel(BaseEstimator):
         
         X_numeric=X.select_dtypes('number');X_categoty=X.select_dtypes('object')
         
-        X_numeric=X_numeric.fillna(-999) if self.method=='floor' else X_numeric
+        if self.method=='floor':
+            
+            X_numeric=pd.DataFrame(self.imputer.transform(X_numeric),
+                                   columns=self.imputer.feature_names_in_,
+                                   index=X_numeric.index,dtype='float32') 
 
         if self.encoder:
             
@@ -128,7 +133,14 @@ class prefitModel(BaseEstimator):
         X_numeric=X.select_dtypes('number')
         X_categoty=X.select_dtypes('object')
         
-        X_numeric=X_numeric.fillna(-999) if self.method=='floor' else X_numeric
+        if self.method=='floor':
+            
+            self.imputer=SimpleImputer(missing_values=np.nan,
+                      strategy='median').fit(X_numeric)
+            
+            X_numeric=pd.DataFrame(self.imputer.transform(X_numeric),
+                                            columns=self.imputer.feature_names_in_,
+                                            index=X_numeric.index,dtype='float32') 
         
         if X_categoty.columns.size:
                 
@@ -154,7 +166,8 @@ class preSelector(TransformerMixin):
         tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
         iv_limit:float or None使用toad.quality进行iv快速筛选的iv阈值
         out_path:str or None,模型报告路径,将预筛选过程每一步的筛选过程输出到模型报告中
-        special_values:list,特殊值指代值列表
+        special_values:缺失值指代值
+                + None
                 + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换
                 + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换
         keep:list or None,需保留列的列名list
@@ -166,7 +179,7 @@ class preSelector(TransformerMixin):
     
     
     def __init__(self,na_pct=0.99,unique_pct=0.99,variance=0,chif_pvalue=0.05,tree_imps=0,
-                 tree_size=100,iv_limit=0.02,out_path="report",special_values=[np.nan,'nan'],keep=None
+                 tree_size=100,iv_limit=0.02,out_path="report",special_values=None,keep=None
                  ):
 
         self.na_pct=na_pct
