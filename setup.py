@@ -26,7 +26,7 @@ with open(path.join(here, 'BDMtools/__init__.py'), encoding='utf-8') as f:
     __version__ = re.search(r'__version__\s*=\s*[\'"]([^\'"]*)[\'"]', f.read()).group(1)
 
 setup(
-    name='BDMtools',  # Required
+    name='BDMtool',  # Required
     version=__version__,  # Required
     description='binarymodels for busniess usage',  # Required
     long_description=long_description,  # Optional
@@ -55,7 +55,7 @@ setup(
         'Programming Language :: Python :: 3.8',
     ],
     #keywords='credit scorecard',  # Optional
-    packages=['BDMtools'],  # Required
+    packages=['BDMtool'],  # Required
     install_requires=['numpy>=1.20',
                       'fastparquet>=0.7.1',
                       'pandas>=1.3.3',
@@ -68,7 +68,8 @@ setup(
                       'lightgbm>=3.3.0', 
                       'toad>=0.1.0',
                       'patsy>=0.5.2',
-                      'bayesian-optimization>=1.2.0'
+                      'bayesian-optimization>=1.2.0',
+                      'shap>=0.40.0'
                      ],  # Optional
     #package_data={'scorecardpy': ['data/*.csv']},
     # data_files=[('scorecardpy': ['data/*.csv'])],  # Optional
