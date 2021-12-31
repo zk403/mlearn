@@ -32,8 +32,8 @@ setup(
     long_description=long_description,  # Optional
     long_description_content_type='text/markdown',  # Optional (see note above)
     #url='http://github.com/zengke403/binarymodels',  # Optional
-    author='zengke403',  # Optional
-    author_email='',  # Optional
+    author='曾珂',  # Optional
+    author_email='zengke403@163.com',  # Optional
     classifiers=[  # Optional
         # How mature is this project? Common values are
         #   3 - Alpha
@@ -60,7 +60,6 @@ setup(
                       'fastparquet>=0.7.1',
                       'pandas>=1.3.3',
                       'statsmodels>=0.13.0',
-                      'scorecardpy>=0.1.9.3',
                       'matplotlib>=3.2.2',
                       'scikit-learn>=1.0',
                       'xgboost>=1.4.2',

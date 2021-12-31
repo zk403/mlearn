@@ -54,10 +54,23 @@ BDMtools是适用于常见商业数据分析数据挖掘场景下，中小数据
 + 机器学习-异常发现算法
     - 待补充
     
+    
++ 模型评估 
+
+    - 待补充   
+    
 安装: 
+
++ github
 
 ```
 pip install git+git://github.com/zk403/mlearn.git
+```
+
++ pypi
+
+```
+pip install BDMtools
 ```
 
 卸载: 
