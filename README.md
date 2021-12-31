@@ -72,13 +72,13 @@ pip install git+git://github.com/zk403/mlearn.git
 + pypi
 
 ```
-pip install BDMtools
+pip install BDMLtools
 ```
 
 卸载: 
 
 ```
-pip uninstall BDMtools
+pip uninstall BDMLtools
 ```
 
 示例:
