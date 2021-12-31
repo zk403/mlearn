@@ -17,7 +17,7 @@ from statsmodels.discrete.discrete_model import BinaryResultsWrapper
 from statsmodels.genmod.generalized_linear_model import GLMResultsWrapper
 from sklearn.linear_model._logistic import LogisticRegression
 from pandas.api.types import is_numeric_dtype,is_string_dtype
-from BDMtools.fun import raw_to_bin_sc,sp_replace
+from BDMLtools.fun import raw_to_bin_sc,sp_replace
 from joblib import Parallel,delayed
 
 
@@ -268,7 +268,7 @@ class cardScorer(TransformerMixin):
         logit_model:statsmodel/sklearn的logit回归模型对象
             + statsmodel.discrete.discrete_model.BinaryResultsWrapper类或statsmodels.genmod.generalized_linear_model类
             + sklearn.linear_model._logistic.LogisticRegression类
-        varbin:BDMtools.varReport(...).fit(...).var_report_dict,dict格式,woe编码参照此编码产生
+        varbin:BDMLtools.varReport(...).fit(...).var_report_dict,dict格式,woe编码参照此编码产生
         odds0=1/100:基准分对应的发生比(bad/good)
         pdo=50:int,评分翻番时间隔
         points0=600,int,基准分

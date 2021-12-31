@@ -5,7 +5,7 @@ from category_encoders.ordinal import OrdinalEncoder
 from category_encoders import WOEEncoder
 from sklearn.linear_model import LogisticRegression
 from sklearn.impute import SimpleImputer
-from BDMtools.fun import sp_replace
+from BDMLtools.fun import sp_replace
 import numpy as np
 import pandas as pd
 import toad

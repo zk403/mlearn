@@ -1,9 +1,9 @@
-# BDMtools-0.1.3
+# BDMLtools-0.1.3
 
-BDMtools是适用于常见商业数据分析数据挖掘场景下，中小数据量(建议n_sample<10w,n_cols<5000)的二分类模型的建模工具包。
-本模组将集成商业分析场景中二分类模型中常用的模型，并使之能够兼顾模型开发效率、报告制作与建模流程标准化。
+BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数据量(建议n_sample<10w,n_cols<5000)的二分类模型的机器学习建模工具包。
+本模组将集成商业分析场景中二分类模型中常用的机器学习模型，并使之能够兼顾模型开发效率、报告制作与建模流程标准化。
 
-+ 涵盖数据清洗、数据探索、特征工程、评分卡、模型评估、统计学逐步回归、机器学习模型及其参数优化等内容
++ 涵盖数据清洗、数据探索、特征工程、评分卡制作、模型评估、统计学逐步回归、机器学习模型及其参数优化等内容
 + 在准确性和运行效率的前提下集成了诸多流行的三方库，包括sklearn,xgboost,lightgbm,statsmodels等
 + 本模块的评分卡开发部分参考了scorecardpy,并对其在底层上进行了重写
     - 功能上几乎与其一致并增加了更多的拓展，例如单调最优分箱算法
@@ -24,6 +24,7 @@ BDMtools是适用于常见商业数据分析数据挖掘场景下，中小数据
     - BDMtools.prefitModel:预拟合数据，在不进行任何特征工程的前提下使用全量特征预拟合数据以预估模型表现
 
 + 特征工程
+
     - BDMtools.preSelector:特征预筛，按照缺失值、唯一值、方差、卡方值、f值、树模型、iv等进行特征预筛
     - BDMtools.binSelector:分箱筛选器，提供等频、决策树、卡方、单调等分箱算法并依据分箱结果进行特征筛选
     - BDMtools.corrSelector:相关性分析筛选器，按照相关性筛选特征
@@ -35,6 +36,7 @@ BDMtools是适用于常见商业数据分析数据挖掘场景下，中小数据
     - BDMtools.woeTransformer:WOE编码，对原始数据进行woe编码
     
 + 报告
+
     - BDMtools.EDAReport:数据质量报告
     - BDMtools.businessReport:业务分析报告   
     - BDMtools.varReportSinge:单特征分析报告 
@@ -70,13 +72,13 @@ pip install git+git://github.com/zk403/mlearn.git
 + pypi
 
 ```
-pip install BDMtool
+pip install BDMtools
 ```
 
 卸载: 
 
 ```
-pip uninstall BDMtool
+pip uninstall BDMtools
 ```
 
 示例:

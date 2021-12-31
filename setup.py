@@ -26,9 +26,9 @@ with open(path.join(here, 'BDMtools/__init__.py'), encoding='utf-8') as f:
     __version__ = re.search(r'__version__\s*=\s*[\'"]([^\'"]*)[\'"]', f.read()).group(1)
 
 setup(
-    name='BDMtool',  # Required
+    name='BDMLtools',  # Required
     version=__version__,  # Required
-    description='binarymodels for busniess usage',  # Required
+    description='Ml learning tools for busniess data mining',  # Required
     long_description=long_description,  # Optional
     long_description_content_type='text/markdown',  # Optional (see note above)
     #url='http://github.com/zengke403/binarymodels',  # Optional
@@ -55,7 +55,7 @@ setup(
         'Programming Language :: Python :: 3.8',
     ],
     #keywords='credit scorecard',  # Optional
-    packages=['BDMtool'],  # Required
+    packages=['BDMLtools'],  # Required
     install_requires=['numpy>=1.20',
                       'fastparquet>=0.7.1',
                       'pandas>=1.3.3',

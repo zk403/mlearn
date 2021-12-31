@@ -15,8 +15,8 @@ import warnings
 from itertools import groupby
 from sklearn.cluster import KMeans
 from scipy.stats import chi2,chi2_contingency
-from BDMtools.fun import raw_to_bin_sc,sp_replace
-from BDMtools.report_report import varReportSinge
+from BDMLtools.fun import raw_to_bin_sc,sp_replace
+from BDMLtools.report_report import varReportSinge
 
 
 def R_pretty(low, high, n):
@@ -1032,6 +1032,8 @@ class binChi2(TransformerMixin):
         #num columns
         if is_numeric_dtype(col):
             
+            #print(col.name)
+            
             #no merge applied when only one unique value existed in col
             if np.isnan(col).all():
    
@@ -1052,6 +1054,8 @@ class binChi2(TransformerMixin):
             vtab=varReportSinge().report(col,y,breaks,sample_weight=ws)
             
         elif is_string_dtype(col):
+            
+            #print(col.name)
             
             #no merge applied when only one unique value existed in col
             if np.unique(col).size==1:
@@ -1142,20 +1146,24 @@ class binChi2(TransformerMixin):
         
     
         #calculate chi2 value using initial-binning    
-        chi2_d,count_list,cuts_bin=self.chi2_bin(col,y,cuts,ws)
+        _,chi2_d,count_list,cuts_bin=self.chi2_bin(col,y,cuts,ws)
         
         cuts=np.array([i[0] if i[0]!= -np.inf else i[1] for i in cuts_bin])
       
         
         #pop points out of initial-binning
         while True:    
+    
+            # #for debug:check length of idx,cuts,count,chi2 
+            # if len(idx) and len(cuts) and len(count_list) and len(chi2_d) and not ((len(idx)+1)==len(cuts)==len(count_list)==len(chi2_d)):
+                
+            #     print("len(idx)=={}".format(str(len(idx))))
+            #     print("len(cuts)=={}".format(str(len(cuts))))
+            #     print("len(count_list)=={}".format(str(len(count_list))))
+            #     print("len(chi2_d)=={}".format(str(len(chi2_d))))
+                
+            #     raise ValueError('not (len(idx)==len(cuts)==len(count_list)==len(chi2_d))')
             
-            # print("len(cuts)=={}".format(str(len(cuts))))
-            # print("len(count_list)=={}".format(str(len(count_list))))
-            # print("len(chi2_d)=={}".format(str(len(chi2_d))))
-    
-            #bin_num==1 then stop 
-    
             if len(cuts)==0 or len(count_list)==0 or len(chi2_d)==0:
     
                 cuts=np.array([])
@@ -1175,7 +1183,7 @@ class binChi2(TransformerMixin):
                     
                     cuts=cuts[cuts!=cuts[np.argmin(chi2_d)]]
     
-                    chi2_d,count_list,cuts_bin=self.chi2_bin(col,y,cuts,ws)
+                    _,chi2_d,count_list,cuts_bin=self.chi2_bin(col,y,cuts,ws)
                     
                     cuts=np.array([i[0] if i[0]!= -np.inf else i[1] for i in cuts_bin])
      
@@ -1191,7 +1199,7 @@ class binChi2(TransformerMixin):
                     
                     #print('point {} out due to count_limit'.format(str(cuts[np.argmin(count_list)])))                               
                     cuts=cuts[cuts!=cuts[np.argmin(count_list)]]
-                    chi2_d,count_list,cuts_bin=self.chi2_bin(col,y,cuts,ws)               
+                    _,chi2_d,count_list,cuts_bin=self.chi2_bin(col,y,cuts,ws)               
                     cuts=np.array([i[0] if i[0]!= -np.inf else i[1] for i in cuts_bin])
     
             #remove cut point with lowest chi2 value when bin_num higher than user-defined   
@@ -1201,7 +1209,7 @@ class binChi2(TransformerMixin):
     
                 cuts=cuts[cuts!=cuts[np.argmin(chi2_d)]]
     
-                chi2_d,count_list,cuts_bin=self.chi2_bin(col,y,cuts,ws)   
+                _,chi2_d,count_list,cuts_bin=self.chi2_bin(col,y,cuts,ws)   
     
                 cuts=np.array([i[0] if i[0]!= -np.inf else i[1] for i in cuts_bin])
                 
@@ -1244,8 +1252,11 @@ class binChi2(TransformerMixin):
         gid=np.unique(cut_g)
         chi2_d=[1e3]
         count_list=[]
+        idx=[]
     
         for i in range(len(gid)-1):
+            
+            idx.append(i)
             
             y_g_1=y[cut_g==gid[i]]
             ws_g_1=ws[cut_g==gid[i]]        
@@ -1288,7 +1299,7 @@ class binChi2(TransformerMixin):
     
                 chi2_d.append(ccsq) 
         
-        return np.array(chi2_d),np.array(count_list),np.array(cut_bin)
+        return np.array(idx),np.array(chi2_d),np.array(count_list),np.array(cut_bin)
 
 
 class binPretty(TransformerMixin):            

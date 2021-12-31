@@ -15,7 +15,7 @@ import os
 from itertools import product
 import warnings
 from joblib import Parallel,delayed
-from BDMtools.fun import raw_to_bin_sc,sp_replace
+from BDMLtools.fun import raw_to_bin_sc,sp_replace
 
 class EDAReport(TransformerMixin):
     

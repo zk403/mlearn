@@ -17,7 +17,7 @@ from sklearn.base import BaseEstimator
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import warnings
-from BDMtools.selector_simple import corrSelector
+from BDMLtools.selector_simple import corrSelector
 
 class faSelector(BaseEstimator):
     

@@ -14,7 +14,7 @@ from sklearn.impute import SimpleImputer,KNNImputer,MissingIndicator
 import numpy as np
 from pandas.api.types import is_numeric_dtype
 import warnings
-from BDMtools.fun import sp_replace
+from BDMLtools.fun import sp_replace
 #import time
 
 
@@ -398,7 +398,7 @@ class nanTransformer(TransformerMixin):
                                                n_neighbors=self.n_neighbors,
                                                weights=self.weights_knn).fit(X_num)
                     
-                elif self.method[0] in ('x','mean','median','most_frequent'):
+                elif self.method[0] in ('constant','mean','median','most_frequent'):
                     
                     imputer_num=SimpleImputer(missing_values=np.nan,
                                            strategy=self.method[0],

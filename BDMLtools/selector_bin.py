@@ -3,8 +3,8 @@ from sklearn.base import TransformerMixin
 import numpy as np
 import pandas as pd
 import warnings
-from BDMtools.report_report import varReport
-from BDMtools.selector_bin_fun import binFreq,binPretty,binTree,binChi2,binKmeans
+from BDMLtools.report_report import varReport
+from BDMLtools.selector_bin_fun import binFreq,binPretty,binTree,binChi2,binKmeans
 #from joblib import Parallel,delayed
 #from pandas.api.types import is_numeric_dtype
 
