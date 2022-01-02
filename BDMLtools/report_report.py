@@ -317,7 +317,8 @@ class varReportSinge:
                           
              map_codes=raw_to_bin_sc(var_code_raw,breakslist_var)
                         
-             var_bin=pd.Series(pd.Categorical(var_cut.map(map_codes)),index=var_fillna.index,name=col)
+             var_bin=pd.Series(pd.Categorical(var_cut.map(map_codes)),index=var_fillna.index,name=col).cat.set_categories(breakslist_var)
+             
              
              if 'missing' in var_bin.cat.categories:
                  
@@ -480,7 +481,7 @@ class varReport(TransformerMixin):
                           
              map_codes=raw_to_bin_sc(var_code_raw,breaklist_var)
                         
-             var_bin=pd.Series(pd.Categorical(var_cut.map(map_codes)),index=var_fillna.index,name=col)
+             var_bin=pd.Series(pd.Categorical(var_cut.map(map_codes)),index=var_fillna.index,name=col).cat.set_categories(breaklist_var)
              
              if 'missing' in var_bin.cat.categories:
                  
@@ -703,8 +704,7 @@ class varGroupsReport(TransformerMixin):
             self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,axis=1).columns}    
 
             X=pd.concat([X.drop(self.columns,axis=1),X[self.columns].astype('str')],axis=1)
-                       
-            result={}            
+                                 
             
             if is_array_like(self.sample_weight):
                 
@@ -716,31 +716,11 @@ class varGroupsReport(TransformerMixin):
             
             X_g_gen=X.groupby(self.columns)
             
-            for i in X_g_gen.groups:
-                
-                group_dt=X_g_gen.get_group(i)
-                X_g=group_dt.drop([self.target]+self.columns,axis=1)
-                y_g=group_dt[self.target]    
-                w_g=group_dt['sample_weight']    
-                
-                if len(X_g)>self.row_limit:
-                    
-                    res=varReport(breaks_list_dict=self.breaks_list_dict,
-                                  special_values=self.special_values,
-                                  sample_weight=w_g,
-                                  n_jobs=self.n_jobs,                                  
-                                  verbose=self.verbose).fit(X_g,y_g)
-                    
-                    result[i]=pd.concat(res.var_report_dict)
-                    
-                else:
-                    
-                    warnings.warn('group '+str(i)+' has rows less than '+str(self.row_limit)+',output will return None')         
-                    
-                    result[i]=pd.DataFrame(None)       
-            
-   
-            report=pd.concat(result,axis=1)
+            parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+            out_list=parallel(delayed(self.group_parallel)(X_g_gen,g,self.target,self.columns,
+                                                           self.breaks_list_dict,self.row_limit)for g in X_g_gen.groups)
+
+            report=pd.concat({columns:vtabs for columns,vtabs in out_list},axis=1)
             
             if self.sort_columns:       
                 
@@ -748,8 +728,9 @@ class varGroupsReport(TransformerMixin):
         
                 report=self.vtab_column_sort(sort_columns_list,report)                
                       
-            self.report_dict=self.getReport(X,report,output_psi=self.output_psi,psi_base=self.psi_base)                    
-                
+            self.report_dict=self.getReport(X,report,self.breaks_list_dict,self.special_values,self.n_jobs,self.verbose,
+                                            self.target,self.output_psi,self.psi_base)                    
+
             if self.out_path:
                     
                 self.writeExcel()   
@@ -768,8 +749,38 @@ class varGroupsReport(TransformerMixin):
             warnings.warn('0 rows in input X,return None')
 
             return pd.DataFrame(None)
+        
+        
+    def group_parallel(self,X_g_gen,g,target,columns,breaks_list_dict,row_limit):
+    
+        group_dt=X_g_gen.get_group(g)
+        X_g=group_dt.drop([target]+columns,axis=1)
+        y_g=group_dt[target]      
+        
+        if len(X_g)==row_limit:
+        
+            warnings.warn('group '+str(g)+' has 0 row,output will return None')         
+        
+            result=pd.DataFrame(None)                                          
+        
+        elif len(X_g)<=row_limit:
+        
+            warnings.warn('group '+str(g)+' has rows less than '+str(0)+',output will return None')         
+        
+            result=pd.DataFrame(None)  
+        
+        else:
+        
+            res=varReport(breaks_list_dict=breaks_list_dict,
+                          n_jobs=1,                                  
+                          verbose=0).fit(X_g,y_g)
+        
+            result=pd.concat(res.var_report_dict)
+            
+        return g,result
    
-    def getReport(self,X,report,output_psi=True,psi_base='all'):
+    def getReport(self,X,report,breaks_list_dict,special_values,n_jobs,verbose,target,
+                  output_psi=True,psi_base='all'):
         
         report_out={}
             
@@ -791,14 +802,14 @@ class varGroupsReport(TransformerMixin):
         report_out['report_ks']=report[[i for i in report.columns.tolist() if i[-1] in \
                                    ['ks_max']]].droplevel(level=1).drop_duplicates().reset_index().rename(columns={'index':'variable'}) 
         
-        if self.output_psi:
+        if output_psi:
             
             if psi_base=='all':
                 
-                all_var=varReport(breaks_list_dict=self.breaks_list_dict,
-                                  special_values=self.special_values,
-                                  n_jobs=self.n_jobs,                                  
-                                  verbose=self.verbose).fit(X.drop(self.target,axis=1),X[self.target])
+                all_var=varReport(breaks_list_dict=breaks_list_dict,
+                                  special_values=special_values,
+                                  n_jobs=n_jobs,                                  
+                                  verbose=verbose).fit(X.drop(target,axis=1),X[target])
                 base=pd.concat(all_var.var_report_dict)['count_distr']
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
@@ -815,10 +826,10 @@ class varGroupsReport(TransformerMixin):
                     
                     raise ValueError('X.query has 0 row, check the query expr.')
                 
-                all_var=varReport(breaks_list_dict=self.breaks_list_dict,
-                                  special_values=self.special_values,
-                                  n_jobs=self.n_jobs,                                  
-                                  verbose=self.verbose).fit(X_q.drop(self.target,axis=1),X[self.target])
+                all_var=varReport(breaks_list_dict=breaks_list_dict,
+                                  special_values=special_values,
+                                  n_jobs=n_jobs,                                  
+                                  verbose=verbose).fit(X_q.drop(target,axis=1),X[target])
                 base=pd.concat(all_var.var_report_dict)['count_distr']
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
