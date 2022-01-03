@@ -34,10 +34,8 @@ class dtStandardization(TransformerMixin):
         + 行:当id_col存在时,其将按照id_col进行行去重处理,此时重复id的行将被剔除并保留第一个出现的行,否则不做任何处理
         注意此模块假定行或列标识重复时相应行或列的数据也是重复的,若行列标示下存在相同标示但数据不同的情况时慎用此功能
         
-    Returns:
-    ------
-        pandas.dataframe
-    
+    Attributes:
+    ------    
     """ 
     
     def __init__(self,id_col=None,col_rm=None,downcast=True,set_index=True,drop_dup=True):       
@@ -50,7 +48,18 @@ class dtStandardization(TransformerMixin):
         
         
     def transform(self, X):
-    
+        """
+        返回经规范化后的数据
+        
+        Parameters
+        ----------
+        X : pd.DataFrame,原始数据
+        
+        Returns
+        -------
+        X_r : pd.DataFrame,经规范化后的数据
+
+        """   
         
         if not X.index.is_unique:
             
@@ -131,14 +140,12 @@ class dtypeAllocator(TransformerMixin):
         dtype_num='float64',数值类型列转换方式，默认为float64，可以选择float32/float16，注意其可以有效减少数据的内存占用，但会损失数据精度。请注意数据中的数值id列,建议不进行32或16转换
         t_unit=‘1 D’,timedelta类列处理为数值的时间单位，默认天
         drop_date=False,是否剔除原始数据中的日期列，默认False
-        precision=3,数值类数据的精度,precision=3代表保留小数点后5位小数，设定好设定此值以获得数值的近似结果。
-                建议与生产环境的数据精度一致，否则在极端情况下生产环境与分析环境的数据分箱与woe编码会出现错误结果
-        
+        precision=3,数值类数据的精度,precision=3代表保留小数点后3位小数，设定好设定此值以获得数值的近似结果。
+                建议与生产环境的数据精度一致，否则在极端情况下生产环境与分析环境的数据分箱与woe编码会出现错误结果        
 
-    Returns:
+    Attributes:
     ------
-        pandas.dataframe
-            已经规范化好的数据框
+        order_info:dict,若X存在有序分类列(category-ordered)时原始levels和codes的对应关系字典
     
     """    
 
@@ -154,11 +161,18 @@ class dtypeAllocator(TransformerMixin):
         
 
     def transform(self, X):
-        
-        """ 自定义转换
-        df:pandas.dataframe
-        num_32:True时,数值列(float64)将转换为float32,可节省内存
         """
+        返回经类型分配后的数据
+        
+        Parameters
+        ----------
+        X : pd.DataFrame,原始数据
+        
+        Returns
+        -------
+        X_r : pd.DataFrame,经规分配后的数据
+
+        """ 
         
         X = X.copy()
         
@@ -270,61 +284,108 @@ class dtypeAllocator(TransformerMixin):
 class outliersTransformer(TransformerMixin):
     
     """ 
-    分位数替代法处理异常值
+    基于iqr处理异常值,将忽略缺失值
     Params:
     ------
+    
         columns:list,替代法的列名list,默认为全部数值列
-        quantile_range:list,分位数上下限阈值
-        na_option:str,{'keep'},缺失值处理方式,默认为keep即保留缺失值
-    Returns
+        method:str
+            + ‘fill’:异常值使用边界值替换
+            + ‘nan’:异常值使用nan替换
+            
+    Attributes:
     ------
-    pandas.dataframe
-        已经处理好异常值的数据框
-    Examples
-    ------        
+        iq_df:X中各个指定替换列的分位数信息(1%，25%，75%，99%)
+       
     """    
 
-    def __init__(self,columns=None,quantile_range=(0.01,0.99),na_option='keep'):
+    def __init__(self,columns=None,method='fill'):
 
         self.columns=columns
-        self.quantile_range = quantile_range
+        self.method=method
         
     def fit(self,X, y=None):    
+        
+        """
+        获取X的相应分位数
+
+        Parameters
+        ----------
+        X : pd.DataFrame,X数据，(n_smaples,n_features)            
+        """
         
         X=X.copy()
         
         if X.size:
-        
-            quantile_range=self.quantile_range
-            
+                 
             if self.columns:
-                self.quantile_data=X[self.columns].quantile([min(quantile_range),max(quantile_range)])        
+                
+                self.iq_df=X[self.columns].apply(self.get_iq)   
+                
             else:
-                self.quantile_data=X.select_dtypes('number').quantile([min(quantile_range),max(quantile_range)])        
+                
+                self.iq_df=X.select_dtypes('number').apply(self.get_iq)        
         
         return self
     
     def transform(self,X):
         
-        if X.size:
+        """
+        返回分位数替代后的数据
         
-            quantile_range=self.quantile_range 
+        Parameters
+        ----------
+        X : pd.DataFrame,X数据，(n_smaples,n_features)                       
+        
+        Returns
+        -------
+        X_r : pd.DataFrame,处理后的数据
+
+        """
+        
+        if X.size:
             
-            pd.options.mode.chained_assignment = None
-            
-            X=X.copy()
-            
-            for column in self.quantile_data.columns:
-                X[column][X[column]<self.quantile_data.loc[min(quantile_range),column]]=self.quantile_data.loc[min(quantile_range),column]
-                X[column][X[column]>self.quantile_data.loc[max(quantile_range),column]]=self.quantile_data.loc[max(quantile_range),column]
-            
-            return X    
+            if not self.method in ('fill','nan'):
+                
+                raise ValueError('method in ("fill","nan")')
+                
+            X=X[self.columns] if self.columns else X.select_dtypes('number')
+ 
+            X_r=X.apply(lambda col:self.remove_outlier(col,self.iq_df[col.name].values,self.method))
+
+            return X_r    
                 
         else:
             
             warnings.warn('0 rows in input X,return None')  
         
             return pd.DataFrame(None) 
+        
+    def get_iq(self,col):
+       
+        iq=np.nanpercentile(col,[1, 25, 75, 99])
+        
+        return iq
+        
+    def remove_outlier(self,col,iq,method='fill'):   
+    
+        iqr = iq[2] - iq[1]
+        
+        col=col.copy()
+    
+        if iqr == 0:
+    
+            col[(col <= iq[0])] = iq[0] if method=='fill' else np.nan
+            
+            col[(col >= iq[3])] = iq[3] if method=='fill' else np.nan
+    
+        else:
+            
+            col[(col <= iq[1]-3*iqr)] = iq[1]-3*iqr if method=='fill' else np.nan
+            
+            col[(col >= iq[2]+3*iqr)] = iq[2]+3*iqr if method=='fill' else np.nan
+    
+        return col
 
 
 class nanTransformer(TransformerMixin):
@@ -341,6 +402,7 @@ class nanTransformer(TransformerMixin):
         + 'knn':KNN填补,注意本方法中事前将不对数据进行任何标准化
         + 'most_frequent':众数填补
     special_values:list or dict,缺失值指代值
+        + None,不处理
         + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被填补
         + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被填补
     fill_value=(num_fill_values,str_fill_values),tuple,method=constant时的填补设定值=(数值列填充值，字符列填充值)
@@ -352,8 +414,7 @@ class nanTransformer(TransformerMixin):
     Attributes
     ------
     
-    Examples
-    ------        
+      
     """    
     
     def __init__(self,method=('constant','constant'),
@@ -372,11 +433,95 @@ class nanTransformer(TransformerMixin):
         self.dtype_num=dtype_num
 
         
-    def fit(self,X, y=None):            
+    def fit(self,X, y=None):    
         
+        """
+        获取X中各个类型的nanTransformer的fit信息
+
+        Parameters
+        ----------
+        X : pd.DataFrame,X数据，(n_smaples,n_features)            
+        """
+        
+
+        X=sp_replace(X,self.special_values,fill_num=np.nan,fill_str=np.nan)
+        
+        X_num=X.select_dtypes(include='number')
+        X_str=X.select_dtypes(include='object')
+
+        if X_num.size:
+            
+            if self.method[0]=='knn':
+                
+                imputer_num=KNNImputer(missing_values=np.nan,
+                                           n_neighbors=self.n_neighbors,
+                                           weights=self.weights_knn).fit(X_num)
+                
+            elif self.method[0] in ('constant'):
+                
+                imputer_num=SimpleImputer(missing_values=np.nan,
+                                       strategy='constant',
+                                       fill_value=self.fill_value[0]).fit(X_num) 
+                
+            elif self.method[0] in ('mean','median','most_frequent'):
+                
+                imputer_num=SimpleImputer(missing_values=np.nan,
+                                       strategy=self.method[0]).fit(X_num) 
+                
+            else:
+                
+                raise ValueError("method for numcol in ('knn','constant','mean','median','most_frequent')")    
+                
+
+            self.imputer_num=imputer_num
+            
+            
+        if X_str.size:
+            
+            if self.method[1] in ('constant'):
+            
+                imputer_str=SimpleImputer(missing_values=np.nan,
+                                           strategy='constant',
+                                           fill_value=self.fill_value[1]).fit(X_str)  
+                
+            elif self.method[1] in ('most_frequent'):
+
+                imputer_str=SimpleImputer(missing_values=np.nan,
+                                           strategy='most_frequent').fit(X_str)                                          
+                
+            else:
+                
+                raise ValueError("method for string-col in ('constant','most_frequent')")
+
+    
+            self.imputer_str=imputer_str      
+            
+        
+        if self.indicator:
+            
+            na_s=X.isnull().sum()
+            
+            na_cols=na_s[na_s>0].index
+            
+            self.indicator_na=MissingIndicator(missing_values=np.nan).fit(X[na_cols])
+            self.na_cols=na_cols
+
         return self
     
     def transform(self,X, y=None):
+        
+        """
+        返回缺失值处理后的数据
+        
+        Parameters
+        ----------
+        X : pd.DataFrame,X数据，(n_smaples,n_features)                       
+        
+        Returns
+        -------
+        X_r : pd.DataFrame,处理后的数据
+
+        """
         
         X=sp_replace(X,self.special_values,fill_num=np.nan,fill_str=np.nan)
         
@@ -386,31 +531,15 @@ class nanTransformer(TransformerMixin):
             X_str=X.select_dtypes(include='object')
             X_oth=X.select_dtypes(exclude=['number','object'])
             
-            if X_oth.columns.size:                
+            if X_oth.columns.size:   
+                
                 warnings.warn("column which its dtype not in ('number','object') will not be imputed")      
 
     
             if X_num.size:
                 
-                if self.method[0]=='knn':
-                    
-                    imputer_num=KNNImputer(missing_values=np.nan,
-                                               n_neighbors=self.n_neighbors,
-                                               weights=self.weights_knn).fit(X_num)
-                    
-                elif self.method[0] in ('constant','mean','median','most_frequent'):
-                    
-                    imputer_num=SimpleImputer(missing_values=np.nan,
-                                           strategy=self.method[0],
-                                           fill_value=self.fill_value[0]).fit(X_num) 
-                    
-                else:
-                    
-                    raise ValueError("method for numcol in ('knn','constant','mean','median','most_frequent')")
-                
-                
-                X_num_fill=pd.DataFrame(imputer_num.transform(X_num),
-                                        columns=imputer_num.feature_names_in_,
+                X_num_fill=pd.DataFrame(self.imputer_num.transform(X_num),
+                                        columns=self.imputer_num.feature_names_in_,
                                         index=X.index,dtype=self.dtype_num                                       
                                         ) 
             else:
@@ -419,38 +548,20 @@ class nanTransformer(TransformerMixin):
             
             
             if X_str.size:
-                
-                if self.method[1] in ('constant','most_frequent'):
-                
-                    imputer_str=SimpleImputer(missing_values=np.nan,
-                                               strategy=self.method[1],
-                                               fill_value=self.fill_value[1]).fit(X_str)  
-                    
-                else:
-                    
-                    raise ValueError("method for string-col in ('constant','most_frequent')")
-                    
-                
-                X_str_fill=pd.DataFrame(imputer_str.transform(X_str),
-                                       columns=imputer_str.feature_names_in_,
-                                       index=X.index,dtype='str'
-                                       ) 
+                 
+                X_str_fill=pd.DataFrame(self.imputer_str.transform(X_str),
+                                       columns=self.imputer_str.feature_names_in_,
+                                       index=X.index,dtype='str') 
             else:
                 
                 X_str_fill=None
     
     
-            if self.indicator:      
-                
-                na_s=X.isnull().sum()
-                
-                na_cols=na_s[na_s>0].index
-                
-                indicator_na=MissingIndicator(missing_values=np.nan).fit(X[na_cols]) 
+            if self.indicator:                       
     
-                X_na=pd.DataFrame(indicator_na.transform(X[na_cols]),
-                                       columns=indicator_na.feature_names_in_,dtype='int8',
-                                       index=X.index)
+                X_na=pd.DataFrame(self.indicator_na.transform(X[self.na_cols]),
+                                  columns=self.indicator_na.feature_names_in_,dtype='int8',
+                                  index=X.index)
             else:
                 
                 X_na=None                      

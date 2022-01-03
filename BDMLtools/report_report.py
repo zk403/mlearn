@@ -34,7 +34,7 @@ class EDAReport(TransformerMixin):
     
     Attributes:
     -------
-        num_report:pd.DataFrame,连续特征质量报告a
+        num_report:pd.DataFrame,连续特征质量报告
         char_report:pd.DataFrame,分类特征质量报告
         na_report:pd.DataFrame,单特征缺失率报告
         nacorr_report:pd.DataFrame,缺失率相关性报告
