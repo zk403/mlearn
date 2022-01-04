@@ -342,7 +342,7 @@ class varReportSinge:
              var_bin['sample_weight']=1
          
          #print var_bin
-         rename_aggfunc=dict(zip(['sample_weight','target'],['count','bad']))
+         rename_aggfunc=dict(zip(['sample_weight',y.name],['count','bad']))
          result=pd.pivot_table(var_bin,index=col,values=[y.name,'sample_weight'],
                            margins=False,
                            aggfunc='sum').rename(columns=rename_aggfunc,level=0)#.droplevel(level=1,axis=1) 
@@ -414,7 +414,7 @@ class varReport(TransformerMixin):
         self.out_path = out_path
         self.tab_suffix=tab_suffix
         
-    def fit(self, X, y=None):
+    def fit(self, X, y):
         
 
         if X.size:
@@ -631,7 +631,6 @@ class varGroupsReport(TransformerMixin):
         if X.size:
             
             X=X.copy()
-            
             
             self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,axis=1).columns}    
 
