@@ -35,6 +35,7 @@ class woeTransformer(TransformerMixin):
             
     Attributes:
     -------   
+    
     """        
     
     def __init__(self,varbin,n_jobs=1,verbose=0,special_values=None,check_na=True,woe_missing=None,distr_limit=0.01):
@@ -75,7 +76,7 @@ class woeTransformer(TransformerMixin):
             
         p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
         
-        res=p(delayed(self.woe_map)(X[key],self.varbin[key],self.check_na) 
+        res=p(delayed(self._woe_map)(X[key],self.varbin[key],self.check_na) 
                               for key in self.varbin)
             
         X_woe=pd.concat({col:col_woe for col,col_woe in res},axis=1)
@@ -87,7 +88,7 @@ class woeTransformer(TransformerMixin):
    
         return self      
     
-    def woe_map(self,col,bin_df,check_na=True):
+    def _woe_map(self,col,bin_df,check_na=True):
     
         if is_numeric_dtype(col):
             

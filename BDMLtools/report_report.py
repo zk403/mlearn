@@ -56,16 +56,16 @@ class EDAReport(TransformerMixin):
             X=sp_replace(X,self.special_values)   
             
             #产生报告
-            self.num_report=self.num_info(X)
-            self.char_report=self.char_info(X)
-            self.na_report=self.nan_info(X)        
+            self.num_report=self._num_info(X)
+            self.char_report=self._char_info(X)
+            self.na_report=self._nan_info(X)        
             if self.is_nacorr:
-                self.nacorr_report=self.nan_corr(X)
+                self.nacorr_report=self._nan_corr(X)
             
             #输出报告    
             if self.out_path: 
                 
-                self.writeExcel()                
+                self._writeExcel()                
                                     
         return self
     
@@ -82,7 +82,7 @@ class EDAReport(TransformerMixin):
             return pd.DataFrame(None)        
     
 
-    def num_info(self,X):
+    def _num_info(self,X):
         
         """ 数据质量报告-数值特征
         """
@@ -101,7 +101,7 @@ class EDAReport(TransformerMixin):
         return report
     
 
-    def char_info(self,X):
+    def _char_info(self,X):
         """ 数据质量报告-分类特征
         """
         
@@ -125,7 +125,7 @@ class EDAReport(TransformerMixin):
         return report
     
    
-    def nan_info(self,X):
+    def _nan_info(self,X):
         """ 数据质量报告-缺失特征
         """        
         
@@ -145,7 +145,7 @@ class EDAReport(TransformerMixin):
         return report
     
   
-    def nan_corr(self,X):
+    def _nan_corr(self,X):
         """ 数据质量报告-缺失特征相关性
         """        
       
@@ -153,7 +153,7 @@ class EDAReport(TransformerMixin):
         nan_corr_table=X[nan_info[nan_info>0].index].isnull().corr()
         return nan_corr_table
     
-    def writeExcel(self):
+    def _writeExcel(self):
         
         if not glob(self.out_path):
             
@@ -237,7 +237,7 @@ class businessReport(TransformerMixin):
             
             if self.out_path:
                 
-                self.writeExcel()                
+                self._writeExcel()                
                                     
         return self
     
@@ -254,7 +254,7 @@ class businessReport(TransformerMixin):
             return pd.DataFrame(None)
     
     
-    def writeExcel(self):
+    def _writeExcel(self):
         
         if not glob(self.out_path):
             
@@ -347,7 +347,7 @@ class varReportSinge:
                            margins=False,
                            aggfunc='sum').rename(columns=rename_aggfunc,level=0)#.droplevel(level=1,axis=1) 
 
-         var_tab=self.getVarReport_ks(result,col) 
+         var_tab=self._getVarReport_ks(result,col) 
          
          if is_string_dtype(var_fillna):
              
@@ -357,7 +357,7 @@ class varReportSinge:
              
              breaks=var_tab.index.categories.map(lambda x:x if isinstance(x,str) else x.right))
             
-    def getVarReport_ks(self,var_ptable,col):
+    def _getVarReport_ks(self,var_ptable,col):
         
         var_ptable['badprob']=var_ptable['bad'].div(var_ptable['count'])
         var_ptable['count_distr']=var_ptable['count'].div(var_ptable['count'].sum())
@@ -400,7 +400,8 @@ class varReport(TransformerMixin):
     
     Attributes:
     -------
-        var_report_dict:dict,特征分析报告字典
+        var_report_dict:dict,特征分析报告
+        
     """
     
     def __init__(self,breaks_list_dict,special_values=None,sample_weight=None,out_path=None,tab_suffix='',n_jobs=-1,verbose=0):
@@ -420,20 +421,19 @@ class varReport(TransformerMixin):
             
             X=sp_replace(X, self.special_values)
             
-            self.breaks_list_dict=self.get_Breaklist_sc(self.breaks_list_dict,X,y)
+            #self.breaks_list_dict=self.get_Breaklist_sc(self.breaks_list_dict,X,y)
             
             parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
             
-            out_list=parallel(delayed(self.getReport_Single)(X,y,col,self.breaks_list_dict[col]) 
+            out_list=parallel(delayed(self._getReport_Single)(X,y,col,self.breaks_list_dict[col]) 
                                for col in list(self.breaks_list_dict.keys())) 
             
-            self.var_report_dict={col:total for col,total,_ in out_list}
-            self.var_report_psi={col:psi for col,_,psi in out_list}
+            self.var_report_dict={col:total for col,total in out_list}
             
             #输出报告    
             if self.out_path: 
                 
-                self.writeExcel()
+                self._writeExcel()
             
                                     
         return self
@@ -451,10 +451,9 @@ class varReport(TransformerMixin):
             return pd.DataFrame(None)
         
     
-    def getReport_Single(self,X,y,col,breaklist_var):
+    def _getReport_Single(self,X,y,col,breaklist_var):
          
          #print(col)
-         #global psi_base_mon1,dis_mon
          
          #breaklist_var=list(breaks_list_dict[col])
          
@@ -510,7 +509,7 @@ class varReport(TransformerMixin):
                            aggfunc='sum').rename(columns=rename_aggfunc,level=0)#.droplevel(level=1,axis=1)          
          
          
-         var_tab=self.getVarReport_ks(result,col) 
+         var_tab=self._getVarReport_ks(result,col) 
          
          if is_string_dtype(var_fillna):
              
@@ -519,10 +518,10 @@ class varReport(TransformerMixin):
          var_tab_out=var_tab.assign(
              breaks=var_tab.index.categories.map(lambda x:x if isinstance(x,str) else x.right))
 
-         return col,var_tab_out,None   
+         return col,var_tab_out   
 
             
-    def getVarReport_ks(self,var_ptable,col):
+    def _getVarReport_ks(self,var_ptable,col):
         
         var_ptable['badprob']=var_ptable['bad'].div(var_ptable['count'])
         var_ptable['count_distr']=var_ptable['count'].div(var_ptable['count'].sum())
@@ -545,75 +544,7 @@ class varReport(TransformerMixin):
         return var_ptable
     
     
-    def psi(self,base,col):
-    
-        base=base.replace(0,1e-10)
-        col=col.replace(0,1e-10)   
-        psi_out=base.sub(col).mul(base.div(col).map(np.log))
-
-        return psi_out
-    
-    def get_Breaklist_sc(self,break_list,X,y):
-        
-        """
-        将toad的breaklist结构转化为scorecardpy可用的结构
-        """      
-        
-        
-        #判断break_list是sc格式还是toad格式
-        count=0
-        for var_list in list(break_list.values()):
-            
-            for value in var_list:
-                if isinstance(value,list):
-                    count=count+1           
-                break
-            
-        columns=list(break_list.keys())
-        
-        #toad格式时转换为sc格式
-        if count>0:
-        
-            cate_colname=X[columns].select_dtypes(include='object').columns.tolist()
-            num_colname=X[columns].select_dtypes(include='number').columns.tolist()
-            oth_colname=X[columns].select_dtypes(exclude=['number','object']).columns.tolist()
-            if oth_colname:
-                raise ValueError('supported X.dtypes only in (number,object),use bm.dtypeAllocator to format X')
-                
-            break_list_sc=dict()
-
-            #将toad的breaklist转化为scorecardpy的breaklist
-            for key in break_list.keys():
-                
-                #分类列需调整格式
-                if key in cate_colname and break_list[key]: 
-
-                    bin_value_list=[]
-                    
-                    for value in break_list[key]:
-   
-                        bin_value_list.append('%,%'.join(value))
-
-                    break_list_sc[key]=bin_value_list
-                
-                #数值列默认
-                elif key in num_colname and break_list[key]:
-                    
-                    break_list_sc[key]=break_list[key]
-                
-                #空breaklist调整格式
-                else:
-
-                    break_list_sc[key]=[-np.inf,np.inf]
-        #sc格式
-        else:   
-            break_list_sc=break_list
-                
-        return break_list_sc 
-
-    
-    
-    def writeExcel(self):
+    def _writeExcel(self):
         
         if not glob(self.out_path):
             
@@ -671,6 +602,7 @@ class varGroupsReport(TransformerMixin):
     Attributes:
     -------
         report_dict:dict,所有产生的报告
+        
     """
         
     
@@ -717,23 +649,23 @@ class varGroupsReport(TransformerMixin):
             X_g_gen=X.groupby(self.columns)
             
             parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
-            out_list=parallel(delayed(self.group_parallel)(X_g_gen,g,self.target,self.columns,
+            out_list=parallel(delayed(self._group_parallel)(X_g_gen,g,self.target,self.columns,
                                                            self.breaks_list_dict,self.row_limit)for g in X_g_gen.groups)
 
             report=pd.concat({columns:vtabs for columns,vtabs in out_list},axis=1)
             
             if self.sort_columns:       
                 
-                sort_columns_list=self.check_columns_sort(self.sort_columns, self.columns, X)                                    
+                sort_columns_list=self._check_columns_sort(self.sort_columns, self.columns, X)                                    
         
-                report=self.vtab_column_sort(sort_columns_list,report)                
+                report=self._vtab_column_sort(sort_columns_list,report)                
                       
-            self.report_dict=self.getReport(X,report,self.breaks_list_dict,self.special_values,self.n_jobs,self.verbose,
+            self.report_dict=self._getReport(X,report,self.breaks_list_dict,self.special_values,self.n_jobs,self.verbose,
                                             self.target,self.output_psi,self.psi_base)                    
 
             if self.out_path:
                     
-                self.writeExcel()   
+                self._writeExcel()   
                     
                                          
         return self
@@ -751,7 +683,7 @@ class varGroupsReport(TransformerMixin):
             return pd.DataFrame(None)
         
         
-    def group_parallel(self,X_g_gen,g,target,columns,breaks_list_dict,row_limit):
+    def _group_parallel(self,X_g_gen,g,target,columns,breaks_list_dict,row_limit):
     
         group_dt=X_g_gen.get_group(g)
         X_g=group_dt.drop([target]+columns,axis=1)
@@ -779,7 +711,7 @@ class varGroupsReport(TransformerMixin):
             
         return g,result
    
-    def getReport(self,X,report,breaks_list_dict,special_values,n_jobs,verbose,target,
+    def _getReport(self,X,report,breaks_list_dict,special_values,n_jobs,verbose,target,
                   output_psi=True,psi_base='all'):
         
         report_out={}
@@ -813,7 +745,7 @@ class varGroupsReport(TransformerMixin):
                 base=pd.concat(all_var.var_report_dict)['count_distr']
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
-                psi_sum=report_distr.fillna(0).apply(lambda x:self.psi(x,base),axis=0).droplevel(level=1)\
+                psi_sum=report_distr.fillna(0).apply(lambda x:self._psi(x,base),axis=0).droplevel(level=1)\
                                       .assign(bin='psi').set_index('bin',append=True).sort_index(axis=1).groupby(level=[0,1]).sum()
                                       
                 report_out['report_psi']=pd.concat([report_distr,psi_sum]).sort_index().reset_index().rename(columns={'level_0':'variable'})
@@ -833,7 +765,7 @@ class varGroupsReport(TransformerMixin):
                 base=pd.concat(all_var.var_report_dict)['count_distr']
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
-                psi_sum=report_distr.fillna(0).apply(lambda x:self.psi(x,base),axis=0).droplevel(level=1)\
+                psi_sum=report_distr.fillna(0).apply(lambda x:self._psi(x,base),axis=0).droplevel(level=1)\
                                       .assign(bin='psi').set_index('bin',append=True).sort_index(axis=1).groupby(level=[0,1]).sum()
                                       
                 report_out['report_psi']=pd.concat([report_distr,psi_sum]).sort_index().reset_index().rename(columns={'level_0':'variable'})                                        
@@ -841,7 +773,7 @@ class varGroupsReport(TransformerMixin):
         return report_out        
             
     
-    def psi(self,base,col):
+    def _psi(self,base,col):
     
         base=base.replace(0,1e-10)
         col=col.replace(0,1e-10)   
@@ -849,7 +781,7 @@ class varGroupsReport(TransformerMixin):
 
         return psi_out            
     
-    def vtab_column_sort(self,sort_columns,report):
+    def _vtab_column_sort(self,sort_columns,report):
         
         sort_columns=sort_columns.copy()
         
@@ -871,7 +803,7 @@ class varGroupsReport(TransformerMixin):
         return report[cols_sorted]
     
 
-    def check_columns_sort(self,sort_columns,columns,X):
+    def _check_columns_sort(self,sort_columns,columns,X):
         
         #check format of sort_columns:must dict
         
@@ -903,7 +835,7 @@ class varGroupsReport(TransformerMixin):
             raise ValueError("sort_columns={col_name1:[value1,value2,...],col_name2:[...],...}")  
     
     
-    def writeExcel(self):
+    def _writeExcel(self):
         
         if not glob(self.out_path):
             

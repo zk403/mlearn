@@ -162,7 +162,7 @@ class girdTuner(BaseEstimator):
         X:pd.DataFrame对象
         '''      
         pred = self.model_refit.predict_proba(X)[:,1]  
-        pred = self.p_to_score(pred,PDO,base,ratio)
+        pred = self._p_to_score(pred,PDO,base,ratio)
         
         return pred
     
@@ -184,10 +184,10 @@ class girdTuner(BaseEstimator):
         
         if self.method=='gird':
             
-            self.gird_search()
+            self._gird_search()
             #输出最优参数组合
             self.params_best=self.gird_res.best_params_
-            self.cv_result=self.cvresult_to_df(self.gird_res.cv_results_)
+            self.cv_result=self._cvresult_to_df(self.gird_res.cv_results_)
             self.model_refit = self.gird_res.best_estimator_  
             
             if self.calibration:
@@ -197,10 +197,10 @@ class girdTuner(BaseEstimator):
         
         elif self.method=='random_gird':
             
-            self.random_search()
+            self._random_search()
             #输出最优参数组合
             self.params_best=self.r_gird_res.best_params_
-            self.cv_result=self.cvresult_to_df(self.r_gird_res.cv_results_)
+            self.cv_result=self._cvresult_to_df(self.r_gird_res.cv_results_)
             self.model_refit = self.r_gird_res.best_estimator_
             
             if self.calibration:
@@ -215,17 +215,23 @@ class girdTuner(BaseEstimator):
         
         return self    
     
-    def gird_search(self):          
+    def _gird_search(self):          
         '''
         网格搜索
         '''  
         if self.scoring=='ks':
-            scorer=metrics.make_scorer(self.custom_score_KS,greater_is_better=True,needs_proba=True)
+            
+            scorer=metrics.make_scorer(self._custom_score_KS,greater_is_better=True,needs_proba=True)
+            
         elif self.scoring=='auc':
-            scorer=metrics.make_scorer(self.custom_score_AUC,greater_is_better=True,needs_proba=True)
+            
+            scorer=metrics.make_scorer(self._custom_score_AUC,greater_is_better=True,needs_proba=True)
+            
         elif self.scoring=='lift':
-            scorer=metrics.make_scorer(self.custom_score_Lift,greater_is_better=True,needs_proba=True)
+            
+            scorer=metrics.make_scorer(self._custom_score_Lift,greater_is_better=True,needs_proba=True)
         else:
+            
             raise ValueError('scoring not understood,should be "ks","auc","lift")')
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state) 
@@ -241,7 +247,7 @@ class girdTuner(BaseEstimator):
         return self
         
         
-    def random_search(self):  
+    def _random_search(self):  
         '''
         随机网格搜索
         '''         
@@ -267,13 +273,13 @@ class girdTuner(BaseEstimator):
         return self
     
     
-    def custom_score_AUC(self,y_true, y_pred):        
+    def _custom_score_AUC(self,y_true, y_pred):        
         '''
         自定义验证评估指标AUC
         '''           
         return metrics.roc_auc_score(y_true,y_pred)
     
-    def custom_score_KS(self,y_true, y_pred):
+    def _custom_score_KS(self,y_true, y_pred):
         '''
         自定义验证评估指标KS
         '''   
@@ -282,7 +288,7 @@ class girdTuner(BaseEstimator):
         return ks             
         
         
-    def custom_score_Lift(self,y_true,y_pred):
+    def _custom_score_Lift(self,y_true,y_pred):
         '''
         自定义验证评估指标Lift
         '''   
@@ -295,13 +301,13 @@ class girdTuner(BaseEstimator):
             lift.append(ppv/((tp + fn)/(tn+fp+fn+tp)))
         return(np.nanmean(lift)) 
     
-    def cvresult_to_df(self,cv_results_):
+    def _cvresult_to_df(self,cv_results_):
         '''
         输出交叉验证结果
         '''          
         return pd.DataFrame(cv_results_)    
     
-    def p_to_score(self,pred,PDO=75,base=660,ratio=1/15):
+    def _p_to_score(self,pred,PDO=75,base=660,ratio=1/15):
         
         B=1*PDO/np.log(2)
         A=base + B*np.log(ratio)

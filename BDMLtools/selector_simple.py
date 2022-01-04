@@ -6,6 +6,7 @@ from category_encoders import WOEEncoder
 from sklearn.linear_model import LogisticRegression
 from sklearn.impute import SimpleImputer
 from BDMLtools.fun import sp_replace
+from BDMLtools.selector_bin_fun import binFreq
 import numpy as np
 import pandas as pd
 import toad
@@ -33,7 +34,9 @@ class prefitModel(BaseEstimator):
         
     Attribute:
     ----------
-        features_info:dict,每一步筛选的特征进入记录
+        encoder:category_encoders.WOEEncoder object,使用回归时分类变量的woe编码器
+        imputer:sklearn.impute.SimpleImputer object,使用回归时数值特征缺失值处理器
+        model:sklearn.linear_model.LogisticRegression or lightgbm.LGBMClassifier object拟合的模型对象
     """      
     def __init__(self,method='ceiling',params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},
                  col_rm=None,sample_weight=None):
@@ -82,11 +85,11 @@ class prefitModel(BaseEstimator):
         
         if self.method=='ceiling':
             
-            self.model=self.fit_lgbm(X,y,self.params,self.sample_weight)
+            self.model=self._fit_lgbm(X,y,self.params,self.sample_weight)
             
         elif self.method=='floor':
             
-            self.model=self.fit_reg(X,y,self.sample_weight)
+            self.model=self._fit_reg(X,y,self.sample_weight)
             
         else:
             
@@ -94,9 +97,9 @@ class prefitModel(BaseEstimator):
         
         return self
     
-    def fit_lgbm(self,X,y,params,sample_weight):
+    def _fit_lgbm(self,X,y,params,sample_weight):
         
-        X_numeric,X_categoty_encode=self.get_X(X,y)
+        X_numeric,X_categoty_encode=self._get_X(X,y)
         
         X_new=pd.concat([X_numeric,X_categoty_encode],axis=1)
         
@@ -117,9 +120,9 @@ class prefitModel(BaseEstimator):
         return lgb
     
     
-    def fit_reg(self,X,y,sample_weight):
+    def _fit_reg(self,X,y,sample_weight):
         
-        X_numeric,X_categoty_encode=self.get_X(X,y)
+        X_numeric,X_categoty_encode=self._get_X(X,y)
         
         X_new=pd.concat([X_numeric,X_categoty_encode],axis=1)
         
@@ -128,7 +131,7 @@ class prefitModel(BaseEstimator):
         return logit
                 
     
-    def get_X(self,X,y):
+    def _get_X(self,X,y):
         
         X_numeric=X.select_dtypes('number')
         X_categoty=X.select_dtypes('object')
@@ -175,6 +178,7 @@ class preSelector(TransformerMixin):
     Attribute:
     ----------
         features_info:dict,每一步筛选的特征进入记录
+        preSelector_report:pd.DataFrame,outpath非None时产生的features_info数据框格式
     """    
     
     
@@ -230,31 +234,31 @@ class preSelector(TransformerMixin):
             
             var_pre_na=self.features_info[max(list(self.features_info.keys()))]
             
-            self.features_info['2.filterbyNA']=self.filterByNA(X[var_pre_na])
+            self.features_info['2.filterbyNA']=self._filterByNA(X[var_pre_na])
             
             print('2.filterbyNA_____________________________complete')
             
         else:
             
-            raise ValueError("na_pct in (0,1)")
+            raise ValueError("na_pct in None,(0,1)")
         
             
         #fliter by variance and unique_pct
-        if self.variance==None or self.unique_pct==None:            
+        if (self.variance==None) or (self.unique_pct==None):            
             
             pass        
         
-        elif self.variance>=0 and 0<=self.unique_pct<1:
+        elif (self.variance>=0) and (0<=self.unique_pct<1):
             
             var_pre_vari=self.features_info[max(list(self.features_info.keys()))]
             
-            self.features_info['3.filterbyVariance']=self.filterByUnique(X[var_pre_vari])+self.fliterByVariance(X[var_pre_vari])
+            self.features_info['3.filterbyVariance']=self._filterByUnique(X[var_pre_vari])+self._fliterByVariance(X[var_pre_vari])
             
             print('3.filterbyVariance_______________________complete')
             
         else:
             
-            raise ValueError("variance in [0,inf) and unique_pct in [0,1)")                          
+            raise ValueError("variance in None,[0,inf) and unique_pct in None,[0,1)")                          
         
         
         #fliter by chi and f-value
@@ -266,13 +270,13 @@ class preSelector(TransformerMixin):
             
             var_pre_chi=self.features_info[max(list(self.features_info.keys()))]
             
-            self.features_info['4.filterbyChi2Oneway']=self.filterByChisquare(X[var_pre_chi],y)+self.filterByOneway(X[var_pre_chi],y)         
+            self.features_info['4.filterbyChi2Oneway']=self._filterByChisquare(X[var_pre_chi],y)+self._filterByOneway(X[var_pre_chi],y)         
             
             print('4.filterbyChi2Oneway_____________________complete')
         
         else:
             
-            raise ValueError("pvalue in (0,1]") 
+            raise ValueError("pvalue in None,(0,1]") 
         
         #fliter by lgbm-tree-imp  
         if self.tree_imps==None:
@@ -283,13 +287,13 @@ class preSelector(TransformerMixin):
             
             var_pre_tree=self.features_info[max(list(self.features_info.keys()))]
             
-            self.features_info['5.filterbyTrees']=self.filterByTrees(X[var_pre_tree],y)
+            self.features_info['5.filterbyTrees']=self._filterByTrees(X[var_pre_tree],y)
             
             print('5.filterbyTrees__________________________complete')
             
         else:
             
-            raise ValueError("tree_imps in [0,inf)")         
+            raise ValueError("tree_imps in None,[0,inf)")         
    
         
         #fliter by iv 
@@ -301,13 +305,13 @@ class preSelector(TransformerMixin):
             
             var_pre_iv=self.features_info[max(list(self.features_info.keys()))]
             
-            self.features_info['6.filterbyIV']=self.filterbyIV(X[var_pre_iv],y)
+            self.features_info['6.filterbyIV']=self._filterbyIV(X[var_pre_iv],y)
             
             print('6.filterbyIV_____________________________complete')
             
         else:
             
-            raise ValueError("iv_limit in [0,inf)")      
+            raise ValueError("iv_limit in None,[0,inf)")      
         
         print('Done_________________________________________________')  
         
@@ -321,12 +325,12 @@ class preSelector(TransformerMixin):
             
             self.preSelector_report=pd.concat([pd.Series(self.features_info[key],name=key) for key in self.features_info.keys()],axis=1)
                 
-            self.writeExcel() 
+            self._writeExcel() 
         
                     
         return self
     
-    def filterByNA(self,X):
+    def _filterByNA(self,X):
         
         """ 
         缺失值处理
@@ -334,7 +338,7 @@ class preSelector(TransformerMixin):
         NAreport=X.isnull().sum().div(X.shape[0])
         return NAreport[NAreport<=self.na_pct].index.tolist() #返回满足缺失率要求的列名
     
-    def filterByUnique(self,X):
+    def _filterByUnique(self,X):
         """ 
         唯一值处理-分类变量
         """     
@@ -345,7 +349,7 @@ class preSelector(TransformerMixin):
         else:
             return []
     
-    def fliterByVariance(self,X):
+    def _fliterByVariance(self,X):
         """ 
         方差处理-连续变量,缺失值将被忽略
         """     
@@ -356,7 +360,7 @@ class preSelector(TransformerMixin):
         else:
             return []
 
-    def filterByChisquare(self,X,y):
+    def _filterByChisquare(self,X,y):
         
         """ 
         特征选择-分类变量:卡方值
@@ -370,7 +374,7 @@ class preSelector(TransformerMixin):
         else:
             return []
     
-    def filterByOneway(self,X,y):
+    def _filterByOneway(self,X,y):
         
         """ 
         特征选择-连续变量:方差分析(假定方差齐性)
@@ -383,7 +387,7 @@ class preSelector(TransformerMixin):
         else:
             return []
 
-    def filterByTrees(self,X,y):
+    def _filterByTrees(self,X,y):
         """ 
         特征选择:树模型
         """
@@ -426,15 +430,16 @@ class preSelector(TransformerMixin):
             return []
         
     
-    def filterbyIV(self,X,y):
+    def _filterbyIV(self,X,y):        
         
-        iv_t=toad.selection.IV(X,y,n_bins=20).T
+        _,vtabs=binFreq(X,y,bin_num_limit=20)
+        
+        iv_t=pd.Series({key:vtabs[key]['total_iv'].max() for key in vtabs},name='iv_infos')
 
-        return iv_t[iv_t[0]>self.iv_limit].index.tolist()
+        return iv_t[iv_t>self.iv_limit].index.tolist()
 
-    
-    
-    def writeExcel(self):
+
+    def _writeExcel(self):
         
         if not glob(self.out_path):
             
@@ -474,7 +479,7 @@ class corrSelector(TransformerMixin):
         
     Attribute:
     ----------
-        features_info:dict,每一步筛选的特征进入记录
+        keep_col:list,保留的列名list
     """    
     
     def __init__(self,corr_limit=0.8,by='IV',keep=None):
@@ -498,11 +503,11 @@ class corrSelector(TransformerMixin):
         ----------
             varbin:分箱结果,计算特征IV使用,由sc.woebin产生      
         """          
-        self.keep_col=self.filterByCorr(X,y)
+        self.keep_col=self._filterByCorr(X,y)
         
         return self
     
-    def filterByCorr(self,X,y):
+    def _filterByCorr(self,X,y):
         """
         特征共线性检查,将剔除共线性较强但iv较低的特征,保留共线性较强但iv较高的特征 
         Parameters:

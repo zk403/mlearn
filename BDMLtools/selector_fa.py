@@ -41,8 +41,9 @@ class faSelector(BaseEstimator):
            
     Attribute:    
     --
-        components_infos
-        rsquare_infos
+        model:sklearn.cluster.FeatureAgglomeration object,变量聚类对象
+        components_infos:聚类的类主成分特征值信息
+        rsquare_infos:各个变量的R2信息
         
     """    
     
@@ -60,7 +61,7 @@ class faSelector(BaseEstimator):
         self.is_greater_better=is_greater_better
         self.keep=keep
         
-    def distance(self):
+    def _distance(self):
         
         custom_distance=self.distance_metrics
         
@@ -103,35 +104,35 @@ class faSelector(BaseEstimator):
         
         if isinstance(self.n_clusters,int):
         
-            self.model=self.featurecluster(X,self.distance(),self.linkage,self.n_clusters,self.distance_threshold)
+            self.model=self._featurecluster(X,self._distance(),self.linkage,self.n_clusters,self.distance_threshold)
             
         elif self.n_clusters=='auto':
             
             self.n_clusters=len(corrSelector(corr_limit=self.corr_limit).fit(X,y).var_keep)
             print('n_clusters set to '+str(self.n_clusters))
             
-            self.model=self.featurecluster(X,self.distance(),self.linkage,self.n_clusters,self.distance_threshold)
+            self.model=self._featurecluster(X,self._distance(),self.linkage,self.n_clusters,self.distance_threshold)
             
         else:
             
             raise ValueError("n_clusters in (int,'auto')")
             
-        self.components_infos=self.getComponentsInfos(X,self.model.labels_)
+        self.components_infos=self._getComponentsInfos(X,self.model.labels_)
         
         
         if isinstance(self.by,str):
         
-            self.rsquare_infos=self.getRsquareInfos(X,self.model.labels_)
+            self.rsquare_infos=self._getRsquareInfos(X,self.model.labels_)
         
         elif is_array_like(self.by):
 
-            self.rsquare_infos=self.getRsquareInfos(X,self.model.labels_).join(self.by)
+            self.rsquare_infos=self._getRsquareInfos(X,self.model.labels_).join(self.by)
         
         else:
             
             warnings.warn('by in (r2-ratio,pd.Series),use r2-ratio instead')  
         
-            self.rsquare_infos=self.getRsquareInfos(X,self.model.labels_)
+            self.rsquare_infos=self._getRsquareInfos(X,self.model.labels_)
             
         
         return self        
@@ -167,7 +168,7 @@ class faSelector(BaseEstimator):
         return X[columns]
     
     
-    def featurecluster(self,X,custom_distance,linkage,n_clusters,distance_threshold):
+    def _featurecluster(self,X,custom_distance,linkage,n_clusters,distance_threshold):
         #变量聚类
         #custom_distance=self.distance()
         #linkage=self.linkage
@@ -200,7 +201,7 @@ class faSelector(BaseEstimator):
     
     def plot_dendrogram(self,X):
         
-        custom_distance=self.distance()
+        custom_distance=self._distance()
         linkage=self.linkage
 
         def plot(model, **kwargs):
@@ -225,8 +226,11 @@ class faSelector(BaseEstimator):
 
         #m为预计算的距离矩阵
         if self.scale:
+            
             X_t=StandardScaler().fit_transform(X.T)
+            
         else:
+            
             X_t=X.T
         
         m = pd.DataFrame(pairwise_distances(X_t, X_t, metric=custom_distance)) #使用相关系数距离衡量
@@ -238,7 +242,7 @@ class faSelector(BaseEstimator):
         plt.xlabel("Variable index")
         plt.ylabel("distance")
         
-    def getComponentsInfos(self,X,fclusters):
+    def _getComponentsInfos(self,X,fclusters):
         
         #fclusters=self.model.labels_
         
@@ -280,17 +284,20 @@ class faSelector(BaseEstimator):
         self.label_components=label_components #所有类变量集合的第一主成分
         return components_infos
        
-    def getRsquareInfos(self,X,fclusters):
+    def _getRsquareInfos(self,X,fclusters):
         
         #fclusters=self.model.labels_
         
         #提取各个类的主成分
         label_components={}
         for label in np.unique(fclusters):
+            
             cluster_features=X.columns[fclusters==label]
 
             if len(cluster_features)>1:
+                
                 label_components[label]=pd.Series(PCA(n_components=None).fit_transform(X[cluster_features])[:,0],name=label)
+           
             else:
                 label_components[label]=pd.Series(X[cluster_features[0]].ravel())        
         
@@ -302,6 +309,7 @@ class faSelector(BaseEstimator):
         neigbors_r2={} #特征的类间R方(最邻近类)
 
         for label in np.unique(fclusters):
+            
             cluster_features=X.columns[fclusters==label]
             #计算所有特征的类内,类间指标
             for feature in cluster_features:

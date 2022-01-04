@@ -100,7 +100,7 @@ class stepLogit(BaseEstimator):
                 
             else:
             
-                self.logit_model=self.stepwise(X[self.custom_column].join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,normalize=self.normalize,show_step=self.show_step,max_iter=self.max_iter) 
+                self.logit_model=self._stepwise(X[self.custom_column].join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,normalize=self.normalize,show_step=self.show_step,max_iter=self.max_iter) 
             
         else:
             
@@ -114,14 +114,14 @@ class stepLogit(BaseEstimator):
             
             else:
                 
-                self.logit_model=self.stepwise(X.join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,normalize=self.normalize,show_step=self.show_step,max_iter=self.max_iter) 
+                self.logit_model=self._stepwise(X.join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,normalize=self.normalize,show_step=self.show_step,max_iter=self.max_iter) 
                     
         self.model_info=self.logit_model.summary()
-        self.vif_info=self.vif(self.logit_model,X,show_high_vif_only=self.show_high_vif_only)
+        self.vif_info=self._vif(self.logit_model,X,show_high_vif_only=self.show_high_vif_only)
         
         return self
     
-    def stepwise(self,df,response,intercept=True, normalize=False, criterion='aic', 
+    def _stepwise(self,df,response,intercept=True, normalize=False, criterion='aic', 
                       p_value_enter=.05, show_step=True,max_iter=200):
             '''
             逐步回归
@@ -240,7 +240,7 @@ class stepLogit(BaseEstimator):
 
             return stepwise_model
 
-    def vif(self,logit_model,X,show_high_vif_only=False):
+    def _vif(self,logit_model,X,show_high_vif_only=False):
         '''
         输出vif方差膨胀系数,大于10时说明存在共线性
         Parameters:
@@ -320,7 +320,7 @@ class cardScorer(TransformerMixin):
         else:
             raise ValueError('type(logit_model) in (statsmodels..BinaryResultsWrapper;GLMResultsWrapper,sklearn.linear_model._logistic.LogisticRegression)')
             
-        self.scorecard=self.getPoints(self.varbin,logit_model_coef,logit_model_intercept,self.digit)
+        self.scorecard=self._getPoints(self.varbin,logit_model_coef,logit_model_intercept,self.digit)
         
         return self
     
@@ -331,7 +331,7 @@ class cardScorer(TransformerMixin):
 
         p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
             
-        res=p(delayed(self.points_map)(X[key],self.scorecard[key],self.check_na) 
+        res=p(delayed(self._points_map)(X[key],self.scorecard[key],self.check_na) 
                               for key in self.columns)
             
         score=pd.concat({col:col_points for col,col_points in res},axis=1)
@@ -341,9 +341,9 @@ class cardScorer(TransformerMixin):
         return score  
 
     
-    def getPoints(self,varbin,logit_model_coef,logit_model_intercept,digit):
+    def _getPoints(self,varbin,logit_model_coef,logit_model_intercept,digit):
         
-        A,B=self.getAB(base=self.points0, ratio=self.odds0, PDO=self.pdo)
+        A,B=self._getAB(base=self.points0, ratio=self.odds0, PDO=self.pdo)
         
         bin_keep={col:varbin[col] for col in logit_model_coef.keys()}
         
@@ -364,7 +364,7 @@ class cardScorer(TransformerMixin):
         return points_all
     
 
-    def getAB(self,base=600, ratio=1/100, PDO=50):        
+    def _getAB(self,base=600, ratio=1/100, PDO=50):        
             
         b = PDO/np.log(2)
         a = base + b*np.log(ratio) 
@@ -372,7 +372,7 @@ class cardScorer(TransformerMixin):
         return a,b
     
     
-    def points_map(self,col,bin_df,check_na=True):
+    def _points_map(self,col,bin_df,check_na=True):
     
         if is_numeric_dtype(col):
             

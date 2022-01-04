@@ -184,11 +184,11 @@ class dtypeAllocator(TransformerMixin):
             
             if isinstance(self.dtypes_dict,dict) and not self.dtypes_dict:
                 
-                X_out=self.getXAuto(X)
+                X_out=self._getXAuto(X)
                 
             elif isinstance(self.dtypes_dict,dict) and self.dtypes_dict:
      
-                X_out=self.getX(X)
+                X_out=self._getX(X)
             
             else:
                 
@@ -208,7 +208,7 @@ class dtypeAllocator(TransformerMixin):
         return self
     
     
-    def getX(self,X):
+    def _getX(self,X):
         
         col_num=np.unique(self.dtypes_dict['num']).tolist() if 'num' in self.dtypes_dict.keys() else []
   
@@ -241,7 +241,7 @@ class dtypeAllocator(TransformerMixin):
         return X_out
     
     
-    def getXAuto(self,X):
+    def _getXAuto(self,X):
       
         #数值
         X_num=X.select_dtypes(include=['number','bool']).astype(self.dtype_num).apply(np.round,args=(self.precision,))        
@@ -320,11 +320,11 @@ class outliersTransformer(TransformerMixin):
                  
             if self.columns:
                 
-                self.iq_df=X[self.columns].apply(self.get_iq)   
+                self.iq_df=X[self.columns].apply(self._get_iq)   
                 
             else:
                 
-                self.iq_df=X.select_dtypes('number').apply(self.get_iq)        
+                self.iq_df=X.select_dtypes('number').apply(self._get_iq)        
         
         return self
     
@@ -351,7 +351,7 @@ class outliersTransformer(TransformerMixin):
                 
             X=X[self.columns] if self.columns else X.select_dtypes('number')
  
-            X_r=X.apply(lambda col:self.remove_outlier(col,self.iq_df[col.name].values,self.method))
+            X_r=X.apply(lambda col:self._remove_outlier(col,self.iq_df[col.name].values,self.method))
 
             return X_r    
                 
@@ -361,13 +361,13 @@ class outliersTransformer(TransformerMixin):
         
             return pd.DataFrame(None) 
         
-    def get_iq(self,col):
+    def _get_iq(self,col):
        
         iq=np.nanpercentile(col,[1, 25, 75, 99])
         
         return iq
         
-    def remove_outlier(self,col,iq,method='fill'):   
+    def _remove_outlier(self,col,iq,method='fill'):   
     
         iqr = iq[2] - iq[1]
         
@@ -413,8 +413,9 @@ class nanTransformer(TransformerMixin):
     
     Attributes
     ------
-    
-      
+    imputer_num:数值填补对象,sklearn.impute.KNNImputer or SimpleImputer object
+    imputer_str:字符填补对象,sklearn.impute.SimpleImputer object
+    indicator_na:缺失值指示对象,sklearn.impute.MissingIndicator object
     """    
     
     def __init__(self,method=('constant','constant'),

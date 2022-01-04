@@ -23,6 +23,8 @@ class shapCheck(BaseEstimator):
     p_value:相关系数显著性阈值,保留低于阈值的列,与limit为and关系
     Attributes:
     -------
+    keep_col:list,保留的列的列名
+    result:pd.DataFrame,shap-woe相关性分析结果
     """    
     
     def __init__(self,Estimator,limit=0,p_value=0.05):
@@ -44,13 +46,13 @@ class shapCheck(BaseEstimator):
         shap_values = explainer.shap_values(X)
         X_shap=pd.DataFrame(shap_values[1],columns=X.columns)
 
-        result=self.check(X, X_shap)
+        result=self._check(X, X_shap)
         self.keep_col=result[result['pearsonr'].gt(self.limit) & result['p-value'].lt(self.p_value)].index.tolist()
         self.result=result
         
         return self   
     
-    def check(self,X,X_shap):
+    def _check(self,X,X_shap):
     
         index=[]
         corrs=[]

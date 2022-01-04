@@ -222,7 +222,7 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
 
     breaks_list={name_value[0]:get_breaks(name_value[1],y) for name_value in X.iteritems()}
     
-    bins={col:varReportSinge().report(X[col],y,breaks_list[col]) for col in X.columns}
+    bins={col:varReportSinge().report(X[col],y,breaks_list[col],ws) for col in X.columns}
    
     return breaks_list,bins
 
@@ -254,6 +254,10 @@ class binKmeans(TransformerMixin):
         
     Attributes:
     -------
+        breaks_list:dict,产生的分箱dict
+        bins:dict,当前breaks_list下的特征分析报告
+    
+    
     """    
     
     def __init__(self,breaks_list,combine_ratio=0.1,bin_limit=5,seed=123,sample_weight=None,special_values=None,n_jobs=-1,verbose=0):
@@ -278,7 +282,7 @@ class binKmeans(TransformerMixin):
             
             parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
             
-            col_break=parallel(delayed(self.combine_badprob_kmeans)(X[col],y,
+            col_break=parallel(delayed(self._combine_badprob_kmeans)(X[col],y,
                                                                     self.combine_ratio,
                                                                     self.bin_limit,
                                                                     self.breaks_list[col],
@@ -306,7 +310,7 @@ class binKmeans(TransformerMixin):
             return pd.DataFrame(None)
         
         
-    def combine_badprob_kmeans(self,col,y,combine_ratio,bin_limit,breaks,ws=None,random_state=123):    
+    def _combine_badprob_kmeans(self,col,y,combine_ratio,bin_limit,breaks,ws=None,random_state=123):    
      
          #global var_bin,res_km_s
          var_raw=col
@@ -505,7 +509,7 @@ class binKmeans(TransformerMixin):
                      combine_ratio_count=var_bin_ratio.lt(combine_ratio).sum()
          
                      #remove points from orginal breaks
-                     index_drop=self.getindex(g_index_list)
+                     index_drop=self._getindex(g_index_list)
         
                      breaks=np.delete(breaks,index_drop).tolist()
                      iters=iters+1
@@ -534,7 +538,7 @@ class binKmeans(TransformerMixin):
              raise ValueError("col's dtype in (number,object).")
 
 
-    def getindex(self,g_index_list):
+    def _getindex(self,g_index_list):
         
         """ 
         寻找list中值连续索引的位置并标记
@@ -588,6 +592,8 @@ class binTree(TransformerMixin):
         
     Attributes:
     -------
+    breaks_list:dict,产生的分箱dict
+    bins:dict,当前breaks_list下的特征分析报告
     """    
     
     def __init__(self,max_bin=50,criteria='iv',max_iters=100,
@@ -613,7 +619,7 @@ class binTree(TransformerMixin):
             
             X=sp_replace(X, self.special_values)
             p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
-            res=p(delayed(self.get_treecut)(col[1],y,self.max_bin,
+            res=p(delayed(self._get_treecut)(col[1],y,self.max_bin,
                                             self.criteria,self.max_iters,
                                             self.tol,self.distr_limit,
                                             self.bin_num_limit,
@@ -639,7 +645,7 @@ class binTree(TransformerMixin):
             return pd.DataFrame(None)
         
         
-    def get_treecut(self,col,y,max_bin,criteria,max_iters,tol,distr_limit,bin_num_limit,ws,coerce_monotonic):
+    def _get_treecut(self,col,y,max_bin,criteria,max_iters,tol,distr_limit,bin_num_limit,ws,coerce_monotonic):
         
         #sample_wieght
         if is_array_like(ws):
@@ -671,7 +677,7 @@ class binTree(TransformerMixin):
             #tree cut
             else:
                 
-                breaks=self.get_bestsplit(col.values,y.values,max_bin=max_bin,
+                breaks=self._get_bestsplit(col.values,y.values,max_bin=max_bin,
                                      criteria=criteria,
                                      max_iters=100,
                                      tol=0.0001,
@@ -699,7 +705,7 @@ class binTree(TransformerMixin):
                 map_code=dict(zip(codes,range(len(codes))))
     
                 #tree cut
-                breaks_raw=self.get_bestsplit(col.map(map_code).values,
+                breaks_raw=self._get_bestsplit(col.map(map_code).values,
                                          y.values,
                                          criteria=criteria,
                                          max_iters=100,
@@ -722,7 +728,7 @@ class binTree(TransformerMixin):
         return col.name,breaks,vtab
 
 
-    def get_bestsplit(self,col,y,max_bin=50,ws=None,criteria='iv',tol=1e-4,
+    def _get_bestsplit(self,col,y,max_bin=50,ws=None,criteria='iv',tol=1e-4,
                       max_iters=100,distr_limit=0.05,bin_num_limit=8,
                       is_str_dtype=False,coerce_monotonic=False): 
         
@@ -965,6 +971,8 @@ class binChi2(TransformerMixin):
         
     Attributes:
     -------
+    breaks_list:dict,产生的分箱dict
+    bins:dict,当前breaks_list下的特征分析报告
     """    
     
     def __init__(self,max_bin=50,tol=0.1,distr_limit=0.05,bin_num_limit=8,
@@ -987,7 +995,7 @@ class binChi2(TransformerMixin):
             
             X=sp_replace(X, self.special_values)           
             p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
-            res=p(delayed(self.get_chi2merge)(col[1],y,
+            res=p(delayed(self._get_chi2merge)(col[1],y,
                                             self.max_bin,
                                             self.tol,
                                             self.distr_limit,
@@ -1014,7 +1022,7 @@ class binChi2(TransformerMixin):
             return pd.DataFrame(None)            
     
     
-    def get_chi2merge(self,col,y,max_bin=50,tol=0.1,distr_limit=0.05,bin_num_limit=8,ws=None,coerce_monotonic=False):
+    def _get_chi2merge(self,col,y,max_bin=50,tol=0.1,distr_limit=0.05,bin_num_limit=8,ws=None,coerce_monotonic=False):
     
         #sample_wieght
         if is_array_like(ws):
@@ -1045,7 +1053,7 @@ class binChi2(TransformerMixin):
                 
             else:
                 #chi2_merge
-                breaks=self.chi2_merge(col.values,y.values,max_bin=max_bin,
+                breaks=self._chi2_merge(col.values,y.values,max_bin=max_bin,
                               distr_limit=distr_limit,stop_limit=tol,
                               bin_num_limit=bin_num_limit,ws=ws,is_str_dtype=False,
                               coerce_monotonic=coerce_monotonic)
@@ -1070,7 +1078,7 @@ class binChi2(TransformerMixin):
                 map_code=dict(zip(codes,list(range(len(codes)))))
     
                 #chi2_merge
-                breaks_raw=self.chi2_merge(col.map(map_code).values,y.values,
+                breaks_raw=self._chi2_merge(col.map(map_code).values,y.values,
                                       distr_limit=distr_limit,stop_limit=tol,
                                       bin_num_limit=bin_num_limit,ws=ws,
                                       is_str_dtype=True)
@@ -1089,7 +1097,7 @@ class binChi2(TransformerMixin):
         return col.name,breaks,vtab     
 
 
-    def chi2_merge(self,col,y,max_bin=50,distr_limit=0.05,bin_num_limit=8,stop_limit=0.1,ws=None,
+    def _chi2_merge(self,col,y,max_bin=50,distr_limit=0.05,bin_num_limit=8,stop_limit=0.1,ws=None,
                    is_str_dtype=False,coerce_monotonic=False):   
     
         if max_bin<2:
@@ -1146,7 +1154,7 @@ class binChi2(TransformerMixin):
         
     
         #calculate chi2 value using initial-binning    
-        _,chi2_d,count_list,cuts_bin=self.chi2_bin(col,y,cuts,ws)
+        _,chi2_d,count_list,cuts_bin=self._chi2_bin(col,y,cuts,ws)
         
         cuts=np.array([i[0] if i[0]!= -np.inf else i[1] for i in cuts_bin])
       
@@ -1183,7 +1191,7 @@ class binChi2(TransformerMixin):
                     
                     cuts=cuts[cuts!=cuts[np.argmin(chi2_d)]]
     
-                    _,chi2_d,count_list,cuts_bin=self.chi2_bin(col,y,cuts,ws)
+                    _,chi2_d,count_list,cuts_bin=self._chi2_bin(col,y,cuts,ws)
                     
                     cuts=np.array([i[0] if i[0]!= -np.inf else i[1] for i in cuts_bin])
      
@@ -1199,7 +1207,7 @@ class binChi2(TransformerMixin):
                     
                     #print('point {} out due to count_limit'.format(str(cuts[np.argmin(count_list)])))                               
                     cuts=cuts[cuts!=cuts[np.argmin(count_list)]]
-                    _,chi2_d,count_list,cuts_bin=self.chi2_bin(col,y,cuts,ws)               
+                    _,chi2_d,count_list,cuts_bin=self._chi2_bin(col,y,cuts,ws)               
                     cuts=np.array([i[0] if i[0]!= -np.inf else i[1] for i in cuts_bin])
     
             #remove cut point with lowest chi2 value when bin_num higher than user-defined   
@@ -1209,7 +1217,7 @@ class binChi2(TransformerMixin):
     
                 cuts=cuts[cuts!=cuts[np.argmin(chi2_d)]]
     
-                _,chi2_d,count_list,cuts_bin=self.chi2_bin(col,y,cuts,ws)   
+                _,chi2_d,count_list,cuts_bin=self._chi2_bin(col,y,cuts,ws)   
     
                 cuts=np.array([i[0] if i[0]!= -np.inf else i[1] for i in cuts_bin])
                 
@@ -1221,7 +1229,7 @@ class binChi2(TransformerMixin):
         return np.unique(cuts).tolist()
     
 
-    def chi2_bin(self,col,y,cut_off,ws=None):        
+    def _chi2_bin(self,col,y,cut_off,ws=None):        
     
         if not np.equal(np.unique(y),np.array([0.,1.])).all():
             
@@ -1329,6 +1337,8 @@ class binPretty(TransformerMixin):
         
     Attributes:
     -------
+    breaks_list:dict,产生的分箱dict
+    bins:dict,当前breaks_list下的特征分析报告
     """    
     
     def __init__(self,max_bin=50,distr_limit=0.05,bin_num_limit=8,
@@ -1350,7 +1360,7 @@ class binPretty(TransformerMixin):
             
             X=sp_replace(X, self.special_values)           
             p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
-            res=p(delayed(self.get_prettymerge)(col[1],y,
+            res=p(delayed(self._get_prettymerge)(col[1],y,
                                             self.max_bin,
                                             self.distr_limit,
                                             self.bin_num_limit,
@@ -1376,7 +1386,7 @@ class binPretty(TransformerMixin):
             return pd.DataFrame(None)            
     
     
-    def get_prettymerge(self,col,y,max_bin=50,distr_limit=0.05,bin_num_limit=8,ws=None,coerce_monotonic=False):
+    def _get_prettymerge(self,col,y,max_bin=50,distr_limit=0.05,bin_num_limit=8,ws=None,coerce_monotonic=False):
     
         #sample_wieght
         if is_array_like(ws):
@@ -1404,8 +1414,8 @@ class binPretty(TransformerMixin):
                 breaks=[]
                 
             else:
-                #chi2_merge
-                breaks=self.pretty_merge(col.values,y.values,max_bin=max_bin,
+                #merge
+                breaks=self._pretty_merge(col.values,y.values,max_bin=max_bin,
                               distr_limit=distr_limit,
                               bin_num_limit=bin_num_limit,ws=ws,is_str_dtype=False,
                               coerce_monotonic=coerce_monotonic)
@@ -1427,8 +1437,8 @@ class binPretty(TransformerMixin):
                 #ordinal encode data start with 0
                 map_code=dict(zip(codes,list(range(len(codes)))))
     
-                #chi2_merge
-                breaks_raw=self.pretty_merge(col.map(map_code).values,y.values,
+                #merge
+                breaks_raw=self._pretty_merge(col.map(map_code).values,y.values,
                                       distr_limit=distr_limit,
                                       bin_num_limit=bin_num_limit,ws=ws,
                                       is_str_dtype=True)
@@ -1447,7 +1457,7 @@ class binPretty(TransformerMixin):
         return col.name,breaks,vtab     
 
 
-    def pretty_merge(self,col,y,max_bin=50,distr_limit=0.05,bin_num_limit=8,ws=None,
+    def _pretty_merge(self,col,y,max_bin=50,distr_limit=0.05,bin_num_limit=8,ws=None,
                    is_str_dtype=False,coerce_monotonic=False):   
     
         if max_bin<2:
@@ -1501,7 +1511,7 @@ class binPretty(TransformerMixin):
         
     
         #calculate chi2 value using initial-binning    
-        count_list,cuts_bin=self.pretty_bin(col,y,cuts,ws)
+        count_list,cuts_bin=self._pretty_bin(col,y,cuts,ws)
         
         cuts=np.array([i[0] if i[0]!= -np.inf else i[1] for i in cuts_bin])
       
@@ -1533,7 +1543,7 @@ class binPretty(TransformerMixin):
                     #print('point {} out due to count_limit'.format(str(cuts[np.argmin(count_list)])))                               
                     cuts=cuts[cuts!=cuts[np.argmin(count_list)]]
                     
-                    count_list,cuts_bin=self.pretty_bin(col,y,cuts,ws)    
+                    count_list,cuts_bin=self._pretty_bin(col,y,cuts,ws)    
                     
                     cuts=np.array([i[0] if i[0]!= -np.inf else i[1] for i in cuts_bin])
     
@@ -1544,7 +1554,7 @@ class binPretty(TransformerMixin):
     
                 cuts=cuts[cuts!=cuts[np.argmin(count_list)]]
     
-                count_list,cuts_bin=self.pretty_bin(col,y,cuts,ws)   
+                count_list,cuts_bin=self._pretty_bin(col,y,cuts,ws)   
     
                 cuts=np.array([i[0] if i[0]!= -np.inf else i[1] for i in cuts_bin])
                 
@@ -1556,7 +1566,7 @@ class binPretty(TransformerMixin):
         return np.unique(cuts).tolist()
     
 
-    def pretty_bin(self,col,y,cut_off,ws=None):        
+    def _pretty_bin(self,col,y,cut_off,ws=None):        
     
         if not np.equal(np.unique(y),np.array([0.,1.])).all():
             

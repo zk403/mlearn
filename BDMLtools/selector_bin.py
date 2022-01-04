@@ -57,12 +57,19 @@ class binSelector(TransformerMixin):
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
         iv_limit=0.02:float,IV阈值,IV低于该阈值特征将被剔除
-        keep=None,list or None,保留列的列名list             
+        keep=None,list or None,保留列的列名list,其将保留于self.keep_col中但不会产生特征分析报告，通过transform筛选后的数据将保留这些特征 
+        breaks_list_adj=None,dict,若希望通过调整后的分箱获取特征分析报告,可在此给定调整后的分箱,特征分析报告将保留在self.adjbin中
         n_jobs:int,列并行计算job数,默认-1,并行在数据量较大，特征较多时能够提升效率，但会增加内存消耗
         verbose:int,并行计算信息输出等级
         
     Attribute:
     ----------
+        keep_col:list经分箱、iv筛选后还存在的列的列名list，
+        breaks_list:dict,经指定方法分箱后产生的分箱点list
+        bins:dict,经指定方法分箱后产生的特征分析报告
+        iv_info:pd.Series,分箱后各个特征的iv
+        ks_info:pd.Series,分箱后各个特征的ks
+        adjbin:dict,若breaks_list_adj存在,调整的分箱下的特征分析报告
 
     """
     
@@ -213,80 +220,10 @@ class binSelector(TransformerMixin):
             self.bins={column:bin_res.get(column) for column in self.keep_col}
             self.breaks_list={column:self.breaks_list.get(column) for column in self.keep_col}          
        
-        return self
-
-    def getBreaklist_sc(self,break_list,X,y):
-        
-        """
-        将toad的breaklist结构转化为scorecardpy可用的结构
-        """      
-        
-        
-        #breaks_list in format of sc or toad
-        count=0
-        for var_list in list(break_list.values()):
-            
-            for value in var_list:
-                if isinstance(value,list):
-                    count=count+1           
-                break
-            
-        columns=list(break_list.keys())
-        
-        #toad breaks_list transform to sc breaks_list
-        #if string col in data
-        if count>0:
-        
-            cate_colname=X[columns].select_dtypes(include='object').columns.tolist()
-            num_colname=X[columns].select_dtypes(include='number').columns.tolist()
-            oth_colname=X[columns].select_dtypes(exclude=['number','object']).columns.tolist()
-            if oth_colname:
-                raise ValueError('supported X.dtypes only in (number,object),use bm.dtypeAllocator to format X')
-
-            break_list_sc=dict()
-
-            for key in break_list.keys():
-                
-                #for string columns
-                if key in cate_colname and break_list[key]: 
-
-                    bin_value_list=[]
-                    
-                    for value in break_list[key]:
-
-                        bin_value_list.append('%,%'.join(value))
-
-                    break_list_sc[key]=bin_value_list
-                
-                #for number columns
-                elif key in num_colname and break_list[key]:
-                    
-                    break_list_sc[key]=break_list[key]
-                
-                #for breaks=[]
-                else:
-
-                    break_list_sc[key]=[-np.inf,np.inf]
-                    
-        #if no string col in data
-        else:   
-            
-            break_list_sc=dict()
-
-            for key in break_list.keys():
-                
-                if not break_list[key]:
-                    
-                    break_list_sc[key]=[-np.inf,np.inf]
-                    
-                else:
-                    
-                    break_list_sc[key]=break_list[key]
-                
-        return break_list_sc                
+        return self        
     
     
-    def fit_adjustBin(self):
+    def _fit_adjustBin(self):
         """
         developing...        
         """          

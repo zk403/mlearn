@@ -59,11 +59,6 @@ class BayesianXGBTuner(BaseEstimator):
         Optimize:贝叶斯优化迭代器,需先使用fit
         params_best:最优参数组合,需先使用fit
         model_refit:最优参数下的xgboost模型,需先使用fit且参数refit=True 
-    
-    Examples
-    --
-    
-    
 
     '''     
     
@@ -103,7 +98,7 @@ class BayesianXGBTuner(BaseEstimator):
         X:pd.DataFrame对象
         '''      
         pred = self.model_refit.predict_proba(X)[:,1]  
-        pred = self.p_to_score(pred,PDO,base,ratio)
+        pred = self._p_to_score(pred,PDO,base,ratio)
         
         return pred
         
@@ -120,10 +115,10 @@ class BayesianXGBTuner(BaseEstimator):
         y:目标变量,pd.Series对象
         '''   
         
-        self.X=X
-        self.y=y
+        self.X=X.copy()
+        self.y=y.copy()
         
-        self.Optimize = BayesianOptimization(self.XGB_CV,self.para_space)
+        self.Optimize = BayesianOptimization(self._XGB_CV,self.para_space)
         self.Optimize.maximize(n_iter=self.n_iter,init_points=self.init_points)
         
         #输出最优参数组合
@@ -154,11 +149,13 @@ class BayesianXGBTuner(BaseEstimator):
                 
                 self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
                                                       n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
+                
+        del self.X,self.y
         
         return self
     
     
-    def XGB_CV(self,n_estimators,max_depth,gamma,learning_rate,min_child_weight,
+    def _XGB_CV(self,n_estimators,max_depth,gamma,learning_rate,min_child_weight,
                max_delta_step,subsample,colsample_bytree,reg_lambda,scale_pos_weight):
             
         para_space = {
@@ -177,12 +174,19 @@ class BayesianXGBTuner(BaseEstimator):
                       }               
         
         if self.scoring=='ks':
-            scorer=metrics.make_scorer(self.custom_score_KS,greater_is_better=True,needs_proba=True)
+            
+            scorer=metrics.make_scorer(self._custom_score_KS,greater_is_better=True,needs_proba=True)
+            
         elif self.scoring=='auc':
-            scorer=metrics.make_scorer(self.custom_score_AUC,greater_is_better=True,needs_proba=True)
+            
+            scorer=metrics.make_scorer(self._custom_score_AUC,greater_is_better=True,needs_proba=True)
+            
         elif self.scoring=='lift':
-            scorer=metrics.make_scorer(self.custom_score_Lift,greater_is_better=True,needs_proba=True)
+            
+            scorer=metrics.make_scorer(self._custom_score_Lift,greater_is_better=True,needs_proba=True)
+            
         else:
+            
             raise ValueError('scoring not understood,should be "ks","auc","lift")')
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)        
@@ -194,16 +198,18 @@ class BayesianXGBTuner(BaseEstimator):
         
         #print(cv_res.cv_results_['mean_test_score'])
         val_score = cv_res.cv_results_['mean_test_score'][0]
+        
         print(' Stopped after %d iterations with val-%s = %f' % (n_estimators,self.scoring,val_score))
+        
         return(val_score)    
     
-    def custom_score_AUC(self,y_true, y_pred):        
+    def _custom_score_AUC(self,y_true, y_pred):        
         '''
         自定义验证评估指标AUC
         '''           
         return metrics.roc_auc_score(y_true,y_pred)
     
-    def custom_score_KS(self,y_true, y_pred):
+    def _custom_score_KS(self,y_true, y_pred):
         '''
         自定义验证评估指标KS
         '''   
@@ -212,7 +218,7 @@ class BayesianXGBTuner(BaseEstimator):
         return ks             
         
         
-    def custom_score_Lift(self,y_true,y_pred):
+    def _custom_score_Lift(self,y_true,y_pred):
         '''
         自定义验证评估指标Lift
         '''   
@@ -225,7 +231,7 @@ class BayesianXGBTuner(BaseEstimator):
             lift.append(ppv/((tp + fn)/(tn+fp+fn+tp)))
         return(np.nanmean(lift))
     
-    def cvresult_to_df(self):
+    def _cvresult_to_df(self):
         '''
         输出交叉验证结果
         '''   
@@ -241,7 +247,7 @@ class BayesianXGBTuner(BaseEstimator):
         
         return ParaDf_all
     
-    def p_to_score(self,pred,PDO=75,base=660,ratio=1/15):
+    def _p_to_score(self,pred,PDO=75,base=660,ratio=1/15):
         
         B=1*PDO/np.log(2)
         A=base + B*np.log(ratio)
@@ -336,7 +342,7 @@ class BayesianLgbmTuner(BaseEstimator):
         X:pd.DataFrame对象
         '''      
         pred = self.model_refit.predict_proba(X)[:,1]  
-        pred = self.p_to_score(pred,PDO,base,ratio)
+        pred = self._p_to_score(pred,PDO,base,ratio)
         return pred
     
     def transform(self,X,y=None):     
@@ -352,12 +358,12 @@ class BayesianLgbmTuner(BaseEstimator):
         y:目标变量,pd.Series对象
         '''   
         
-        self.X=X
-        self.y=y
+        self.X=X.copy()
+        self.y=y.copy()
         
         para_space_num={key:self.para_space[key] for key in self.para_space if key not in ('boosting_type','class_weight')}  
         
-        self.Optimize = BayesianOptimization(self.LGBM_CV,para_space_num)
+        self.Optimize = BayesianOptimization(self._LGBM_CV,para_space_num)
         self.Optimize.maximize(n_iter=self.n_iter,init_points=self.init_points)
         
         #输出最优参数组合
@@ -366,7 +372,7 @@ class BayesianLgbmTuner(BaseEstimator):
         self.params_best['n_estimators']=int(self.params_best['n_estimators'])   
         
         #交叉验证结果保存
-        self.cv_result=self.cvresult_to_df()
+        self.cv_result=self._cvresult_to_df()
         
         if self.refit:
             #print (self.para_space)
@@ -392,7 +398,7 @@ class BayesianLgbmTuner(BaseEstimator):
         return self
     
     
-    def LGBM_CV(self,n_estimators,learning_rate,max_depth,
+    def _LGBM_CV(self,n_estimators,learning_rate,max_depth,
                min_split_gain,min_sum_hessian_in_leaf,subsample,colsample_bytree,scale_pos_weight,
                reg_lambda
               ):
@@ -410,12 +416,19 @@ class BayesianLgbmTuner(BaseEstimator):
                       }               
         
         if self.scoring=='ks':
-            scorer=metrics.make_scorer(self.custom_score_KS,greater_is_better=True,needs_proba=True)
+            
+            scorer=metrics.make_scorer(self._custom_score_KS,greater_is_better=True,needs_proba=True)
+            
         elif self.scoring=='auc':
-            scorer=metrics.make_scorer(self.custom_score_AUC,greater_is_better=True,needs_proba=True)
+            
+            scorer=metrics.make_scorer(self._custom_score_AUC,greater_is_better=True,needs_proba=True)
+            
         elif self.scoring=='lift':
-            scorer=metrics.make_scorer(self.custom_score_Lift,greater_is_better=True,needs_proba=True)
+            
+            scorer=metrics.make_scorer(self._custom_score_Lift,greater_is_better=True,needs_proba=True)
+            
         else:
+            
             raise ValueError('scoring not understood,should be "ks","auc","lift")')
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)
@@ -427,16 +440,18 @@ class BayesianLgbmTuner(BaseEstimator):
         
         #print(cv_res.cv_results_['mean_test_score'])
         val_score = cv_res.cv_results_['mean_test_score'][0]
+        
         print(' Stopped after %d iterations with val-%s = %f' % (n_estimators,self.scoring,val_score))
+        
         return(val_score)    
     
-    def custom_score_AUC(self,y_true, y_pred):        
+    def _custom_score_AUC(self,y_true, y_pred):        
         '''
         自定义验证评估指标AUC
         '''           
         return metrics.roc_auc_score(y_true,y_pred)
     
-    def custom_score_KS(self,y_true, y_pred):
+    def _custom_score_KS(self,y_true, y_pred):
         '''
         自定义验证评估指标KS
         '''   
@@ -445,7 +460,7 @@ class BayesianLgbmTuner(BaseEstimator):
         return ks             
         
         
-    def custom_score_Lift(self,y_true,y_pred):
+    def _custom_score_Lift(self,y_true,y_pred):
         '''
         自定义验证评估指标Lift
         '''   
@@ -458,7 +473,7 @@ class BayesianLgbmTuner(BaseEstimator):
             lift.append(ppv/((tp + fn)/(tn+fp+fn+tp)))
         return(np.nanmean(lift))
     
-    def cvresult_to_df(self):
+    def _cvresult_to_df(self):
         '''
         输出交叉验证结果
         '''   
@@ -474,7 +489,7 @@ class BayesianLgbmTuner(BaseEstimator):
         
         return ParaDf_all    
     
-    def p_to_score(self,pred,PDO=75,base=660,ratio=1/15):
+    def _p_to_score(self,pred,PDO=75,base=660,ratio=1/15):
         
         B=1*PDO/np.log(2)
         A=base + B*np.log(ratio)
