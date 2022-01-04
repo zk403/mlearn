@@ -16,7 +16,7 @@ from BDMLtools.tuner_bayesian import BayesianXGBTuner,BayesianLgbmTuner
 from BDMLtools.tuner_fun import shapCheck
 
 
-__version__ = '0.1.3'
+__version__ = '0.1.4'
 
 __all__ = (    
     dtStandardization,
