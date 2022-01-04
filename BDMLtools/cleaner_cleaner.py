@@ -145,7 +145,7 @@ class dtypeAllocator(TransformerMixin):
 
     Attributes:
     ------
-        order_info:dict,若X存在有序分类列(category-ordered)时原始levels和codes的对应关系字典
+        order_info:dict,若X存在有序分类列(category-ordered)时原始levels和codes的对应关系字典,必须运行完transform
     
     """    
 
@@ -177,7 +177,7 @@ class dtypeAllocator(TransformerMixin):
         X = X.copy()
         
         if X.size:
-
+            
             X_rm=X[self.col_rm] if self.col_rm else None
             
             X=X.drop(self.col_rm,axis=1) if self.col_rm else X        
@@ -193,8 +193,9 @@ class dtypeAllocator(TransformerMixin):
             else:
                 
                 raise ValueError("dtypes_dict={'num':colname_list,'str':colname_list,'date':colname_list} or {}")
-                           
-            return(pd.concat([X_rm,X_out],axis=1))            
+ 
+            return(pd.concat([X_rm,X_out],axis=1))  
+       
         
         else:
             
@@ -203,7 +204,8 @@ class dtypeAllocator(TransformerMixin):
             return pd.DataFrame(None)     
     
 
-    def fit(self,X,y=None):       
+    def fit(self,X,y=None):    
+        
         
         return self
     
@@ -232,7 +234,7 @@ class dtypeAllocator(TransformerMixin):
             
         elif not columns.size:
             
-            X_out=self.getXAuto(X)
+            X_out=self._getXAuto(X)
             
         else:
             

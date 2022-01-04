@@ -891,10 +891,10 @@ class binTree(TransformerMixin):
             
             if not cuts_remain.size:
                 
-                print("len(cuts_remain)==0")
+                #print("len(cuts_remain)==0")
                 
                 break
-            
+                        
             else:
                 #get best point and update params 
                 best_point=cuts_remain[np.argmax(inds)] #best split point
@@ -1519,7 +1519,7 @@ class binPretty(TransformerMixin):
         #pop points out of initial-binning
         while True:    
             
-            print("len(cuts)=={},len(count_list)=={}".format(str(len(cuts)),str(len(count_list))))
+            #print("len(cuts)=={},len(count_list)=={}".format(str(len(cuts)),str(len(count_list))))
 
     
             #bin_num==1 then stop 
