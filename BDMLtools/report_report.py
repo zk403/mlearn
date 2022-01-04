@@ -689,7 +689,7 @@ class varGroupsReport(TransformerMixin):
         X_g=group_dt.drop([target]+columns,axis=1)
         y_g=group_dt[target]      
         
-        if len(X_g)==row_limit:
+        if len(X_g)==0:
         
             warnings.warn('group '+str(g)+' has 0 row,output will return None')         
         
@@ -697,7 +697,7 @@ class varGroupsReport(TransformerMixin):
         
         elif len(X_g)<=row_limit:
         
-            warnings.warn('group '+str(g)+' has rows less than '+str(0)+',output will return None')         
+            warnings.warn('group '+str(g)+' has rows less than '+str(row_limit)+',output will return None')         
         
             result=pd.DataFrame(None)  
         
