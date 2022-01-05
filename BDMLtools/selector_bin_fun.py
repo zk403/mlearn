@@ -915,7 +915,7 @@ class binTree(TransformerMixin):
                 cuts_tree.append(best_point)
     
                 #remove cut point with lower count_distr
-                if best_point_dist_min<=distr_limit:
+                if best_point_dist_min<distr_limit:
     
                     cuts_tree.remove(best_point)
     
