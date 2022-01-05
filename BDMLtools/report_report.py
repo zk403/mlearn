@@ -649,7 +649,8 @@ class varGroupsReport(TransformerMixin):
             
             parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
             out_list=parallel(delayed(self._group_parallel)(X_g_gen,g,self.target,self.columns,
-                                                           self.breaks_list_dict,self.row_limit)for g in X_g_gen.groups)
+                                                           self.breaks_list_dict,self.row_limit,
+                                                           self.special_values) for g in X_g_gen.groups)
 
             report=pd.concat({columns:vtabs for columns,vtabs in out_list},axis=1)
             
@@ -682,11 +683,12 @@ class varGroupsReport(TransformerMixin):
             return pd.DataFrame(None)
         
         
-    def _group_parallel(self,X_g_gen,g,target,columns,breaks_list_dict,row_limit):
+    def _group_parallel(self,X_g_gen,g,target,columns,breaks_list_dict,row_limit,special_values):
     
         group_dt=X_g_gen.get_group(g)
         X_g=group_dt.drop([target]+columns,axis=1)
         y_g=group_dt[target]      
+        w_g=group_dt['sample_weight']      
         
         if len(X_g)==0:
         
@@ -703,12 +705,16 @@ class varGroupsReport(TransformerMixin):
         else:
         
             res=varReport(breaks_list_dict=breaks_list_dict,
+                          special_values=special_values,
+                          sample_weight=w_g,
                           n_jobs=1,                                  
                           verbose=0).fit(X_g,y_g)
         
             result=pd.concat(res.var_report_dict)
             
         return g,result
+    
+    
    
     def _getReport(self,X,report,breaks_list_dict,special_values,n_jobs,verbose,target,
                   output_psi=True,psi_base='all'):
