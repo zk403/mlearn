@@ -133,7 +133,7 @@ class dtypeAllocator(TransformerMixin):
                 + 初始数据中的时间差类型数据(timedelta)将被转换为float,时间单位需自行指定,且作用于全部的timedelta类型
                 + 其他类型的列与col_rm列将不进行转换直接输出
             + dtypes_dict={'num':colname_list,'str':colname_list,'date':colname_list}:手动处理输入数据的数据类型，通过dtypes_dict对列的类型进行分配转换
-                + colname_list是列名列表,可以为None,代表无此类特征,注意各个类的列名列表不能出现交集与重复,否则将报错终止
+                + colname_list是列名列表,可以为[],代表无此类特征,注意各个类的列名列表不能出现交集与重复,否则将报错终止
                 + 若所有colname_list的特征只是数据所有列的一部分，则剩下部分的列将不做转换
                 + colname_list不能含有col_rm中的列,否则会报错终止
         col_rm=None or list,不参与转换的列的列名列表，其不会参与任何转换且最终会保留在输出数据中        

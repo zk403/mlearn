@@ -207,7 +207,9 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
                 n_bins_adj=bin_num_limit
                 
             breaks=np.percentile(col_rm,np.arange(n_bins_adj+1)/n_bins_adj*100,interpolation='lower')[1:-1]
-            breaks=np.unique(np.round(breaks,2))    
+            breaks=np.unique(np.round(breaks,2))  
+                
+            #prevent from failed cut when col's distr too dense but will lose some infos    
             breaks=breaks[(breaks>col.min()) & (breaks<col.max())].tolist()   
             
             if coerce_monotonic:
