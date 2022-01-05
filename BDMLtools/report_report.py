@@ -423,7 +423,7 @@ class varReport(TransformerMixin):
             
             #self.breaks_list_dict=self.get_Breaklist_sc(self.breaks_list_dict,X,y)
             
-            parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+            parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose,batch_size=100)
             
             out_list=parallel(delayed(self._getReport_Single)(X,y,col,self.breaks_list_dict[col]) 
                                for col in list(self.breaks_list_dict.keys())) 
