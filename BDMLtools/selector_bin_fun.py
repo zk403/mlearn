@@ -178,10 +178,15 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
     
     def get_breaks(col,y,bin_num_limit=bin_num_limit,ws=ws,coerce_monotonic=coerce_monotonic):
         
-        if is_numeric_dtype(col):
+        
+        if col.isnull().all():
             
-            y=y[~np.isnan(col)]
+            breaks=[]     
+        
+        elif is_numeric_dtype(col):
             
+            y=y[~np.isnan(col)]    
+
             if is_array_like(ws) and coerce_monotonic:                
                 
                 ws=ws[~np.isnan(col)]
@@ -208,7 +213,6 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
             if coerce_monotonic:
                 
                 breaks=check_monotonirc(col,y,breaks,ws=ws).tolist()
-  
                
         elif is_string_dtype(col):
             

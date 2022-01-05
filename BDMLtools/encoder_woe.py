@@ -48,7 +48,7 @@ class woeTransformer(TransformerMixin):
         self.woe_missing=woe_missing
         self.distr_limit=distr_limit
         
-    def transform(self,X,y):
+    def transform(self,X,y=None):
         """ 
         WOE转换
         """
