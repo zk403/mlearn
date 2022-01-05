@@ -1039,7 +1039,7 @@ class binChi2(TransformerMixin):
     
         else:
     
-            ws=None
+            ws=np.ones(y.size)
             
         #num columns
         if is_numeric_dtype(col):
@@ -1057,9 +1057,9 @@ class binChi2(TransformerMixin):
                 
             else:
                 #chi2_merge
-                breaks=self._chi2_merge(col.values,y.values,max_bin=max_bin,
+                breaks=self._chi2_merge(col.values,y.values,ws=ws,max_bin=max_bin,
                               distr_limit=distr_limit,stop_limit=tol,
-                              bin_num_limit=bin_num_limit,ws=ws,is_str_dtype=False,
+                              bin_num_limit=bin_num_limit,is_str_dtype=False,
                               coerce_monotonic=coerce_monotonic)
             
             #get vtab using chi2-breaks
@@ -1082,9 +1082,9 @@ class binChi2(TransformerMixin):
                 map_code=dict(zip(codes,list(range(len(codes)))))
     
                 #chi2_merge
-                breaks_raw=self._chi2_merge(col.map(map_code).values,y.values,
+                breaks_raw=self._chi2_merge(col.map(map_code).values,y.values,ws=ws,
                                       distr_limit=distr_limit,stop_limit=tol,
-                                      bin_num_limit=bin_num_limit,ws=ws,
+                                      bin_num_limit=bin_num_limit,
                                       is_str_dtype=True)
     
                 #restore string breaks
@@ -1101,7 +1101,7 @@ class binChi2(TransformerMixin):
         return col.name,breaks,vtab     
 
 
-    def _chi2_merge(self,col,y,max_bin=50,distr_limit=0.05,bin_num_limit=8,stop_limit=0.1,ws=None,
+    def _chi2_merge(self,col,y,ws,max_bin=50,distr_limit=0.05,bin_num_limit=8,stop_limit=0.1,
                    is_str_dtype=False,coerce_monotonic=False):   
     
         if max_bin<2:
@@ -1109,7 +1109,8 @@ class binChi2(TransformerMixin):
             raise ValueError('max_bin should greater than 1')
             
         #get count limit per bin
-        count_limit=distr_limit*col.size
+            
+        count_limit=distr_limit*ws.sum()
         
         #get chi2 threshold at stop_limit
         threshold = chi2.isf(stop_limit, df=1)
@@ -1122,14 +1123,12 @@ class binChi2(TransformerMixin):
         else:
             #get initial-binning        
             y=y[~np.isnan(col)]
+   
+            ws=ws[~np.isnan(col)]
             
-            if is_array_like(ws):                
-                
-                ws=ws[~np.isnan(col)]
-                
-                if ws.size!=y.size:
-                
-                    raise ValueError('length of weight not equal to y')
+            if ws.size!=y.size:
+            
+                raise ValueError('length of weight not equal to y')
                     
             col=col[~np.isnan(col)]
         
@@ -1403,7 +1402,7 @@ class binPretty(TransformerMixin):
     
         else:
     
-            ws=None
+            ws=np.ones(y.size)
             
         #num columns
         if is_numeric_dtype(col):
@@ -1419,9 +1418,9 @@ class binPretty(TransformerMixin):
                 
             else:
                 #merge
-                breaks=self._pretty_merge(col.values,y.values,max_bin=max_bin,
+                breaks=self._pretty_merge(col.values,y.values,ws=ws,max_bin=max_bin,
                               distr_limit=distr_limit,
-                              bin_num_limit=bin_num_limit,ws=ws,is_str_dtype=False,
+                              bin_num_limit=bin_num_limit,is_str_dtype=False,
                               coerce_monotonic=coerce_monotonic)
             
             #get vtab using chi2-breaks
@@ -1442,9 +1441,9 @@ class binPretty(TransformerMixin):
                 map_code=dict(zip(codes,list(range(len(codes)))))
     
                 #merge
-                breaks_raw=self._pretty_merge(col.map(map_code).values,y.values,
+                breaks_raw=self._pretty_merge(col.map(map_code).values,y.values,ws=ws,
                                       distr_limit=distr_limit,
-                                      bin_num_limit=bin_num_limit,ws=ws,
+                                      bin_num_limit=bin_num_limit,
                                       is_str_dtype=True)
     
                 #restore string breaks
@@ -1461,7 +1460,7 @@ class binPretty(TransformerMixin):
         return col.name,breaks,vtab     
 
 
-    def _pretty_merge(self,col,y,max_bin=50,distr_limit=0.05,bin_num_limit=8,ws=None,
+    def _pretty_merge(self,col,y,ws,max_bin=50,distr_limit=0.05,bin_num_limit=8,
                    is_str_dtype=False,coerce_monotonic=False):   
     
         if max_bin<2:
@@ -1469,7 +1468,7 @@ class binPretty(TransformerMixin):
             raise ValueError('max_bin should greater than 1')
             
         #get count limit per bin
-        count_limit=distr_limit*col.size
+        count_limit=distr_limit*ws.sum()
        
         #drop nans  
         if is_str_dtype:
@@ -1478,15 +1477,13 @@ class binPretty(TransformerMixin):
             
         else:
             #get initial-binning        
-            y=y[~np.isnan(col)]
+            y=y[~np.isnan(col)]                         
+                
+            ws=ws[~np.isnan(col)]
             
-            if is_array_like(ws):                
-                
-                ws=ws[~np.isnan(col)]
-                
-                if ws.size!=y.size:
-                
-                    raise ValueError('length of weight not equal to y')
+            if ws.size!=y.size:
+            
+                raise ValueError('length of weight not equal to y')
                     
             col=col[~np.isnan(col)]
         
