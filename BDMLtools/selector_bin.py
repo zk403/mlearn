@@ -52,7 +52,7 @@ class binSelector(TransformerMixin):
             + 其将会影响最终vtable的每一箱的count,bad,good,bad_prob,iv,ks等,
             + 若只对好坏样本进行加权则只会影响bad_prob
             + 当method in ('tree','chi2')时若sample_weight非空，则算法会计算加权后的iv_gain,ks_gain或卡方值
-        special_values,缺失值指代值
+        special_values,特殊值指代值,若数据中某些值或某列某些值需特殊对待(这些值不是np.nan)时设定
             + None,保证数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  

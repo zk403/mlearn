@@ -15,7 +15,7 @@ import os
 from itertools import product
 import warnings
 from joblib import Parallel,delayed
-from BDMLtools.fun import raw_to_bin_sc,sp_replace
+from BDMLtools.fun import raw_to_bin_sc,sp_replace_single,check_spvalues
 
 class EDAReport(TransformerMixin):
     
@@ -25,10 +25,6 @@ class EDAReport(TransformerMixin):
     ------
         categorical_col:list,类别特征列名
         numeric_col:list,连续特征列名
-        special_values:缺失值指代值
-            + None,保证数据默认
-            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
-            + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
         is_nacorr:bool,是否输出缺失率相关性报告
         out_path:str or None,将数据质量报告输出到本地工作目录的str文件夹下，None代表不输出            
     
@@ -40,20 +36,16 @@ class EDAReport(TransformerMixin):
         nacorr_report:pd.DataFrame,缺失率相关性报告
     """
     
-    def __init__(self,categorical_col=None,numeric_col=None,special_values=None,is_nacorr=False,out_path="report"):
+    def __init__(self,categorical_col=None,numeric_col=None,is_nacorr=False,out_path="report"):
         
         self.categorical_col = categorical_col
         self.numeric_col = numeric_col
-        self.special_values=special_values
         self.is_nacorr=is_nacorr
         self.out_path=out_path
         
     def fit(self, X, y=None):
 
         if X.size:
-            
-            #填充缺失值
-            X=sp_replace(X,self.special_values)   
             
             #产生报告
             self.num_report=self._num_info(X)
@@ -278,18 +270,17 @@ class businessReport(TransformerMixin):
         print('to_excel done') 
         
 
-
 class varReportSinge:
     
-    def report(self, X, y,breaks,sample_weight=None):
+    def report(self, X, y,breaks,sample_weight=None,special_values=None):
+                
+        X=sp_replace_single(X,check_spvalues(X.name,special_values),fill_num=2**63,fill_str='special')
+               
+        report_var=self.getReport_Single(X,y,breaks,sample_weight,special_values)
         
-        report_var=self.getReport_Single(X,y,breaks,sample_weight)
+        return report_var 
         
-        return report_var
- 
-        
-    def getReport_Single(self,X,y,breakslist_var,sample_weight):
-         
+    def getReport_Single(self,X,y,breakslist_var,sample_weight,special_values):         
 
          col=X.name
 
@@ -301,10 +292,32 @@ class varReportSinge:
          #判断数据类型
          if is_numeric_dtype(var_fillna):
            
-             #按照分箱sc的breaklist的区间进行分箱
-             var_cut=pd.cut(var_fillna,[-np.inf]+breakslist_var+[np.inf],duplicates='drop',right=False).cat.add_categories('missing')
              
-             var_bin=var_cut.fillna('missing')
+             if special_values:
+                 
+                 #按照分箱sc的breaklist的区间进行分箱
+                 var_cut=pd.cut(var_fillna,[-np.inf]+breakslist_var+[2**63]+[np.inf],duplicates='drop',right=False).cat.add_categories('missing')                 
+                 
+                 #add missing codes
+                 var_bin=var_cut.fillna('missing')
+             
+                 #add speical codes
+                 var_bin=var_bin.cat.rename_categories(
+                                {pd.Interval(left=2**63, right=np.inf,closed='left'):'special'}
+                            )             
+                 
+                 var_bin=var_bin.cat.rename_categories({
+                     var_bin.cat.categories[-3]:
+                     pd.Interval(left=var_bin.cat.categories[-3].left, right=np.inf,closed='left')
+                 })             
+                     
+             else:
+                 
+                 var_cut=pd.cut(var_fillna,[-np.inf]+breakslist_var+[np.inf],duplicates='drop',right=False).cat.add_categories(['special','missing'])                 
+                 
+                 #add missing codes
+                 var_bin=var_cut.fillna('missing')
+
          
          elif is_string_dtype(var_fillna):    
              
@@ -320,6 +333,11 @@ class varReportSinge:
              var_bin=pd.Series(pd.Categorical(var_cut.map(map_codes)),index=var_fillna.index,name=col).cat.set_categories(breakslist_var)
              
              
+             if "special" not in var_bin.cat.categories:
+                
+                var_bin= var_bin.cat.add_categories('special')
+             
+             
              if 'missing' in var_bin.cat.categories:
                  
                  var_bin= var_bin.fillna('missing') 
@@ -327,6 +345,8 @@ class varReportSinge:
              else:
                  
                  var_bin= var_bin.cat.add_categories('missing').fillna('missing')
+                 
+                
              
          else:
              
@@ -378,9 +398,8 @@ class varReportSinge:
         var_ptable=var_ptable[['variable', 'count', 'count_distr', 'good', 'bad', 'badprob','woe', 'bin_iv', 'total_iv','ks','ks_max']]
         
         return var_ptable
+       
         
-        
-
 class varReport(TransformerMixin):
     
     """ 
@@ -388,7 +407,8 @@ class varReport(TransformerMixin):
     Params:
     ------
         breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
-        special_values:缺失值指代值
+        special_values:特殊值指代值,若数据中某些值或某列某些值需特殊对待(这些值不是np.nan)时设定
+            请特别注意,special_values必须与binSelector的special_values一致,否则报告的special行会产生错误结果
             + None,保证数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
@@ -419,14 +439,10 @@ class varReport(TransformerMixin):
 
         if X.size:
             
-            X=sp_replace(X, self.special_values)
-            
-            #self.breaks_list_dict=self.get_Breaklist_sc(self.breaks_list_dict,X,y)
-            
             parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose,batch_size=100)
             
-            out_list=parallel(delayed(self._getReport_Single)(X,y,col,self.breaks_list_dict[col]) 
-                               for col in list(self.breaks_list_dict.keys())) 
+            out_list=parallel(delayed(self._get_report_single)(X,y,col,self.breaks_list_dict[col],self.sample_weight,self.special_values)
+                              for col in self.breaks_list_dict)
             
             self.var_report_dict={col:total for col,total in out_list}
             
@@ -450,99 +466,12 @@ class varReport(TransformerMixin):
 
             return pd.DataFrame(None)
         
-    
-    def _getReport_Single(self,X,y,col,breaklist_var):
-         
-         #print(col)
-         
-         #breaklist_var=list(breaks_list_dict[col])
-         
-         #第1步:判断数据类型
-         if is_numeric_dtype(X[col]):
-             
-             var_fillna=X[col]
+    def _get_report_single(self,X,y,col_name,breaks,sample_weight,special_values):
            
-             #按照分箱sc的breaklist的区间进行分箱
-             var_cut=pd.cut(var_fillna,[-np.inf]+breaklist_var+[np.inf],duplicates='drop',right=False).cat.add_categories('missing')
-             
-             var_bin=var_cut.fillna('missing')
-         
-         elif is_string_dtype(X[col]):   
-
-             var_fillna=X[col]
-             
-             var_cut=pd.Series(np.where(var_fillna.isnull(),'missing',var_fillna),
-                       index=var_fillna.index,
-                       name=var_fillna.name)
-
-             #转换字原始符映射到分箱sc的breaklist的字符映射
-             var_code_raw=var_cut.unique().tolist()
-                          
-             map_codes=raw_to_bin_sc(var_code_raw,breaklist_var)
-                        
-             var_bin=pd.Series(pd.Categorical(var_cut.map(map_codes)),index=var_fillna.index,name=col).cat.set_categories(breaklist_var)
-             
-             if 'missing' in var_bin.cat.categories:
-                 
-                 var_bin= var_bin.fillna('missing') 
-            
-             else:
-                 
-                 var_bin= var_bin.cat.add_categories('missing').fillna('missing')
-            
-         else:
-             
-             raise ValueError('dtypes in X in (number,object),others not support')
-         
-         #加权         
-         if is_array_like(self.sample_weight):         
-             var_bin=pd.concat([var_bin,y.mul(self.sample_weight).rename(y.name)],axis=1) 
-             var_bin['sample_weight']=self.sample_weight
-         else:
-             var_bin=pd.concat([var_bin,y],axis=1)
-             var_bin['sample_weight']=1         
-         
-         #print var_bin
-         rename_aggfunc=dict(zip(['sample_weight',y.name],['count','bad']))
-         result=pd.pivot_table(var_bin,index=col,values=[y.name,'sample_weight'],
-                           margins=False,
-                           aggfunc='sum').rename(columns=rename_aggfunc,level=0)#.droplevel(level=1,axis=1)          
-         
-         
-         var_tab=self._getVarReport_ks(result,col) 
-         
-         if is_string_dtype(var_fillna):
-             
-             var_tab.index=var_tab.index.astype('category') 
-
-         var_tab_out=var_tab.assign(
-             breaks=var_tab.index.categories.map(lambda x:x if isinstance(x,str) else x.right))
-
-         return col,var_tab_out   
-
-            
-    def _getVarReport_ks(self,var_ptable,col):
+        vtabs=varReportSinge().report(X[col_name],y,breaks,sample_weight,special_values)
         
-        var_ptable['badprob']=var_ptable['bad'].div(var_ptable['count'])
-        var_ptable['count_distr']=var_ptable['count'].div(var_ptable['count'].sum())
-        var_ptable['good']=var_ptable['count'].sub(var_ptable['bad'])
-        var_ptable['good_dis']=var_ptable['good'].div(var_ptable['good'].sum())
-        var_ptable['bad_dis']=var_ptable['bad'].div(var_ptable['bad'].sum())
-        var_ptable['bin_iv']=var_ptable['bad_dis'].sub(var_ptable['good_dis']).mul(
-            (var_ptable["bad_dis"]+1e-10).div((var_ptable["good_dis"]+1e-10)).apply(np.log)
-        )
-        var_ptable['total_iv']=var_ptable['bin_iv'].sum()
-        var_ptable['woe']=(var_ptable["bad_dis"]+1e-10).div((var_ptable["good_dis"]+1e-10)).apply(np.log)
-        var_ptable['ks']=var_ptable['good_dis'].cumsum().sub(var_ptable['bad_dis'].cumsum()).abs()
-        var_ptable['ks_max']=var_ptable['ks'].max()
-        var_ptable['variable']=col
-        var_ptable.index.name='bin'
-        #var_ptable=var_ptable.reset_index()
-        #var_ptable['bin']=var_ptable['bin'].astype('str')
-        var_ptable=var_ptable[['variable', 'count', 'count_distr', 'good', 'bad', 'badprob','woe', 'bin_iv', 'total_iv','ks','ks_max']]
-        
-        return var_ptable
-    
+        return col_name,vtabs
+
     
     def _writeExcel(self):
         
@@ -566,6 +495,7 @@ class varReport(TransformerMixin):
         writer.save()     
         
         print('to_excel done') 
+
         
         
 class varGroupsReport(TransformerMixin):
@@ -580,6 +510,7 @@ class varGroupsReport(TransformerMixin):
     sort_columns:dict or None,组变量名输出的列顺序,排序后的报告中多重列索引的列顺序将与设定一致
         + sort_columns必须是dict格式，例如sort_columns={col_name1:[value1,value2,...],col_name2:[...],...}
         + sort_columns的key必须与columns一致，即排序的组变量名要写全，例如columns=['col1','col2'],那么sort_columns={col1:[value1,value2,...],col2:[...]}
+            + 可使用X[key].astype('str').unique()去查看组变量的所有值并根据其值进行排序
         + sort_columns中某列的排序值[value1,value2,...]必须与原始数据X的中改列的唯一值一致,即set([value1,value2,...])==set(X[col_name1].unique)
     target:目标变量名
     output_psi:bool,是否输出群组psi报告
@@ -750,10 +681,20 @@ class varGroupsReport(TransformerMixin):
                 base=pd.concat(all_var.var_report_dict)['count_distr']
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
+                
+                
                 psi_sum=report_distr.fillna(0).apply(lambda x:self._psi(x,base),axis=0).droplevel(level=1)\
                                       .assign(bin='psi').set_index('bin',append=True).sort_index(axis=1).groupby(level=[0,1]).sum()
                                       
-                report_out['report_psi']=pd.concat([report_distr,psi_sum]).sort_index().reset_index().rename(columns={'level_0':'variable'})
+                psi_tab=pd.concat([report_distr,psi_sum]).sort_index()     
+                
+                if self.sort_columns:       
+                    
+                    sort_columns_list=self._check_columns_sort(self.sort_columns, self.columns, X)                                    
+            
+                    psi_tab=self._vtab_column_sort(sort_columns_list,psi_tab)                          
+                                      
+                report_out['report_psi']=psi_tab.reset_index().rename(columns={'level_0':'variable'})
             
             else:            
                 
@@ -770,10 +711,19 @@ class varGroupsReport(TransformerMixin):
                 base=pd.concat(all_var.var_report_dict)['count_distr']
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
+                
                 psi_sum=report_distr.fillna(0).apply(lambda x:self._psi(x,base),axis=0).droplevel(level=1)\
                                       .assign(bin='psi').set_index('bin',append=True).sort_index(axis=1).groupby(level=[0,1]).sum()
                                       
-                report_out['report_psi']=pd.concat([report_distr,psi_sum]).sort_index().reset_index().rename(columns={'level_0':'variable'})                                        
+                psi_tab=pd.concat([report_distr,psi_sum]).sort_index()     
+                                
+                if self.sort_columns:       
+                                    
+                    sort_columns_list=self._check_columns_sort(self.sort_columns, self.columns, X)                                    
+                            
+                    psi_tab=self._vtab_column_sort(sort_columns_list,psi_tab)                            
+                                      
+                report_out['report_psi']=psi_tab.reset_index().rename(columns={'level_0':'variable'})                                        
                 
         return report_out        
             
@@ -824,7 +774,7 @@ class varGroupsReport(TransformerMixin):
                     
                     if set(col_values) != set(sort_columns[col]):                        
                         
-                        raise ValueError("sort_values of '{}' not equal to unique values of X['{}'],check and re-define them".format(col,col))
+                        raise ValueError("sort_values of '{}' not equal to unique values of X['{}'],use X[col].astype('str').unique() to check values and re-define them".format(col,col))
                         
                 #get sort_columns list      
                 sort_columns=[sort_columns[col] for col in columns]

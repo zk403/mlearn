@@ -55,7 +55,7 @@ def raw_to_bin_sc(var_code_raw,breakslist_var):
 
 
 
-def sp_replace_df(X,special_values,fill_num=np.nan,fill_str='missing'):
+def sp_replace_df(X,special_values,fill_num=2**63,fill_str='special'):
     
     """ 
     特殊值替换,数值特征缺失值替换为np.nan,分类特征缺失值替换为'missing'
@@ -80,7 +80,8 @@ def sp_replace_df(X,special_values,fill_num=np.nan,fill_str='missing'):
     return X_all
 
 
-def sp_replace_col(col,special_values,fill_num=np.nan,fill_str='missing'):
+
+def sp_replace_col(col,special_values,fill_num=2**63,fill_str='special'):
     
     """ 
     特殊值替换,数值特征缺失值替换为np.nan,分类特征缺失值替换为'missing'
@@ -96,8 +97,12 @@ def sp_replace_col(col,special_values,fill_num=np.nan,fill_str='missing'):
     -------
         X,pd.DataFrame,替换后的数据
     """             
-
-    if is_numeric_dtype(col):
+    
+    if special_values is None:
+        
+        return col    
+ 
+    elif is_numeric_dtype(col):
         
         if col.name in special_values:
         
@@ -121,7 +126,7 @@ def sp_replace_col(col,special_values,fill_num=np.nan,fill_str='missing'):
         return col
        
     
-def sp_replace(X,special_values,fill_num=np.nan,fill_str='missing'):
+def sp_replace(X,special_values,fill_num=2**63,fill_str='special'):
     
     """ 
     特殊值替换,数值特征缺失值替换为np.nan,分类特征缺失值替换为'missing'
@@ -157,7 +162,57 @@ def sp_replace(X,special_values,fill_num=np.nan,fill_str='missing'):
     return X
 
 
+def sp_replace_single(col,special_values_list,fill_num=2**63,fill_str='special'):
+    
+    
+    if special_values_list is None:
+        
+        return col    
+ 
+    elif is_numeric_dtype(col):
 
+        
+        return col.replace(special_values_list,fill_num)
+
+    
+    elif is_string_dtype(col):
+        
+        
+        return col.replace(special_values_list,fill_str)
+
+        
+    else:
+        
+        return col
+    
+    
+def check_spvalues(col_name,special_values):
+    
+    if not special_values:
+        
+        special_values_single=None
+    
+    elif special_values and isinstance(special_values,list):
+        
+        special_values_single=special_values
+    
+    elif special_values and isinstance(special_values,dict):
+        
+        if col_name in special_values:
+            
+            special_values_single=special_values[col_name]
+            
+        else:
+            
+            special_values_single=None
+        
+    else:
+    
+        raise ValueError('special_values is list,dict or None')    
+    
+    return special_values_single
+    
+    
 def get_Breaklist_sc(break_list,X,y):
  
     

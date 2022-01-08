@@ -421,13 +421,13 @@ class nanTransformer(TransformerMixin):
     """    
     
     def __init__(self,method=('constant','constant'),
-                      special_values=[np.nan,'nan'],
+                      missing_values=[np.nan,'nan'],
                       fill_value=(np.nan,'missing'),  
                       n_neighbors=10,
                       weights_knn='uniform',
                       indicator=False,dtype_num='float32'):
 
-        self.special_values=special_values
+        self.missing_values=missing_values
         self.method=method
         self.fill_value=fill_value
         self.indicator=indicator
@@ -444,10 +444,9 @@ class nanTransformer(TransformerMixin):
         Parameters
         ----------
         X : pd.DataFrame,X数据，(n_smaples,n_features)            
-        """
-        
+        """       
 
-        X=sp_replace(X,self.special_values,fill_num=np.nan,fill_str=np.nan)
+        X=sp_replace(X,self.missing_values,fill_num=np.nan,fill_str=np.nan)
         
         X_num=X.select_dtypes(include='number')
         X_str=X.select_dtypes(include='object')

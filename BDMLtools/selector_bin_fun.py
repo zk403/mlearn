@@ -15,7 +15,7 @@ import warnings
 from itertools import groupby
 from sklearn.cluster import KMeans
 from scipy.stats import chi2,chi2_contingency
-from BDMLtools.fun import raw_to_bin_sc,sp_replace
+from BDMLtools.fun import raw_to_bin_sc,sp_replace_single,check_spvalues
 from BDMLtools.report_report import varReportSinge
 
 
@@ -173,12 +173,12 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
         bin_num_limit:
         special_values
     """
-    
-    X=sp_replace(X,special_values)
-    
-    def get_breaks(col,y,bin_num_limit=bin_num_limit,ws=ws,coerce_monotonic=coerce_monotonic):
+  
+    def get_breaks(col,y,bin_num_limit=bin_num_limit,ws=ws,special_values=special_values,coerce_monotonic=coerce_monotonic):
         
         
+        col=sp_replace_single(col,check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')
+
         if col.isnull().all():
             
             breaks=[]     
@@ -226,9 +226,10 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
             
         return breaks
 
-    breaks_list={name_value[0]:get_breaks(name_value[1],y) for name_value in X.iteritems()}
+    breaks_list={name_value[0]:get_breaks(name_value[1],y) 
+                 for name_value in X.iteritems()}
     
-    bins={col:varReportSinge().report(X[col],y,breaks_list[col],ws) for col in X.columns}
+    bins={col:varReportSinge().report(X[col],y,breaks_list[col],ws,special_values) for col in X.columns}
    
     return breaks_list,bins
 
@@ -252,7 +253,8 @@ class binKmeans(TransformerMixin):
             + 本算法在合并差距较大的barprob箱时,kmeans的随机性会被放大导致合并结果不可复现,设定seed值以复现合并结果
             + 设定合理的combine_ratio与bin_limit可极大的降低kmeans的随机性            
         sample_weight:array,样本权重
-        special_values,list,dict,缺失值值指代值     
+        special_values,list,dict,特殊值指代值,若数据中某些值或某列某些值需特殊对待(这些值不是np.nan)时设定
+            + None,无特殊值
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan 
         n_jobs,int,并行数量,默认-1,在数据量较大、列较多的前提下可极大提升效率但会增加内存占用
@@ -280,9 +282,7 @@ class binKmeans(TransformerMixin):
     def fit(self, X, y):
         
         if X.size:
-            
-            X=sp_replace(X, self.special_values)
-            
+                   
             #breaks_list=self.get_Breaklist_sc(self.breaks_list,X,y)
             breaks_list=self.breaks_list
             
@@ -293,6 +293,7 @@ class binKmeans(TransformerMixin):
                                                                     self.bin_limit,
                                                                     self.breaks_list[col],
                                                                     self.sample_weight,
+                                                                    self.special_values,
                                                                     self.seed)
                                for col in list(breaks_list.keys()))     
             
@@ -316,10 +317,11 @@ class binKmeans(TransformerMixin):
             return pd.DataFrame(None)
         
         
-    def _combine_badprob_kmeans(self,col,y,combine_ratio,bin_limit,breaks,ws=None,random_state=123):    
+    def _combine_badprob_kmeans(self,col,y,combine_ratio,bin_limit,breaks,ws=None,special_values=None,random_state=123):    
      
          #global var_bin,res_km_s
-         var_raw=col
+            
+         var_raw=sp_replace_single(col,check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')
          
          if is_array_like(ws):                
         
@@ -357,7 +359,7 @@ class binKmeans(TransformerMixin):
              #no merge if n_clusters<=bin_limit(user-defined)
              if n_clusters<bin_limit:
                  
-                 vtab=varReportSinge().report(col,y,breaks=breaks,sample_weight=ws)
+                 vtab=varReportSinge().report(col,y,breaks=breaks,sample_weight=ws,special_values=special_values)
                  
                  return col.name,breaks,vtab
              
@@ -433,7 +435,7 @@ class binKmeans(TransformerMixin):
                          
                          break
                          
-                 vtab=varReportSinge().report(col,y,breaks=breaks,sample_weight=ws)
+                 vtab=varReportSinge().report(col,y,breaks=breaks,sample_weight=ws,special_values=special_values)
                  return col.name,breaks,vtab
      
          elif is_numeric_dtype(var_raw):
@@ -448,7 +450,7 @@ class binKmeans(TransformerMixin):
              #no merge if n_clusters<=bin_limit(user-defined)
              if n_clusters<bin_limit:
                  
-                 vtab=varReportSinge().report(col,y,breaks=breaks,sample_weight=ws)
+                 vtab=varReportSinge().report(col,y,breaks=breaks,sample_weight=ws,special_values=special_values)
                  
                  return col.name,breaks,vtab
              
@@ -534,7 +536,7 @@ class binKmeans(TransformerMixin):
                          
                          break
                      
-                 vtab=varReportSinge().report(col,y,breaks=breaks,sample_weight=ws)
+                 vtab=varReportSinge().report(col,y,breaks=breaks,sample_weight=ws,special_values=special_values)
                  
                  return col.name,breaks,vtab
              
@@ -589,7 +591,7 @@ class binTree(TransformerMixin):
             + 若仅对好坏样本加权(权重非0)则iv_gain与ks_gain无变化，也不会影响最优分割点的选择
         + 若coerce_monotonic=True,样本权重影响bad_rate的计算进而会影响单调最优分箱的分割点的选择
             + 若仅对好坏样本加权(权重非0)则bad_rate的计算的排序性不变，也不会影响最优分割点的选择        
-    special_values:缺失值指代值
+    special_values:特殊值指代值,若数据中某些值或某列某些值需特殊对待(这些值不是np.nan)时设定
         + None,保证数据默认
         + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
         + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
@@ -621,16 +623,17 @@ class binTree(TransformerMixin):
     
     def fit(self, X, y):
         
-        if X.size:
+        if X.size:           
             
-            X=sp_replace(X, self.special_values)
             p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+            
             res=p(delayed(self._get_treecut)(col[1],y,self.max_bin,
                                             self.criteria,self.max_iters,
                                             self.tol,self.distr_limit,
                                             self.bin_num_limit,
                                             self.ws,
-                                            self.coerce_monotonic) for col in X.iteritems())
+                                            self.coerce_monotonic,
+                                            self.special_values) for col in X.iteritems())
             
             self.breaks_list={col_name:breaks for col_name,breaks,_ in res}
             self.bins={col_name:vtab for col_name,_,vtab in res}
@@ -651,7 +654,11 @@ class binTree(TransformerMixin):
             return pd.DataFrame(None)
         
         
-    def _get_treecut(self,col,y,max_bin,criteria,max_iters,tol,distr_limit,bin_num_limit,ws,coerce_monotonic):
+    def _get_treecut(self,col,y,max_bin,criteria,max_iters,tol,distr_limit,bin_num_limit,ws,coerce_monotonic,special_values):
+        
+        col_raw=col.copy()
+        
+        col=sp_replace_single(col,check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')
         
         #sample_wieght
         if is_array_like(ws):
@@ -672,13 +679,13 @@ class binTree(TransformerMixin):
                 
                 breaks=[]       
                 
-                vtab=varReportSinge().report(col,y,breaks,sample_weight=ws)
+                vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
                 
             elif np.unique(col[~np.isnan(col)]).size==1:
                 
                 breaks=[]
                 
-                vtab=varReportSinge().report(col,y,breaks,sample_weight=ws)
+                vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
             
             #tree cut
             else:
@@ -693,7 +700,7 @@ class binTree(TransformerMixin):
                                      coerce_monotonic=coerce_monotonic,
                                      bin_num_limit=bin_num_limit)
                 
-                vtab=varReportSinge().report(col,y,breaks,sample_weight=ws)
+                vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
         
         #string columns         
         elif is_string_dtype(col):
@@ -724,7 +731,7 @@ class binTree(TransformerMixin):
                 #restore string breaks
                 breaks=['%,%'.join(i) for i in np.split(codes,np.int32(breaks_raw)) if i.tolist()]    
             
-            vtab=varReportSinge().report(col,y,breaks,sample_weight=ws)
+            vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
             
         else:
             
@@ -968,7 +975,7 @@ class binChi2(TransformerMixin):
         + 本算法中会先在预分箱中强制单调，再进行卡方分箱以保证卡方分箱单调
         + 若x与y本身有单调趋势则强制单调能够取得理想的结果,若x与y的关系是非线性关系则强制单调结果会不理想
     ws=None,None or pandas.core.series.Series,样本权重
-    special_values:缺失值指代值
+    special_values:特殊值指代值,若数据中某些值或某列某些值需特殊对待(这些值不是np.nan)时设定
         + None,保证数据默认
         + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
         + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
@@ -997,17 +1004,18 @@ class binChi2(TransformerMixin):
     
     def fit(self, X, y):
         
-        if X.size:
+        if X.size:   
             
-            X=sp_replace(X, self.special_values)           
             p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+            
             res=p(delayed(self._get_chi2merge)(col[1],y,
                                             self.max_bin,
                                             self.tol,
                                             self.distr_limit,
                                             self.bin_num_limit,
                                             self.ws,
-                                            self.coerce_monotonic) for col in X.iteritems())
+                                            self.coerce_monotonic,
+                                            self.special_values) for col in X.iteritems())
             
             self.breaks_list={col_name:breaks for col_name,breaks,_ in res}
             self.bins={col_name:vtab for col_name,_,vtab in res}            
@@ -1028,7 +1036,11 @@ class binChi2(TransformerMixin):
             return pd.DataFrame(None)            
     
     
-    def _get_chi2merge(self,col,y,max_bin=50,tol=0.1,distr_limit=0.05,bin_num_limit=8,ws=None,coerce_monotonic=False):
+    def _get_chi2merge(self,col,y,max_bin=50,tol=0.1,distr_limit=0.05,bin_num_limit=8,ws=None,coerce_monotonic=False,special_values=None):
+    
+        col_raw=col.copy()
+        
+        col=sp_replace_single(col,check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')        
     
         #sample_wieght
         if is_array_like(ws):
@@ -1065,7 +1077,7 @@ class binChi2(TransformerMixin):
                               coerce_monotonic=coerce_monotonic)
             
             #get vtab using chi2-breaks
-            vtab=varReportSinge().report(col,y,breaks,sample_weight=ws)
+            vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
             
         elif is_string_dtype(col):
             
@@ -1093,7 +1105,7 @@ class binChi2(TransformerMixin):
                 breaks=['%,%'.join(i) for i in np.split(codes,np.int32(breaks_raw)) if i.tolist()] 
             
             #get vtab using chi2-breaks
-            vtab=varReportSinge().report(col,y,breaks,sample_weight=ws)
+            vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
     
         else:
                 
@@ -1333,7 +1345,7 @@ class binPretty(TransformerMixin):
         + 本算法中会先在预分箱中强制单调，再进行合并分箱以保证分箱单调
         + 若x与y本身有单调趋势则强制单调能够取得理想的结果,若x与y的关系是非线性关系则强制单调结果会不理想
     ws=None,None or pandas.core.series.Series,样本权重
-    special_values:缺失值指代值
+    special_values:特殊值指代值,若数据中某些值或某列某些值需特殊对待(这些值不是np.nan)时设定
         + None,保证数据默认
         + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
         + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
@@ -1363,14 +1375,15 @@ class binPretty(TransformerMixin):
         
         if X.size:
             
-            X=sp_replace(X, self.special_values)           
             p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+            
             res=p(delayed(self._get_prettymerge)(col[1],y,
                                             self.max_bin,
                                             self.distr_limit,
                                             self.bin_num_limit,
                                             self.ws,
-                                            self.coerce_monotonic) for col in X.iteritems())
+                                            self.coerce_monotonic,
+                                            self.special_values) for col in X.iteritems())
             
             self.breaks_list={col_name:breaks for col_name,breaks,_ in res}
             self.bins={col_name:vtab for col_name,_,vtab in res}            
@@ -1391,7 +1404,11 @@ class binPretty(TransformerMixin):
             return pd.DataFrame(None)            
     
     
-    def _get_prettymerge(self,col,y,max_bin=50,distr_limit=0.05,bin_num_limit=8,ws=None,coerce_monotonic=False):
+    def _get_prettymerge(self,col,y,max_bin=50,distr_limit=0.05,bin_num_limit=8,ws=None,coerce_monotonic=False,special_values=None):
+    
+        col_raw=col.copy()
+        
+        col=sp_replace_single(col,check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')                
     
         #sample_wieght
         if is_array_like(ws):
@@ -1426,7 +1443,7 @@ class binPretty(TransformerMixin):
                               coerce_monotonic=coerce_monotonic)
             
             #get vtab using chi2-breaks
-            vtab=varReportSinge().report(col,y,breaks,sample_weight=ws)
+            vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
             
         elif is_string_dtype(col):
             
@@ -1452,7 +1469,7 @@ class binPretty(TransformerMixin):
                 breaks=['%,%'.join(i) for i in np.split(codes,np.int32(breaks_raw)) if i.tolist()] 
             
             #get vtab using chi2-breaks
-            vtab=varReportSinge().report(col,y,breaks,sample_weight=ws)
+            vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
     
         else:
                 

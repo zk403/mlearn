@@ -10,6 +10,7 @@ from sklearn.base import TransformerMixin,BaseEstimator
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import statsmodels.formula.api as smf
 import statsmodels.api as sm
+from statsmodels.genmod.generalized_linear_model import SET_USE_BIC_LLF
 from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import numpy as np
@@ -24,7 +25,7 @@ from joblib import Parallel,delayed
 class stepLogit(BaseEstimator):
     
     '''
-    逐步回归,请注意column name不能以数字开头
+    逐步回归,请注意column name需能够被pasty识别
     Parameters:
     --
         custom_column=None:list,自定义列名,调整回归模型时使用,默认为None表示所有特征都会进行筛选
@@ -146,7 +147,9 @@ class stepLogit(BaseEstimator):
                 max_iter : int, 默认是200
                     逐步法最大迭代次数。
             '''
-            criterion_list = ['bic', 'aic', 'bic_llf']
+            SET_USE_BIC_LLF(True)
+            
+            criterion_list = ['bic', 'aic']
             if criterion not in criterion_list:
                 raise ValueError('criterion must in', '\n', criterion_list)
 
