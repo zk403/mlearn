@@ -525,7 +525,7 @@ class nanTransformer(TransformerMixin):
 
         """
         
-        X=sp_replace(X,self.special_values,fill_num=np.nan,fill_str=np.nan)
+        X=sp_replace(X,self.missing_values,fill_num=np.nan,fill_str=np.nan)
         
         if X.size:
             
@@ -537,7 +537,7 @@ class nanTransformer(TransformerMixin):
                 
                 warnings.warn("column which its dtype not in ('number','object') will not be imputed")      
 
-    
+
             if X_num.size:
                 
                 X_num_fill=pd.DataFrame(self.imputer_num.transform(X_num),
