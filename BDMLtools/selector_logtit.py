@@ -18,7 +18,7 @@ from statsmodels.discrete.discrete_model import BinaryResultsWrapper
 from statsmodels.genmod.generalized_linear_model import GLMResultsWrapper
 from sklearn.linear_model._logistic import LogisticRegression
 from pandas.api.types import is_numeric_dtype,is_string_dtype
-from BDMLtools.fun import raw_to_bin_sc,sp_replace
+from BDMLtools.fun import raw_to_bin_sc,sp_replace_single,check_spvalues
 from joblib import Parallel,delayed
 
 
@@ -329,12 +329,10 @@ class cardScorer(TransformerMixin):
     
     
     def transform(self,X,y=None):
-        
-        X=sp_replace(X,self.special_values)      
 
         p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
             
-        res=p(delayed(self._points_map)(X[key],self.scorecard[key],self.check_na) 
+        res=p(delayed(self._points_map)(X[key],self.scorecard[key],self.check_na,self.special_values) 
                               for key in self.columns)
             
         score=pd.concat({col:col_points for col,col_points in res},axis=1)
@@ -376,6 +374,8 @@ class cardScorer(TransformerMixin):
     
     
     def _points_map(self,col,bin_df,check_na=True,special_values=None):
+        
+        col=sp_replace_single(col,check_spvalues(col.name,special_values),fill_num=2**63,fill_str='special')
     
         if is_numeric_dtype(col):
             
