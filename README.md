@@ -84,7 +84,7 @@ pip uninstall BDMLtools
 示例:
 
 ```
-待补充
+见demo
 ```
 
 

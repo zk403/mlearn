@@ -278,8 +278,8 @@ class cardScorer(TransformerMixin):
         digit=0,评分卡打分保留的小数位数
         check_na,bool,为True时,若经打分后编码数据出现了缺失值，程序将报错终止   
                 出现此类错误时多半是某箱样本量为1，或test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高
-        special_values,缺失值指代值
-            请特别注意:special_values必须与产生varbin的函数的special_values一致，否则缺失值的score将出现错误结果
+        special_values,特殊值指代值,若数据中某些值或某列某些值需特殊对待(这些值不是np.nan)时设定
+            请特别注意,special_values必须与binSelector的special_values一致,否则score的special行会产生错误结果
             + None,保证数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
@@ -375,25 +375,53 @@ class cardScorer(TransformerMixin):
         return a,b
     
     
-    def _points_map(self,col,bin_df,check_na=True):
+    def _points_map(self,col,bin_df,check_na=True,special_values=None):
     
         if is_numeric_dtype(col):
             
-            bin_df_drop= bin_df[~bin_df['breaks'].isin([-np.inf,'missing',np.inf])]
+            bin_df_drop= bin_df[~bin_df['breaks'].isin([-np.inf,'missing','special',np.inf])]
             
             breaks=bin_df_drop['breaks'].astype('float64').tolist()
             
-            points=bin_df[~bin_df['breaks'].eq('missing')]['points'].tolist()
+            points=bin_df[~bin_df['breaks'].isin(['missing','special'])]['points'].tolist()
             
             points_nan= bin_df[bin_df['breaks'].eq("missing")]['points'][0]
-    
-            col_points=pd.cut(col,[-np.inf]+breaks+[np.inf],labels=points,right=False,ordered=False).astype('float32')
             
-            col_points=col_points.fillna(points_nan)
+            points_sp= bin_df[bin_df['breaks'].eq("special")]['points'][0]
+            
+            if special_values:
+                
+                col_points=pd.cut(col,[-np.inf]+breaks+[2**63]+[np.inf],labels=points+[points_sp],right=False,ordered=False).astype('float32')
+                
+                col_points=col_points.fillna(points_nan)                
+
+            else:
+    
+                col_points=pd.cut(col,[-np.inf]+breaks+[np.inf],labels=points,right=False,ordered=False).astype('float32')
+                
+                col_points=col_points.fillna(points_nan)                
             
         elif is_string_dtype(col):
             
-            breaks=bin_df.index.tolist();points=bin_df['points'].tolist()
+            points_nan= bin_df[bin_df['breaks'].eq("missing")]['points'][0]
+        
+            points_sp= bin_df[bin_df['breaks'].eq("special")]['points'][0]
+        
+            breaks=bin_df[~bin_df['breaks'].isin(['missing','special'])].index.tolist()
+        
+            points=bin_df[~bin_df['breaks'].isin(['missing','special'])]['points'].tolist()
+    
+    
+            if all(list(map(self._is_no_sp,[i.split('%,%') for i in breaks]))):
+                
+                breaks.append('special')
+                points.append(points_sp)
+                
+            if all(list(map(self._is_no_na,[i.split('%,%') for i in breaks]))):
+                
+                breaks.append('missing')
+                points.append(points_nan)    
+
            
             raw_to_breaks=raw_to_bin_sc(col.unique().tolist(),breaks)
             
@@ -412,6 +440,27 @@ class cardScorer(TransformerMixin):
                 raise ValueError(col.name+"_points contains nans")
             
         return col.name,col_points
+    
+    
+    def _is_no_sp(self,strings):    
+    
+        if 'special' in strings:
+            
+            return False
+        
+        else:
+            
+            return True
+    
+    def _is_no_na(self,strings):
+        
+        if 'missing' in strings:
+            
+            return False
+        
+        else:
+            
+            return True
  
     
     
