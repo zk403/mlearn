@@ -403,10 +403,10 @@ class nanTransformer(TransformerMixin):
         + 'median':以中位数填补
         + 'knn':KNN填补,注意本方法中事前将不对数据进行任何标准化
         + 'most_frequent':众数填补
-    special_values:list or dict,缺失值指代值
+    missing_values:list or dict,缺失值指代值,
         + None,不处理
-        + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被填补
-        + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被填补
+        + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换为np.nan
+        + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换为np.nan
     fill_value=(num_fill_values,str_fill_values),tuple,method=constant时的填补设定值=(数值列填充值，字符列填充值)
     indicator:bool,是否生成缺失值指代特征
     n_neighbors:knn算法中的邻近个数k

@@ -149,9 +149,10 @@ class prefitModel(BaseEstimator):
                 
             self.encoder=WOEEncoder(regularization=1e-3).fit(X_categoty,y)
                 
-            X_categoty_encode=self.encoder.transform(X_categoty)      
+            X_categoty=self.encoder.transform(X_categoty)   
             
-        return X_numeric,X_categoty_encode
+            
+        return X_numeric,X_categoty
           
 
     
@@ -169,10 +170,10 @@ class preSelector(TransformerMixin):
         tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
         iv_limit:float or None使用toad.quality进行iv快速筛选的iv阈值
         out_path:str or None,模型报告路径,将预筛选过程每一步的筛选过程输出到模型报告中
-        special_values:缺失值指代值
+        missing_values:缺失值指代值
                 + None
-                + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换
-                + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换
+                + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换且会被计入na_pct
+                + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换且会被计入na_pct
         keep:list or None,需保留列的列名list
         
     Attribute:
@@ -183,7 +184,7 @@ class preSelector(TransformerMixin):
     
     
     def __init__(self,na_pct=0.99,unique_pct=0.99,variance=0,chif_pvalue=0.05,tree_imps=0,
-                 tree_size=100,iv_limit=0.02,out_path="report",special_values=None,keep=None
+                 tree_size=100,iv_limit=0.02,out_path="report",missing_values=None,keep=None
                  ):
 
         self.na_pct=na_pct
@@ -194,7 +195,7 @@ class preSelector(TransformerMixin):
         self.tree_size=tree_size
         self.iv_limit=iv_limit
         self.out_path=out_path
-        self.special_values=special_values
+        self.missing_values=missing_values
         self.keep=keep
         
     def transform(self,X,y=None):
@@ -216,7 +217,7 @@ class preSelector(TransformerMixin):
         
         X=X.drop(self.keep,axis=1) if self.keep else X
        
-        X=sp_replace(X,self.special_values,fill_num=np.nan,fill_str=np.nan)
+        X=sp_replace(X,self.missing_values,fill_num=np.nan,fill_str=np.nan)
         
         self.features_info={}
     
