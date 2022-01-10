@@ -26,7 +26,7 @@ class woeTransformer(TransformerMixin):
     woe_missing=None,float,缺失值的woe调整值，默认None即不调整.当missing箱样本量极少时，woe值可能不具备代表性，此时可调整varbin中的woe替换值至合理水平，例如设定为0
             经过替换后的varbin=保存在self.varbin中.本模块暂不支持对不同特征的woe调整值做区别处理，所有特征的woe调整值均为woe_missing            
     woe_special=None,float,特殊值的woe调整值,默认None即不调整.当special箱样本量极少时，woe值可能不具备代表性，此时可调整varbin中的woe替换值至合理水平，例如设定为0  
-            经过替换后的varbin=保存在self.varbin中.本模块暂不支持对不同特征的woe调整值做区别处理，所有特征的woe调整值均为woe_missing
+            经过替换后的varbin=保存在self.varbin中.本模块暂不支持对不同特征的woe调整值做区别处理，所有特征的woe调整值均为woe_special
     distr_limit=0.01,float,当woe_missing或woe_special不为None时,若missing或special箱占比低于distr_limit时才执行替换
     check_na:bool,为True时,若经woe编码后编码数据出现了缺失值，程序将报错终止，可能的错误原因:   
             + 某箱样本量太少，且该列是字符列的可能性极高    

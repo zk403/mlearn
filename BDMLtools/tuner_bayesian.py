@@ -127,7 +127,7 @@ class BayesianXGBTuner(BaseEstimator):
         self.params_best['n_estimators']=int(self.params_best['n_estimators'])   
         
         #交叉验证结果保存
-        self.cv_result=self.cvresult_to_df()
+        self.cv_result=self._cvresult_to_df()
         
         #refit
         if self.refit:

@@ -163,12 +163,12 @@ class preSelector(TransformerMixin):
     Parameters:
     ----------
         na_pct:float or None,(0,1),默认0.99,缺失率高于na_pct的列将被筛除，设定为None将跳过此步骤
-        unique_pct:float or None,(0,1),默认0.99,唯一值占比高于unique_pct的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
+        unique_pct:float or None,(0,1),默认0.99,唯一值占比高于unique_pct的列将被筛除,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
         variance:float or None,默认0,方差低于variance的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
         chif_pvalue:float or None,(0,1),默认0.05,大于chif_pvalue的列将被剔除,缺失值将被视为单独一类,为None将跳过此步骤
         tree_imps:float or None,lightgbm树的梯度gain小于等于tree_imps的列将被剔除,默认0，设定为None将跳过此步骤
         tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
-        iv_limit:float or None使用toad.quality进行iv快速筛选的iv阈值
+        iv_limit:float or None使用进行iv快速筛选的iv阈值(等频20箱)
         out_path:str or None,模型报告路径,将预筛选过程每一步的筛选过程输出到模型报告中
         missing_values:缺失值指代值
                 + None
@@ -337,7 +337,7 @@ class preSelector(TransformerMixin):
         缺失值处理
         """ 
         
-        NAreport=X.isnull().sum().div(X.shape[0])
+        NAreport=X.isnull().sum().div(len(X))
         
         return NAreport[NAreport<=self.na_pct].index.tolist() #返回满足缺失率要求的列名
     
@@ -349,7 +349,7 @@ class preSelector(TransformerMixin):
         
         if X_categoty.columns.size:
             
-            unique_pct=X_categoty.apply(lambda x:x.value_counts().div(X_categoty.shape[0]).max())    
+            unique_pct=X_categoty.apply(lambda x:x.value_counts(dropna=False).div(len(X_categoty)).max())    
             
             return unique_pct[unique_pct<self.unique_pct].index.tolist()
         
@@ -362,10 +362,15 @@ class preSelector(TransformerMixin):
         方差处理-连续变量,缺失值将被忽略
         """     
         X_numeric=X.select_dtypes('number')
+        
         if X_numeric.columns.size:
-            support_vars=VarianceThreshold(threshold=self.variance).fit(X_numeric).get_support()        
+            
+            support_vars=VarianceThreshold(threshold=self.variance).fit(X_numeric).get_support()    
+            
             return X_numeric.columns[support_vars].tolist()
+        
         else:
+            
             return []
 
     def _filterByChisquare(self,X,y):
@@ -375,9 +380,13 @@ class preSelector(TransformerMixin):
         """
         
         X_categoty=X.select_dtypes(include='object')
+        
         if X_categoty.columns.size:      
-            X_categoty_encode=OrdinalEncoder().fit_transform(X_categoty.replace(np.nan,'NAN'))
+            
+            X_categoty_encode=OrdinalEncoder().fit_transform(X_categoty.replace(np.nan,'missing'))
+            
             p_values=chi2(X_categoty_encode,y)[1]
+            
             return  X_categoty_encode.columns[p_values<self.chif_pvalue].tolist()#返回满足卡方值要求的列名
         else:
             return []
@@ -388,11 +397,17 @@ class preSelector(TransformerMixin):
         特征选择-连续变量:方差分析(假定方差齐性)
         """
         X_numeric=X.select_dtypes('number')
+        
         if X_numeric.columns.size:
+            
             p_values_pos=f_oneway(X_numeric.replace(np.nan,1e10),y)[1]
-            p_values_neg=f_oneway(X_numeric.replace(np.nan,-1e10),y)[1]        
+            
+            p_values_neg=f_oneway(X_numeric.replace(np.nan,-1e10),y)[1]   
+            
             return X_numeric.columns[(p_values_pos<self.chif_pvalue) | (p_values_neg<self.chif_pvalue)].tolist() #返回满足方差分析的列名
+        
         else:
+            
             return []
 
     def _filterByTrees(self,X,y):
@@ -403,7 +418,9 @@ class preSelector(TransformerMixin):
         X_categoty=X.select_dtypes(exclude='number')
         
         if X_categoty.columns.size:
+            
             X_categoty_encode=OrdinalEncoder().fit_transform(X_categoty).sub(1)
+            
             X_new=pd.concat([X_numeric,X_categoty_encode],axis=1)
 
             lgb=LGBMClassifier(
@@ -435,6 +452,7 @@ class preSelector(TransformerMixin):
             return X_numeric.columns[lgb_imps>self.tree_imps].tolist()
         
         else:
+            
             return []
         
     
