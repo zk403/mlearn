@@ -336,7 +336,9 @@ class preSelector(TransformerMixin):
         """ 
         缺失值处理
         """ 
+        
         NAreport=X.isnull().sum().div(X.shape[0])
+        
         return NAreport[NAreport<=self.na_pct].index.tolist() #返回满足缺失率要求的列名
     
     def _filterByUnique(self,X):
@@ -344,10 +346,15 @@ class preSelector(TransformerMixin):
         唯一值处理-分类变量
         """     
         X_categoty=X.select_dtypes(include='object')
+        
         if X_categoty.columns.size:
+            
             unique_pct=X_categoty.apply(lambda x:x.value_counts().div(X_categoty.shape[0]).max())    
+            
             return unique_pct[unique_pct<self.unique_pct].index.tolist()
+        
         else:
+            
             return []
     
     def _fliterByVariance(self,X):
