@@ -13,13 +13,15 @@ from scipy.cluster.hierarchy import dendrogram
 from sklearn.cluster import FeatureAgglomeration
 from sklearn.metrics.pairwise import pairwise_distances
 from scipy.stats import pearsonr,spearmanr
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator,TransformerMixin
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import warnings
-from BDMLtools.selector_simple import corrSelector
+from BDMLtools.selector.simple import corrSelector
+from BDMLtools.base import Base
 
-class faSelector(BaseEstimator):
+
+class faSelector(Base,BaseEstimator,TransformerMixin):
     
     """
     变量聚类:
@@ -61,6 +63,8 @@ class faSelector(BaseEstimator):
         self.is_greater_better=is_greater_better
         self.keep=keep
         
+        self._is_fitted=False
+        
     def _distance(self):
         
         custom_distance=self.distance_metrics
@@ -100,7 +104,9 @@ class faSelector(BaseEstimator):
         else: 
             raise ValueError('distances support:r2,pearson,spearman')
   
-    def fit(self,X,y):          
+    def fit(self,X,y):    
+        
+        self._check_data(X, y)
         
         if isinstance(self.n_clusters,int):
         
@@ -133,11 +139,15 @@ class faSelector(BaseEstimator):
             warnings.warn('by in (r2-ratio,pd.Series),use r2-ratio instead')  
         
             self.rsquare_infos=self._getRsquareInfos(X,self.model.labels_)
-            
+        
+        self._is_fitted=True
         
         return self        
     
     def transform(self,X):
+        
+        self._check_is_fitted()
+        self._check_X(X)
         
         if isinstance(self.by,str):
         

@@ -1,22 +1,19 @@
 # -*- coding:utf-8 -*- 
 
-from BDMLtools.cleaner_cleaner import outliersTransformer,dtypeAllocator,nanTransformer,dtStandardization
-from BDMLtools.report_report import businessReport,EDAReport,varReport,varGroupsReport,varReportSinge
-from BDMLtools.selector_bin import binSelector
-from BDMLtools.selector_bin_fun import binFreq,binPretty,binTree,binChi2,binKmeans
-from BDMLtools.selector_fa import faSelector
-from BDMLtools.selector_logtit import stepLogit,cardScorer
-from BDMLtools.selector_simple import preSelector,corrSelector,prefitModel
-from BDMLtools.selector_wrapper import RFECVSelector
-from BDMLtools.selector_embeded import lassoSelector,sequentialSelector
-from BDMLtools.encoder_woe import woeTransformer
-from BDMLtools.tuner_girdcv import girdTuner
-from BDMLtools.tuner_halvingcv import hgirdTuner
-from BDMLtools.tuner_bayesian import BayesianXGBTuner,BayesianLgbmTuner
-from BDMLtools.tuner_fun import shapCheck
+from BDMLtools.clearner import outliersTransformer,dtypeAllocator,nanTransformer,dtStandardization
+from BDMLtools.report import businessReport,EDAReport,varReport,varGroupsReport,varReportSinge
+from BDMLtools.selector import binSelector,binFreq,binPretty,binTree,binChi2,binKmeans
+from BDMLtools.selector import faSelector
+from BDMLtools.selector import stepLogit,cardScorer
+from BDMLtools.selector import preSelector,corrSelector,prefitModel
+#from BDMLtools.selector import RFECVSelector
+from BDMLtools.selector import lassoSelector
+from BDMLtools.encoder import woeTransformer
+from BDMLtools.tuner import girdTuner,hgirdTuner
+from BDMLtools.tuner import BayesianXGBTuner,BayesianLgbmTuner,shapCheck
 
 
-__version__ = '0.1.5'
+__version__ = '0.1.6'
 
 __all__ = (    
     dtStandardization,
@@ -40,9 +37,7 @@ __all__ = (
     cardScorer,
     preSelector,
     corrSelector,
-    RFECVSelector,
     lassoSelector,
-    sequentialSelector,
     woeTransformer,
     girdTuner,
     hgirdTuner,
@@ -50,3 +45,5 @@ __all__ = (
     BayesianLgbmTuner,
     shapCheck
 )
+
+

@@ -11,10 +11,11 @@ from sklearn import metrics
 from sklearn.model_selection import GridSearchCV,RandomizedSearchCV
 from sklearn.model_selection import RepeatedStratifiedKFold
 from sklearn.calibration import CalibratedClassifierCV
+from BDMLtools.base import Base
 import numpy as np
 import pandas as pd
 
-class girdTuner(BaseEstimator):
+class girdTuner(Base,BaseEstimator):
     
     '''
     Xgb与Lgbm的网格搜索与随机搜索
@@ -142,6 +143,8 @@ class girdTuner(BaseEstimator):
         self.sample_weight=sample_weight
         self.calibration=calibration
         self.cv_calibration=cv_calibration
+        
+        self._is_fitted=False
 
         
     def predict_proba(self,X,y=None):
@@ -151,6 +154,9 @@ class girdTuner(BaseEstimator):
         --
         X:pd.DataFrame对象
         '''      
+        self._check_is_fitted()
+        self._check_X(X)
+        
         pred = self.model_refit.predict_proba(X)[:,1]        
         return pred
     
@@ -161,6 +167,9 @@ class girdTuner(BaseEstimator):
         --
         X:pd.DataFrame对象
         '''      
+        self._check_is_fitted()
+        self._check_X(X)
+        
         pred = self.model_refit.predict_proba(X)[:,1]  
         pred = self._p_to_score(pred,PDO,base,ratio)
         
@@ -178,6 +187,8 @@ class girdTuner(BaseEstimator):
         X:pd.DataFrame对象
         y:目标变量,pd.Series对象
         '''   
+        
+        self._check_data(X, y)        
         
         self.X=X
         self.y=y

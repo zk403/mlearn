@@ -14,11 +14,12 @@ from sklearn.impute import SimpleImputer,KNNImputer,MissingIndicator
 import numpy as np
 from pandas.api.types import is_numeric_dtype
 import warnings
-from BDMLtools.fun import sp_replace
+from BDMLtools.fun import Specials
+from BDMLtools.base import Base
 #import time
 
 
-class dtStandardization(TransformerMixin):
+class dtStandardization(Base,TransformerMixin):
     
     """ 
     数据规范化：处理原始数据中实体重复,内存占用,索引等问题
@@ -47,7 +48,7 @@ class dtStandardization(TransformerMixin):
         self.set_index=set_index
         
         
-    def transform(self, X):
+    def transform(self,X,y=None):
         """
         返回经规范化后的数据
         
@@ -61,12 +62,9 @@ class dtStandardization(TransformerMixin):
 
         """   
         
-        if not X.index.is_unique:
+        self._check_X(X)
             
-            raise ValueError('X.index is not unique,recommend set unique single index')
-            
-        X = X.copy()
-        
+        X = X.copy()  
         
         if X.size:
             
@@ -112,6 +110,7 @@ class dtStandardization(TransformerMixin):
         
         
         return self 
+    
 
 
 class dtypeAllocator(TransformerMixin):
@@ -283,7 +282,7 @@ class dtypeAllocator(TransformerMixin):
 
 
 
-class outliersTransformer(TransformerMixin):
+class outliersTransformer(Base,TransformerMixin):
     
     """ 
     基于iqr处理异常值,将忽略缺失值
@@ -306,6 +305,8 @@ class outliersTransformer(TransformerMixin):
         self.columns=columns
         self.method=method
         
+        self._is_fitted=False
+        
     def fit(self,X, y=None):    
         
         """
@@ -315,6 +316,7 @@ class outliersTransformer(TransformerMixin):
         ----------
         X : pd.DataFrame,X数据，(n_smaples,n_features)            
         """
+        self._check_X(X)
         
         X=X.copy()
         
@@ -326,7 +328,9 @@ class outliersTransformer(TransformerMixin):
                 
             else:
                 
-                self.iq_df=X.select_dtypes('number').apply(self._get_iq)        
+                self.iq_df=X.select_dtypes('number').apply(self._get_iq)   
+                
+        self._is_fitted=True
         
         return self
     
@@ -345,23 +349,20 @@ class outliersTransformer(TransformerMixin):
 
         """
         
-        if X.size:
-            
-            if not self.method in ('fill','nan'):
-                
-                raise ValueError('method in ("fill","nan")')
-                
-            X=X[self.columns] if self.columns else X.select_dtypes('number')
- 
-            X_r=X.apply(lambda col:self._remove_outlier(col,self.iq_df[col.name].values,self.method))
-
-            return X_r    
-                
-        else:
-            
-            warnings.warn('0 rows in input X,return None')  
+        self._check_X(X)
+        self._check_is_fitted()
         
-            return pd.DataFrame(None) 
+
+        if not self.method in ('fill','nan'):
+            
+            raise ValueError('method in ("fill","nan")')
+            
+        X=X[self.columns] if self.columns else X.select_dtypes('number')
+ 
+        X_r=X.apply(lambda col:self._remove_outlier(col,self.iq_df[col.name].values,self.method))
+
+        return X_r                   
+
         
     def _get_iq(self,col):
        
@@ -390,7 +391,7 @@ class outliersTransformer(TransformerMixin):
         return col
 
 
-class nanTransformer(TransformerMixin):
+class nanTransformer(Base,Specials,TransformerMixin):
     
     """ 
     缺失值填补，集成sklearn.impute        
@@ -435,6 +436,7 @@ class nanTransformer(TransformerMixin):
         self.n_neighbors=n_neighbors
         self.dtype_num=dtype_num
 
+        self._is_fitted=False
         
     def fit(self,X, y=None):    
         
@@ -445,8 +447,10 @@ class nanTransformer(TransformerMixin):
         ----------
         X : pd.DataFrame,X数据，(n_smaples,n_features)            
         """       
+        
+        self._check_X(X)
 
-        X=sp_replace(X,self.missing_values,fill_num=np.nan,fill_str=np.nan)
+        X=self._sp_replace(X,self.missing_values,fill_num=np.nan,fill_str=np.nan)
         
         X_num=X.select_dtypes(include='number')
         X_str=X.select_dtypes(include='object')
@@ -507,6 +511,9 @@ class nanTransformer(TransformerMixin):
             
             self.indicator_na=MissingIndicator(missing_values=np.nan).fit(X[na_cols])
             self.na_cols=na_cols
+            
+        
+        self._is_fitted=True
 
         return self
     
@@ -525,53 +532,49 @@ class nanTransformer(TransformerMixin):
 
         """
         
-        X=sp_replace(X,self.missing_values,fill_num=np.nan,fill_str=np.nan)
+        self._check_X(X)
+        self._check_is_fitted()
         
-        if X.size:
+        X=self._sp_replace(X,self.missing_values,fill_num=np.nan,fill_str=np.nan)
             
-            X_num=X.select_dtypes(include='number')
-            X_str=X.select_dtypes(include='object')
-            X_oth=X.select_dtypes(exclude=['number','object'])
+        X_num=X.select_dtypes(include='number')
+        X_str=X.select_dtypes(include='object')
+        X_oth=X.select_dtypes(exclude=['number','object'])
+        
+        if X_oth.columns.size:   
             
-            if X_oth.columns.size:   
-                
-                warnings.warn("column which its dtype not in ('number','object') will not be imputed")      
+            warnings.warn("column which its dtype not in ('number','object') will not be imputed")      
 
 
-            if X_num.size:
-                
-                X_num_fill=pd.DataFrame(self.imputer_num.transform(X_num),
-                                        columns=self.imputer_num.feature_names_in_,
-                                        index=X.index,dtype=self.dtype_num                                       
-                                        ) 
-            else:
-                
-                X_num_fill=None
+        if X_num.size:
             
-            
-            if X_str.size:
-                 
-                X_str_fill=pd.DataFrame(self.imputer_str.transform(X_str),
-                                       columns=self.imputer_str.feature_names_in_,
-                                       index=X.index,dtype='str') 
-            else:
-                
-                X_str_fill=None
-    
-    
-            if self.indicator:                       
-    
-                X_na=pd.DataFrame(self.indicator_na.transform(X[self.na_cols]),
-                                  columns=self.indicator_na.feature_names_in_,dtype='int8',
-                                  index=X.index)
-            else:
-                
-                X_na=None                      
-            
-            return pd.concat([X_oth,X_num_fill,X_str_fill,X_na],axis=1)
-        
+            X_num_fill=pd.DataFrame(self.imputer_num.transform(X_num),
+                                    columns=self.imputer_num.feature_names_in_,
+                                    index=X.index,dtype=self.dtype_num                                       
+                                    ) 
         else:
             
-            warnings.warn('0 rows in input X,return None')  
+            X_num_fill=None
+        
+        
+        if X_str.size:
+             
+            X_str_fill=pd.DataFrame(self.imputer_str.transform(X_str),
+                                   columns=self.imputer_str.feature_names_in_,
+                                   index=X.index,dtype='str') 
+        else:
             
-            return pd.DataFrame(None)           
+            X_str_fill=None
+
+
+        if self.indicator:                       
+
+            X_na=pd.DataFrame(self.indicator_na.transform(X[self.na_cols]),
+                              columns=self.indicator_na.feature_names_in_,dtype='int8',
+                              index=X.index)
+        else:
+            
+            X_na=None                      
+        
+        return pd.concat([X_oth,X_num_fill,X_str_fill,X_na],axis=1)
+       

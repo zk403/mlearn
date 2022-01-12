@@ -6,10 +6,11 @@ Created on Thu Oct 14 17:26:03 2021
 @author: zengke
 """
 from sklearn.base import BaseEstimator
+from BDMLtools.base import Base
 from sklearn import metrics
 from sklearn.model_selection import GridSearchCV
 from xgboost.sklearn import XGBClassifier
-from lightgbm import LGBMClassifier
+from BDMLtools.tuner.fun import sLGBMClassifier
 from bayes_opt import BayesianOptimization
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import RepeatedStratifiedKFold
@@ -17,7 +18,8 @@ from sklearn.model_selection import RepeatedStratifiedKFold
 import numpy as np
 import pandas as pd
 
-class BayesianXGBTuner(BaseEstimator):
+
+class BayesianXGBTuner(Base,BaseEstimator):
     
     '''
     使用贝叶斯优化参数的Xgboost
@@ -80,6 +82,8 @@ class BayesianXGBTuner(BaseEstimator):
         self.calibration=calibration
         self.cv_calibration=cv_calibration
         
+        self._is_fitted=False
+        
     def predict_proba(self,X,y=None):
         '''
         最优参数下的xgboost模型的预测
@@ -87,6 +91,9 @@ class BayesianXGBTuner(BaseEstimator):
         --
         X:pd.DataFrame对象
         '''      
+        self._check_is_fitted()
+        self._check_X(X)
+        
         pred = self.model_refit.predict_proba(X)[:,1]        
         return pred
     
@@ -97,14 +104,18 @@ class BayesianXGBTuner(BaseEstimator):
         --
         X:pd.DataFrame对象
         '''      
+        self._check_is_fitted()
+        self._check_X(X)
+        
         pred = self.model_refit.predict_proba(X)[:,1]  
         pred = self._p_to_score(pred,PDO,base,ratio)
         
         return pred
         
     
-    def transform(self,X,y=None):            
-        return self
+    def transform(self,X,y=None):    
+        
+        return X
           
     def fit(self,X,y):
         '''
@@ -114,6 +125,7 @@ class BayesianXGBTuner(BaseEstimator):
         X:pd.DataFrame对象
         y:目标变量,pd.Series对象
         '''   
+        self._check_data(X, y)        
         
         self.X=X.copy()
         self.y=y.copy()
@@ -151,6 +163,8 @@ class BayesianXGBTuner(BaseEstimator):
                                                       n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
                 
         del self.X,self.y
+        
+        self._is_fitted=True
         
         return self
     
@@ -256,7 +270,7 @@ class BayesianXGBTuner(BaseEstimator):
         return np.round(score,0)
     
 
-class BayesianLgbmTuner(BaseEstimator):
+class BayesianLgbmTuner(Base,BaseEstimator):
     
     '''
     使用贝叶斯优化参数的LightGBM
@@ -324,13 +338,18 @@ class BayesianLgbmTuner(BaseEstimator):
         self.calibration=calibration
         self.cv_calibration=cv_calibration
         
+        self._is_fitted=False
+        
     def predict_proba(self,X,y=None):
         '''
         最优参数下的lgbm模型的预测
         Parameters:
         --
         X:pd.DataFrame对象
-        '''      
+        '''             
+        self._check_is_fitted()
+        self._check_X(X)        
+        
         pred = self.model_refit.predict_proba(X)[:,1]        
         return pred
     
@@ -341,6 +360,9 @@ class BayesianLgbmTuner(BaseEstimator):
         --
         X:pd.DataFrame对象
         '''      
+        self._check_is_fitted()
+        self._check_X(X)
+        
         pred = self.model_refit.predict_proba(X)[:,1]  
         pred = self._p_to_score(pred,PDO,base,ratio)
         return pred
@@ -357,6 +379,7 @@ class BayesianLgbmTuner(BaseEstimator):
         X: pd.DataFrame对象
         y:目标变量,pd.Series对象
         '''   
+        self._check_data(X, y)
         
         self.X=X.copy()
         self.y=y.copy()
@@ -376,7 +399,7 @@ class BayesianLgbmTuner(BaseEstimator):
         
         if self.refit:
             #print (self.para_space)
-            self.model_refit = LGBMClassifier(
+            self.model_refit = sLGBMClassifier(
                 boosting_type=self.para_space['boosting_type'],
                 n_estimators=self.params_best['n_estimators'],
                 learning_rate=self.params_best['learning_rate'],
@@ -394,6 +417,8 @@ class BayesianLgbmTuner(BaseEstimator):
                 
                 self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
                                                       n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
+                
+        self._is_fitted=True
         
         return self
     
@@ -434,7 +459,7 @@ class BayesianLgbmTuner(BaseEstimator):
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)
                         
         cv_res=GridSearchCV(
-            LGBMClassifier(seed=self.random_state,min_child_weight=None),para_space,cv=cv,
+            sLGBMClassifier(seed=self.random_state,min_child_weight=None),para_space,cv=cv,
             n_jobs=self.n_jobs,verbose=self.verbose,
             scoring=scorer,error_score=0).fit(self.X,self.y,sample_weight=self.sample_weight)
         

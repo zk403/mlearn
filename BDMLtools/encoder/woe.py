@@ -7,9 +7,10 @@ import copy
 from pandas.api.types import is_numeric_dtype,is_string_dtype
 from joblib import Parallel,delayed
 import numpy as np
-from BDMLtools.fun import raw_to_bin_sc,sp_replace_single,check_spvalues
+from BDMLtools.fun import raw_to_bin_sc,Specials
+from BDMLtools.base import Base
 
-class woeTransformer(TransformerMixin):
+class woeTransformer(Base,Specials,TransformerMixin):
     
     """ 
     对数据进行WOE编码
@@ -55,6 +56,8 @@ class woeTransformer(TransformerMixin):
         """ 
         WOE转换
         """
+        
+        self._check_X(X)
 
         self.varbin=copy.deepcopy(self.varbin)
         
@@ -110,7 +113,7 @@ class woeTransformer(TransformerMixin):
     
     def _woe_map(self,col,bin_df,check_na=True,special_values=None):
         
-        col=sp_replace_single(col,check_spvalues(col.name,special_values),fill_num=2**63,fill_str='special')
+        col=self._sp_replace_single(col,self._check_spvalues(col.name,special_values),fill_num=2**63,fill_str='special')
             
         if is_numeric_dtype(col):
             

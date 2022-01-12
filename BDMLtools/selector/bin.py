@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
-from sklearn.base import TransformerMixin
+from sklearn.base import BaseEstimator,TransformerMixin
 import numpy as np
 import pandas as pd
 import warnings
-from BDMLtools.report_report import varReport
-from BDMLtools.selector_bin_fun import binFreq,binPretty,binTree,binChi2,binKmeans
+from BDMLtools.base import Base
+from BDMLtools.report.report import varReport
+from BDMLtools.selector.bin_fun import binFreq,binPretty,binTree,binChi2,binKmeans
 #from joblib import Parallel,delayed
 #from pandas.api.types import is_numeric_dtype
 
 
-class binSelector(TransformerMixin):    
+class binSelector(Base,BaseEstimator,TransformerMixin):    
     
     """ 
     最优分箱
@@ -90,7 +91,12 @@ class binSelector(TransformerMixin):
         self.n_jobs=n_jobs
         self.verbose=verbose
         
+        self._is_fitted=False
+        
     def transform(self,X,y=None):
+        
+        self._check_is_fitted()
+        self._check_X(X)
         
         return X[self.keep_col]
               
@@ -98,12 +104,15 @@ class binSelector(TransformerMixin):
         """ 
         
         """    
-                  
+        
+        self._check_data(X, y)        
+       
         if y.name:
             
             self.target=y.name
             
         else:
+            
             raise ValueError('name y using pd.Series(y,name=yname)')        
         
         #get bins using given breaks_list_adj
@@ -218,7 +227,9 @@ class binSelector(TransformerMixin):
             
             #keep bin info and breaks info for checking and rebinning
             self.bins={column:bin_res.get(column) for column in self.keep_col}
-            self.breaks_list={column:self.breaks_list.get(column) for column in self.keep_col}          
+            self.breaks_list={column:self.breaks_list.get(column) for column in self.keep_col}    
+            
+        self._is_fitted=True
        
         return self        
     

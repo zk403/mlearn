@@ -9,14 +9,15 @@ Created on Wed Oct 27 23:08:38 2021
 import pandas as pd
 import numpy as np
 from pandas.api.types import is_numeric_dtype,is_string_dtype,is_array_like
-from sklearn.base import TransformerMixin
+from sklearn.base import BaseEstimator
 from joblib import Parallel,delayed
 import warnings
 from itertools import groupby
 from sklearn.cluster import KMeans
 from scipy.stats import chi2,chi2_contingency
-from BDMLtools.fun import raw_to_bin_sc,sp_replace_single,check_spvalues
-from BDMLtools.report_report import varReportSinge
+from BDMLtools.fun import raw_to_bin_sc,Specials
+from BDMLtools.base import Base
+from BDMLtools.report.report import varReportSinge
 
 
 def R_pretty(low, high, n):
@@ -177,7 +178,7 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
     def get_breaks(col,y,bin_num_limit=bin_num_limit,ws=ws,special_values=special_values,coerce_monotonic=coerce_monotonic):
         
         
-        col=sp_replace_single(col,check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')
+        col=Specials()._sp_replace_single(col,Specials()._check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')
 
         if col.isnull().all():
             
@@ -235,7 +236,7 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
 
 
 
-class binKmeans(TransformerMixin):
+class binKmeans(Base,Specials,BaseEstimator):
     
     """ 
     基于Kmeans的分箱调整算法:一种自动非优化分箱算法        
@@ -281,47 +282,39 @@ class binKmeans(TransformerMixin):
     
     def fit(self, X, y):
         
-        if X.size:
-                   
-            #breaks_list=self.get_Breaklist_sc(self.breaks_list,X,y)
-            breaks_list=self.breaks_list
-            
-            parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
-            
-            col_break=parallel(delayed(self._combine_badprob_kmeans)(X[col],y,
-                                                                    self.combine_ratio,
-                                                                    self.bin_limit,
-                                                                    self.breaks_list[col],
-                                                                    self.sample_weight,
-                                                                    self.special_values,
-                                                                    self.seed)
-                               for col in list(breaks_list.keys()))     
-            
-            self.breaks_list={col:breaks for col,breaks,_ in col_break}
-            
-            self.bins={col:vtab for col,_,vtab in col_break}
+        self._check_data(X, y)
+        
+        #breaks_list=self.get_Breaklist_sc(self.breaks_list,X,y)
+        breaks_list=self.breaks_list
+        
+        parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+        
+        col_break=parallel(delayed(self._combine_badprob_kmeans)(X[col],y,
+                                                                self.combine_ratio,
+                                                                self.bin_limit,
+                                                                self.breaks_list[col],
+                                                                self.sample_weight,
+                                                                self.special_values,
+                                                                self.seed)
+                           for col in list(breaks_list.keys()))     
+        
+        self.breaks_list={col:breaks for col,breaks,_ in col_break}
+        
+        self.bins={col:vtab for col,_,vtab in col_break}
                                     
         return self
     
     
-    def transform(self, X):       
-        
-        if X.size:
+    def transform(self, X,y=None):       
             
-            return X
-        
-        else:
-            
-            warnings.warn('0 rows in input X,return None')
-            
-            return pd.DataFrame(None)
+        return X
         
         
     def _combine_badprob_kmeans(self,col,y,combine_ratio,bin_limit,breaks,ws=None,special_values=None,random_state=123):    
      
          #global var_bin,res_km_s
             
-         var_raw=sp_replace_single(col,check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')
+         var_raw=self._sp_replace_single(col,self._check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')
          
          if is_array_like(ws):                
         
@@ -335,6 +328,7 @@ class binKmeans(TransformerMixin):
              
              ws=pd.Series(np.ones(col.size),index=y.index)
          
+            
          if is_string_dtype(var_raw):
              
              #fillna
@@ -563,7 +557,7 @@ class binKmeans(TransformerMixin):
 
     
 
-class binTree(TransformerMixin):
+class binTree(Base,Specials,BaseEstimator):
     
     """ 
     决策树递归最优分箱
@@ -623,42 +617,34 @@ class binTree(TransformerMixin):
     
     def fit(self, X, y):
         
-        if X.size:           
-            
-            p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
-            
-            res=p(delayed(self._get_treecut)(col[1],y,self.max_bin,
-                                            self.criteria,self.max_iters,
-                                            self.tol,self.distr_limit,
-                                            self.bin_num_limit,
-                                            self.ws,
-                                            self.coerce_monotonic,
-                                            self.special_values) for col in X.iteritems())
-            
-            self.breaks_list={col_name:breaks for col_name,breaks,_ in res}
-            self.bins={col_name:vtab for col_name,_,vtab in res}
+        self._check_data(X, y)
+        
+        p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+        
+        res=p(delayed(self._get_treecut)(col[1],y,self.max_bin,
+                                        self.criteria,self.max_iters,
+                                        self.tol,self.distr_limit,
+                                        self.bin_num_limit,
+                                        self.ws,
+                                        self.coerce_monotonic,
+                                        self.special_values) for col in X.iteritems())
+        
+        self.breaks_list={col_name:breaks for col_name,breaks,_ in res}
+        self.bins={col_name:vtab for col_name,_,vtab in res}
                                     
         return self
     
     
-    def transform(self, X):       
+    def transform(self, X,y=None):       
         
-        if X.size:
-            
-            return X
-        
-        else:
-            
-            warnings.warn('0 rows in input X,return None')
-            
-            return pd.DataFrame(None)
-        
+        return X
+
         
     def _get_treecut(self,col,y,max_bin,criteria,max_iters,tol,distr_limit,bin_num_limit,ws,coerce_monotonic,special_values):
         
         col_raw=col.copy()
         
-        col=sp_replace_single(col,check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')
+        col=self._sp_replace_single(col,self._check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')
         
         #sample_wieght
         if is_array_like(ws):
@@ -953,7 +939,7 @@ class binTree(TransformerMixin):
         return (sorted(cuts_tree))
 
             
-class binChi2(TransformerMixin):            
+class binChi2(Base,Specials,BaseEstimator):            
             
     """ 
     卡方自动分箱,合并卡方值较低的分箱并调整分箱样本量，分箱数至用户定义水平    
@@ -1004,43 +990,35 @@ class binChi2(TransformerMixin):
     
     def fit(self, X, y):
         
-        if X.size:   
+        self._check_data(X, y)
             
-            p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
-            
-            res=p(delayed(self._get_chi2merge)(col[1],y,
-                                            self.max_bin,
-                                            self.tol,
-                                            self.distr_limit,
-                                            self.bin_num_limit,
-                                            self.ws,
-                                            self.coerce_monotonic,
-                                            self.special_values) for col in X.iteritems())
-            
-            self.breaks_list={col_name:breaks for col_name,breaks,_ in res}
-            self.bins={col_name:vtab for col_name,_,vtab in res}            
-                                    
+        p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+        
+        res=p(delayed(self._get_chi2merge)(col[1],y,
+                                        self.max_bin,
+                                        self.tol,
+                                        self.distr_limit,
+                                        self.bin_num_limit,
+                                        self.ws,
+                                        self.coerce_monotonic,
+                                        self.special_values) for col in X.iteritems())
+        
+        self.breaks_list={col_name:breaks for col_name,breaks,_ in res}
+        self.bins={col_name:vtab for col_name,_,vtab in res}            
+                                
         return self   
     
 
     def transform(self, X):       
         
-        if X.size:
-            
-            return X
-        
-        else:
-            
-            warnings.warn('0 rows in input X,return None')
-            
-            return pd.DataFrame(None)            
-    
+        return X
+           
     
     def _get_chi2merge(self,col,y,max_bin=50,tol=0.1,distr_limit=0.05,bin_num_limit=8,ws=None,coerce_monotonic=False,special_values=None):
     
         col_raw=col.copy()
         
-        col=sp_replace_single(col,check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')        
+        col=self._sp_replace_single(col,self._check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')        
     
         #sample_wieght
         if is_array_like(ws):
@@ -1327,7 +1305,7 @@ class binChi2(TransformerMixin):
         return np.array(idx),np.array(chi2_d),np.array(count_list),np.array(cut_bin)
 
 
-class binPretty(TransformerMixin):            
+class binPretty(Base,Specials,BaseEstimator):            
             
     """ 
     pretty分箱,使用pretty cuts作为预分箱再调整分箱至用户定义水平    
@@ -1373,20 +1351,20 @@ class binPretty(TransformerMixin):
     
     def fit(self, X, y):
         
-        if X.size:
-            
-            p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
-            
-            res=p(delayed(self._get_prettymerge)(col[1],y,
-                                            self.max_bin,
-                                            self.distr_limit,
-                                            self.bin_num_limit,
-                                            self.ws,
-                                            self.coerce_monotonic,
-                                            self.special_values) for col in X.iteritems())
-            
-            self.breaks_list={col_name:breaks for col_name,breaks,_ in res}
-            self.bins={col_name:vtab for col_name,_,vtab in res}            
+        self._check_data(X,y)
+        
+        p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+        
+        res=p(delayed(self._get_prettymerge)(col[1],y,
+                                        self.max_bin,
+                                        self.distr_limit,
+                                        self.bin_num_limit,
+                                        self.ws,
+                                        self.coerce_monotonic,
+                                        self.special_values) for col in X.iteritems())
+        
+        self.breaks_list={col_name:breaks for col_name,breaks,_ in res}
+        self.bins={col_name:vtab for col_name,_,vtab in res}            
                                     
         return self   
     
@@ -1408,7 +1386,7 @@ class binPretty(TransformerMixin):
     
         col_raw=col.copy()
         
-        col=sp_replace_single(col,check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')                
+        col=self._sp_replace_single(col,self._check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')                
     
         #sample_wieght
         if is_array_like(ws):

@@ -15,9 +15,10 @@ import os
 from itertools import product
 import warnings
 from joblib import Parallel,delayed
-from BDMLtools.fun import raw_to_bin_sc,sp_replace_single,check_spvalues
+from BDMLtools.base import Base
+from BDMLtools.fun import raw_to_bin_sc,Specials
 
-class EDAReport(TransformerMixin):
+class EDAReport(Base,TransformerMixin):
     
     """ 
     产生数据质量报告
@@ -45,33 +46,28 @@ class EDAReport(TransformerMixin):
         
     def fit(self, X, y=None):
 
-        if X.size:
+        self._check_X(X)
+
+        #产生报告
+        self.num_report=self._num_info(X)
+        self.char_report=self._char_info(X)
+        self.na_report=self._nan_info(X)    
+        
+        if self.is_nacorr:
             
-            #产生报告
-            self.num_report=self._num_info(X)
-            self.char_report=self._char_info(X)
-            self.na_report=self._nan_info(X)        
-            if self.is_nacorr:
-                self.nacorr_report=self._nan_corr(X)
+            self.nacorr_report=self._nan_corr(X)
+        
+        #输出报告    
+        if self.out_path: 
             
-            #输出报告    
-            if self.out_path: 
-                
-                self._writeExcel()                
+            self._writeExcel()                
                                     
         return self
     
-    def transform(self, X):       
-        
-        if X.size:
-            
-            return X
-        
-        else:
-            
-            warnings.warn('0 rows in input X,return None')
-            
-            return pd.DataFrame(None)        
+    def transform(self, X, y=None):       
+
+        return X
+ 
     
 
     def _num_info(self,X):
@@ -175,7 +171,7 @@ class EDAReport(TransformerMixin):
         print('to_excel done')  
 
         
-class businessReport(TransformerMixin):
+class businessReport(Base,TransformerMixin):
     
     """ 
     产生业务报告
@@ -202,48 +198,40 @@ class businessReport(TransformerMixin):
         self.rename_index=rename_index
         self.out_path=out_path
         
-    def fit(self, X, y=None):
+    def fit(self, X,y=None):
         
-
-        if X.size:
+        self._check_X(X)
             
-            values=self.target
-            index=self.index
-            columns=self.columns
-            rename_columns=self.rename_columns
-            rename_index=self.rename_index
+        values=self.target
+        index=self.index
+        columns=self.columns
+        rename_columns=self.rename_columns
+        rename_index=self.rename_index
+        
+        aggfunc=['count','sum','mean']
+        rename_aggfunc=dict(zip(aggfunc,['#','event#','event%#']))
+
+        self.ptable=pd.pivot_table(X,index=index,columns=columns,
+                          values=values,aggfunc=aggfunc,
+                          margins=True).rename(columns=rename_aggfunc,level=0)
+
+        if rename_index:
+            self.ptable.index.names=rename_index
+
+        if rename_columns:
+            self.ptable.columns.names=[None]+rename_columns
             
-            aggfunc=['count','sum','mean']
-            rename_aggfunc=dict(zip(aggfunc,['#','event#','event%#']))
-
-            self.ptable=pd.pivot_table(X,index=index,columns=columns,
-                              values=values,aggfunc=aggfunc,
-                              margins=True).rename(columns=rename_aggfunc,level=0)
-
-            if rename_index:
-                self.ptable.index.names=rename_index
-
-            if rename_columns:
-                self.ptable.columns.names=[None]+rename_columns
-                
+        
+        if self.out_path:
             
-            if self.out_path:
-                
-                self._writeExcel()                
+            self._writeExcel()                
                                     
         return self
     
-    def transform(self, X):     
-        
-        if X.size:
-            
-            return X
-        
-        else:
-            
-            warnings.warn('0 rows in input X,return None')
+    def transform(self,X,y=None):     
+ 
+        return X
 
-            return pd.DataFrame(None)
     
     
     def _writeExcel(self):
@@ -270,11 +258,11 @@ class businessReport(TransformerMixin):
         print('to_excel done') 
         
 
-class varReportSinge:
+class varReportSinge(Specials):
     
     def report(self, X, y,breaks,sample_weight=None,special_values=None):
                 
-        X=sp_replace_single(X,check_spvalues(X.name,special_values),fill_num=2**63,fill_str='special')
+        X=self._sp_replace_single(X,self._check_spvalues(X.name,special_values),fill_num=2**63,fill_str='special')
                
         report_var=self.getReport_Single(X,y,breaks,sample_weight,special_values)
         
@@ -400,7 +388,7 @@ class varReportSinge:
         return var_ptable
        
         
-class varReport(TransformerMixin):
+class varReport(Base,TransformerMixin):
     
     """ 
     产生业务报告
@@ -427,44 +415,35 @@ class varReport(TransformerMixin):
     def __init__(self,breaks_list_dict,special_values=None,sample_weight=None,out_path=None,tab_suffix='',n_jobs=-1,verbose=0):
 
         self.breaks_list_dict = breaks_list_dict
-        self.special_values=special_values
-        self.sample_weight=sample_weight
-        self.n_jobs=n_jobs
-        self.verbose=verbose
+        self.special_values = special_values
+        self.sample_weight = sample_weight
+        self.n_jobs = n_jobs
+        self.verbose = verbose
         self.out_path = out_path
-        self.tab_suffix=tab_suffix
+        self.tab_suffix = tab_suffix
         
     def fit(self, X, y):
         
-
-        if X.size:
+        self._check_data(X,y)
             
-            parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose,batch_size=100)
+        parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose,batch_size=100)
+        
+        out_list=parallel(delayed(self._get_report_single)(X,y,col,self.breaks_list_dict[col],self.sample_weight,self.special_values)
+                          for col in self.breaks_list_dict)
+        
+        self.var_report_dict={col:total for col,total in out_list}
+        
+        #输出报告    
+        if self.out_path: 
             
-            out_list=parallel(delayed(self._get_report_single)(X,y,col,self.breaks_list_dict[col],self.sample_weight,self.special_values)
-                              for col in self.breaks_list_dict)
-            
-            self.var_report_dict={col:total for col,total in out_list}
-            
-            #输出报告    
-            if self.out_path: 
-                
-                self._writeExcel()
-            
-                                    
+            self._writeExcel()
+                    
         return self
     
     def transform(self, X):     
-        
-        if X.size:
-            
-            return X
-        
-        else:
-            
-            warnings.warn('0 rows in input X,return None')
-
-            return pd.DataFrame(None)
+   
+        return X
+  
         
     def _get_report_single(self,X,y,col_name,breaks,sample_weight,special_values):
            
@@ -498,7 +477,7 @@ class varReport(TransformerMixin):
 
         
         
-class varGroupsReport(TransformerMixin):
+class varGroupsReport(Base,TransformerMixin):
     
     """ 
     产生组业务报告
@@ -558,61 +537,50 @@ class varGroupsReport(TransformerMixin):
        
     def fit(self, X, y=None):               
         
+        self._check_X(X)
+     
+        self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,axis=1).columns}    
 
-        if X.size:
-            
-            X=X.copy()
-            
-            self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,axis=1).columns}    
-
-            X=pd.concat([X.drop(self.columns,axis=1),X[self.columns].astype('str')],axis=1)
-                                 
-            
-            if is_array_like(self.sample_weight):
-                
-                X['sample_weight']=self.sample_weight
-                
-            else:
-                
-                X['sample_weight']=1
-            
-            X_g_gen=X.groupby(self.columns)
-            
-            parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
-            out_list=parallel(delayed(self._group_parallel)(X_g_gen,g,self.target,self.columns,
-                                                           self.breaks_list_dict,self.row_limit,
-                                                           self.special_values) for g in X_g_gen.groups)
-
-            report=pd.concat({columns:vtabs for columns,vtabs in out_list},axis=1)
-            
-            if self.sort_columns:       
-                
-                sort_columns_list=self._check_columns_sort(self.sort_columns, self.columns, X)                                    
+        X=pd.concat([X.drop(self.columns,axis=1),X[self.columns].astype('str')],axis=1)
+                             
         
-                report=self._vtab_column_sort(sort_columns_list,report)                
-                      
-            self.report_dict=self._getReport(X,report,self.breaks_list_dict,self.special_values,self.n_jobs,self.verbose,
-                                            self.target,self.output_psi,self.psi_base)                    
+        if is_array_like(self.sample_weight):
+            
+            X['sample_weight']=self.sample_weight
+            
+        else:
+            
+            X['sample_weight']=1
+        
+        X_g_gen=X.groupby(self.columns)
+        
+        parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+        out_list=parallel(delayed(self._group_parallel)(X_g_gen,g,self.target,self.columns,
+                                                       self.breaks_list_dict,self.row_limit,
+                                                       self.special_values) for g in X_g_gen.groups)
 
-            if self.out_path:
-                    
-                self._writeExcel()   
+        report=pd.concat({columns:vtabs for columns,vtabs in out_list},axis=1)
+        
+        if self.sort_columns:       
+            
+            sort_columns_list=self._check_columns_sort(self.sort_columns, self.columns, X)                                    
+    
+            report=self._vtab_column_sort(sort_columns_list,report)                
+                  
+        self.report_dict=self._getReport(X,report,self.breaks_list_dict,self.special_values,self.n_jobs,self.verbose,
+                                        self.target,self.output_psi,self.psi_base)                    
+
+        if self.out_path:
+                
+            self._writeExcel()   
                     
                                          
         return self
     
     def transform(self, X):     
-        
-        if X.size:
-            
-            return X
-        
-        else:
-            
-            warnings.warn('0 rows in input X,return None')
+     
+        return X
 
-            return pd.DataFrame(None)
-        
         
     def _group_parallel(self,X_g_gen,g,target,columns,breaks_list_dict,row_limit,special_values):
     

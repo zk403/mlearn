@@ -7,6 +7,7 @@ Created on Fri Oct 15 09:32:09 2021
 """
 
 from sklearn.base import BaseEstimator
+from BDMLtools.base import Base
 from sklearn import metrics
 from sklearn.experimental import enable_halving_search_cv
 from sklearn.model_selection import HalvingGridSearchCV,HalvingRandomSearchCV,RepeatedStratifiedKFold
@@ -14,7 +15,7 @@ from sklearn.calibration import CalibratedClassifierCV
 import numpy as np
 import pandas as pd
 
-class hgirdTuner(BaseEstimator):
+class hgirdTuner(Base,BaseEstimator):
     
     '''
     Xgb与Lgbm的sucessive halving搜索与sucessive halving搜索
@@ -148,6 +149,8 @@ class hgirdTuner(BaseEstimator):
         self.calibration=calibration
         self.cv_calibration=cv_calibration
         
+        self._is_fitted=False
+        
         
     def predict_proba(self,X,y=None):
         '''
@@ -156,7 +159,11 @@ class hgirdTuner(BaseEstimator):
         --
         X:pd.DataFrame对象
         '''      
-        pred = self.model_refit.predict_proba(X)[:,1]        
+        self._check_is_fitted()
+        self._check_X(X)
+        
+        pred = self.model_refit.predict_proba(X)[:,1]    
+        
         return pred
     
     def predict_score(self,X,y=None,PDO=75,base=660,ratio=1/15):
@@ -166,6 +173,9 @@ class hgirdTuner(BaseEstimator):
         --
         X:pd.DataFrame对象
         '''      
+        self._check_is_fitted()
+        self._check_X(X)
+        
         pred = self.model_refit.predict_proba(X)[:,1]  
         pred = self._p_to_score(pred,PDO,base,ratio)
         
@@ -184,6 +194,8 @@ class hgirdTuner(BaseEstimator):
         X:pd.DataFrame对象
         y:目标变量,pd.Series对象
         '''   
+        
+        self._check_data(X, y)
 
         if self.method=='h_gird':
             

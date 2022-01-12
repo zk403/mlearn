@@ -18,11 +18,11 @@ from statsmodels.discrete.discrete_model import BinaryResultsWrapper
 from statsmodels.genmod.generalized_linear_model import GLMResultsWrapper
 from sklearn.linear_model._logistic import LogisticRegression
 from pandas.api.types import is_numeric_dtype,is_string_dtype
-from BDMLtools.fun import raw_to_bin_sc,sp_replace_single,check_spvalues
+from BDMLtools.fun import raw_to_bin_sc,Specials
 from joblib import Parallel,delayed
+from BDMLtools.base import Base
 
-
-class stepLogit(BaseEstimator):
+class stepLogit(Base,BaseEstimator,TransformerMixin):
     
     '''
     逐步回归,请注意column name需能够被pasty识别
@@ -59,6 +59,8 @@ class stepLogit(BaseEstimator):
         self.sample_weight=sample_weight
         self.show_high_vif_only=show_high_vif_only
         
+        self._is_fitted=False
+        
     def predict_proba(self,X,y=None):
         '''
         模型预测,使用逐步回归模型预测,产生预测概率
@@ -66,20 +68,26 @@ class stepLogit(BaseEstimator):
         --
         X:woe编码数据,pd.DataFrame对象,需与训练数据woe编码具有相同的特征
         '''      
+        self._check_is_fitted()
+        self._check_X(X)
+        
         pred=self.logit_model.predict(X)
+        
         return pred
     
-    def transform(self,X,y=None,raw=True):     
+    def transform(self,X,y=None):     
         '''
         使用逐步回归进行特征筛选,返回逐步法筛选后的训练数据
         Parameters:
         --
         X:woe编码数据,pd.DataFrame对象,需与训练数据woe编码具有相同的特征
         '''        
-        if raw:            
-            return X[self.logit_model.params.index.tolist()[1:]]
-        else:
-            return X[[i[0:-4] for i in self.logit_model.params.index.tolist()[1:]]]
+        
+        self._check_is_fitted()
+        self._check_X(X)
+        
+        return X[self.logit_model.params.index.tolist()[1:]]
+
           
     def fit(self,X,y):
         '''
@@ -89,6 +97,8 @@ class stepLogit(BaseEstimator):
         X:woe编码训练数据,pd.DataFrame对象
         y:目标变量,pd.Series对象
         '''        
+        self._check_data(X, y)        
+        
         if self.custom_column:
             
             if self.no_stepwise:
@@ -119,6 +129,8 @@ class stepLogit(BaseEstimator):
                     
         self.model_info=self.logit_model.summary()
         self.vif_info=self._vif(self.logit_model,X,show_high_vif_only=self.show_high_vif_only)
+        
+        self._is_fitted=True
         
         return self
     
@@ -262,7 +274,7 @@ class stepLogit(BaseEstimator):
             return(vif)    
 
 
-class cardScorer(TransformerMixin):
+class cardScorer(Base,Specials,TransformerMixin):
     
     '''
     评分转换
@@ -283,7 +295,7 @@ class cardScorer(TransformerMixin):
             + None,保证数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
-        n_jobs=1,并行数量,默认1(所有core),在数据量非常大，列非常多的情况下可提升效率但会增加内存占用，若数据量较少可设定为1    
+        n_jobs=1,并行数量 
         verbose=0,并行信息输出等级  
             
     Attribute:    
@@ -305,8 +317,12 @@ class cardScorer(TransformerMixin):
         self.check_na=check_na
         self.n_jobs=n_jobs
         self.verbose=verbose
+        
+        self._is_fitted=False
 
     def fit(self,X,y=None):        
+        
+        self._check_X(X)
                 
         if isinstance(self.logit_model,(BinaryResultsWrapper,GLMResultsWrapper)):
             
@@ -325,10 +341,15 @@ class cardScorer(TransformerMixin):
             
         self.scorecard=self._getPoints(self.varbin,logit_model_coef,logit_model_intercept,self.digit)
         
+        self._is_fitted=True
+        
         return self
     
     
     def transform(self,X,y=None):
+        
+        self._check_is_fitted()
+        self._check_X(X)
 
         p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
             
@@ -375,7 +396,7 @@ class cardScorer(TransformerMixin):
     
     def _points_map(self,col,bin_df,check_na=True,special_values=None):
         
-        col=sp_replace_single(col,check_spvalues(col.name,special_values),fill_num=2**63,fill_str='special')
+        col=self._sp_replace_single(col,self._check_spvalues(col.name,special_values),fill_num=2**63,fill_str='special')
     
         if is_numeric_dtype(col):
             
