@@ -6,7 +6,7 @@ Created on Wed Jan 12 18:29:30 2022
 @author: zengke
 """
 
-from BDMLtools.clearner.cleaner import outliersTransformer,dtypeAllocator,nanTransformer,dtStandardization
+from .cleaner import outliersTransformer,dtypeAllocator,nanTransformer,dtStandardization
 
 __all__ = (    
     dtStandardization,

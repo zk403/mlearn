@@ -10,7 +10,7 @@ https://packaging.python.org/tutorials/distributing-packages/
 """
 
 # Always prefer setuptools over distutils
-from setuptools import setup#, find_packages
+from setuptools import setup, find_packages
 # To use a consistent encoding
 from codecs import open
 from os import path
@@ -55,7 +55,7 @@ setup(
         'Programming Language :: Python :: 3.8',
     ],
     #keywords='credit scorecard',  # Optional
-    packages=['BDMLtools'],  # Required
+    packages=find_packages(),  # Required
     install_requires=['numpy>=1.20',
                       'fastparquet>=0.7.1',
                       'pandas>=1.3.3',
