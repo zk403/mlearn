@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*- 
 
-from .clearner import outliersTransformer,dtypeAllocator,nanTransformer,dtStandardization
+from clearner import outliersTransformer,dtypeAllocator,nanTransformer,dtStandardization
 from BDMLtools.report import businessReport,EDAReport,varReport,varGroupsReport,varReportSinge
 from BDMLtools.selector import binSelector,binFreq,binPretty,binTree,binChi2,binKmeans
 from BDMLtools.selector import faSelector
