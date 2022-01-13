@@ -88,6 +88,16 @@ pip uninstall BDMLtools
 ```
 
 
+更新:
+```
+v0.1.6
+1.重构代码结构
+2.在preSelector中加入新的特征筛选方法filterByShuffle
+3.修复bug
+```
+
+
+
 
 
 
