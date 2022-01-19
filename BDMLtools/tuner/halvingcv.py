@@ -14,6 +14,7 @@ from sklearn.model_selection import HalvingGridSearchCV,HalvingRandomSearchCV,Re
 from sklearn.calibration import CalibratedClassifierCV
 import numpy as np
 import pandas as pd
+from joblib import effective_n_jobs
 
 class hgirdTuner(Base,BaseEstimator):
     
@@ -250,6 +251,8 @@ class hgirdTuner(Base,BaseEstimator):
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state) 
         
+        n_jobs=effective_n_jobs(self.n_jobs) 
+        
         hgird=HalvingGridSearchCV(self.Estimator(random_state=self.random_state),
                                   param_grid=self.para_space,
                                   cv=cv,
@@ -257,7 +260,7 @@ class hgirdTuner(Base,BaseEstimator):
                                   factor=self.factor,
                                   scoring=scorer,
                                   verbose=self.verbose,
-                                  n_jobs=self.n_jobs)
+                                  n_jobs=n_jobs)
         
         self.h_gird_res=hgird.fit(X,y,sample_weight=self.sample_weight)
         
@@ -287,12 +290,14 @@ class hgirdTuner(Base,BaseEstimator):
         
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state) 
         
+        n_jobs=effective_n_jobs(self.n_jobs) 
+        
         h_r_gird=HalvingRandomSearchCV(self.Estimator(random_state=self.random_state),
                                      param_distributions=self.para_space,
                                      n_candidates=self.n_candidates,
                                      factor=self.factor,
                                      cv=cv,
-                                     n_jobs=self.n_jobs,
+                                     n_jobs=n_jobs,
                                      verbose=self.verbose,
                                      refit=True,
                                      random_state=self.random_state,

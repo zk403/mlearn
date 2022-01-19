@@ -65,6 +65,8 @@ def test_bin():
             
 def test_scorecard():        
     
+    global dt_woe_sc_1,dt_woe_bm
+    
     dt=sc.germancredit().copy()
     dt['creditability']=dt['creditability'].map({'good':0,'bad':1})
     
@@ -102,7 +104,7 @@ def test_scorecard():
     
     bin_sc=sc.woebin(dt,y='creditability',breaks_list=breaks_list_user,no_cores=1)
     
-    bin_bm=binSelector(breaks_list_adj=breaks_list_user,n_jobs=1).fit(X,y).adjbin
+    bin_bm=varReport(breaks_list_dict=breaks_list_user,n_jobs=1).fit(X,y).var_report_dict
     
     dt_woe_sc = sc.woebin_ply(dt, bins=bin_sc,no_cores=1)
     
@@ -113,7 +115,7 @@ def test_scorecard():
     dt_woe_sc_1=dt_woe_sc_1[dt_woe_bm.columns]
     
     
-    print("woe_equal:{}".format(dt_woe_sc_1.astype('float32').equals(dt_woe_bm))) 
+    print("woe_equal:{}".format(dt_woe_sc_1.astype('float32').equals(dt_woe_bm.astype('float32')))) 
     
     lr_sc = LogisticRegression(penalty='l1',C=0.9,solver='saga').fit(dt_woe_sc_1, y)
 
@@ -139,7 +141,7 @@ def test_scorecard():
     
     dt_score_bm=card_obj.transform(X)
     
-    print("score_equal:{}".format(dt_score_sc['score'].astype('float32').equals(dt_score_bm['score'])))
+    print("score_equal:{}".format(dt_score_sc['score'].astype('float32').equals(dt_score_bm['score'].astype('float32'))))
     
     
     

@@ -14,6 +14,7 @@ from sklearn.calibration import CalibratedClassifierCV
 from BDMLtools.base import Base
 import numpy as np
 import pandas as pd
+from joblib import effective_n_jobs
 
 class girdTuner(Base,BaseEstimator):
     
@@ -247,8 +248,10 @@ class girdTuner(Base,BaseEstimator):
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state) 
         
+        n_jobs=effective_n_jobs(self.n_jobs)              
+        
         gird=GridSearchCV(self.Estimator(random_state=self.random_state),self.para_space,cv=cv,
-                          n_jobs=self.n_jobs,
+                          n_jobs=n_jobs,
                           refit=True,
                           verbose=self.verbose,
                           scoring=scorer,error_score=0)    
@@ -274,8 +277,10 @@ class girdTuner(Base,BaseEstimator):
         
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state) 
         
+        n_jobs=effective_n_jobs(self.n_jobs) 
+        
         r_gird=RandomizedSearchCV(self.Estimator(random_state=self.random_state),self.para_space,cv=cv,
-                                  n_jobs=self.n_jobs,verbose=self.verbose,refit=True,
+                                  n_jobs=n_jobs,verbose=self.verbose,refit=True,
                                   random_state=self.random_state,
                                   scoring=scorer,error_score=0,n_iter=self.n_iter)
         
@@ -305,11 +310,13 @@ class girdTuner(Base,BaseEstimator):
         '''   
         thrs = np.linspace(y_pred.min(), y_pred.max(),100)
         lift=[]
+        
         for thr in thrs:
             tn, fp, fn, tp = metrics.confusion_matrix(y_true,y_pred>thr).ravel()
             #depth = (tp + fp)/(tn+fp+fn+tp)
             ppv = tp/(tp + fp)
             lift.append(ppv/((tp + fn)/(tn+fp+fn+tp)))
+            
         return(np.nanmean(lift)) 
     
     def _cvresult_to_df(self,cv_results_):

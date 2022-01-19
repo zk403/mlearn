@@ -22,3 +22,11 @@ class XyIndexError(IndexError):
     """Exception class to raise if X's index not equal to y's index
 
     """ 
+    
+class yValueError(ValueError):
+    
+    """Exception class to raise if y values not equal to number 0 or number 1
+
+    """ 
+    
+    

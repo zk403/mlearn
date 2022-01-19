@@ -29,6 +29,8 @@ class dtStandardization(Base,TransformerMixin):
     id_col:id列list
     col_rm:需删除的列名list
     downcast:是否对数据中的numeric类型数据进行降级处理(float64->float32),降级后数据的内存占用将减少但会损失精度。存在id_col时,其将不进行降级处理
+        + np.float64能够提供较好的精度(小数点后16位)但会占用更多内存,若数据不存在内存问题请将downcast设定为False
+        + np.float32在对精度要求较高的场景中表现不佳(比如使用bm.binSeletor进行最优分箱)但会大大减少内存占用,若后续分析对数据精度要求不高则可设定为True 
     set_index:是否将id_col设定为pandas索引
     drop_dup:是否执行去重处理,
         + 列:重复列名的列将被剔除并保留第一个出现的列,
@@ -39,7 +41,7 @@ class dtStandardization(Base,TransformerMixin):
     ------    
     """ 
     
-    def __init__(self,id_col=None,col_rm=None,downcast=True,set_index=True,drop_dup=True):       
+    def __init__(self,id_col=None,col_rm=None,downcast=False,set_index=True,drop_dup=True):       
         
         self.id_col=id_col
         self.col_rm=col_rm
@@ -113,7 +115,7 @@ class dtStandardization(Base,TransformerMixin):
     
 
 
-class dtypeAllocator(TransformerMixin):
+class dtypeAllocator(Base,TransformerMixin):
     
     """ 
     列类型分配器：将原始数据中的列类型转换为适合进行数据分析与建模的数据类型，请注意
@@ -127,7 +129,7 @@ class dtypeAllocator(TransformerMixin):
                 + 初始数据中的数值类型数据(float,int,bool)将被全部转换为float类型数据
                 + 初始数据中的字符类型数据(str)将被全部转换为object类型数据
                 + 初始数据中的无序分类类型数据(category-unordered)将被全部转换为object类型数据
-                + 初始数据中的有序分类类型数据(category-ordered)将顺序被全部转换为int8类型数据(0,1,2,3...),其与原始数据的对应关系将被保存在self.order_info中
+                + 初始数据中的有序分类类型数据(category-ordered)将顺序被全部转换为float类型数据,其与原始数据的对应关系将被保存在self.order_info中
                 + 初始数据中的时间类型数据(datetime,datetimetz)将保持默认,可通过参数选择是否剔除掉日期型数据
                 + 初始数据中的时间差类型数据(timedelta)将被转换为float,时间单位需自行指定,且作用于全部的timedelta类型
                 + 其他类型的列与col_rm列将不进行转换直接输出
@@ -136,7 +138,10 @@ class dtypeAllocator(TransformerMixin):
                 + 若所有colname_list的特征只是数据所有列的一部分，则剩下部分的列将不做转换
                 + colname_list不能含有col_rm中的列,否则会报错终止
         col_rm=None or list,不参与转换的列的列名列表，其不会参与任何转换且最终会保留在输出数据中        
-        dtype_num='float64',数值类型列转换方式，默认为float64，可以选择float32/float16，注意其可以有效减少数据的内存占用，但会损失数据精度。请注意数据中的数值id列,建议不进行32或16转换
+        dtype_num='float64',数值类型列转换方式，默认为float64，可以选择float32，请注意数据中的数值id列,建议不进行32转换
+                + np.float64能够提供较好的精度(小数点后16位)但会占用更多内存,若数据不存在内存问题请将dtype_num设定为float64
+                + np.float32在对精度要求较高的场景中会出现精度问题(比如使用bm.binSeletor进行最优分箱)但会大大减少内存占用,若后续分析对数据精度要求不高则可设定为float32
+                + 在建模分析任务中，建议设定为float64
         t_unit=‘1 D’,timedelta类列处理为数值的时间单位，默认天
         drop_date=False,是否剔除原始数据中的日期列，默认False
         precision=3,数值类数据的精度,precision=3代表保留小数点后3位小数，设定好设定此值以获得数值的近似结果。
@@ -172,6 +177,8 @@ class dtypeAllocator(TransformerMixin):
         X_r : pd.DataFrame,经规分配后的数据
 
         """ 
+        
+        self._check_param_dtype(self.dtype_num)
         
         X = X.copy()
         
@@ -412,7 +419,10 @@ class nanTransformer(Base,Specials,TransformerMixin):
     indicator:bool,是否生成缺失值指代特征
     n_neighbors:knn算法中的邻近个数k
     weights_knn:str,knn算法中的预测权重，可选‘uniform’, ‘distance’
-    dtype_num:str,填补后数值类型列的dtype
+    dtype_num:str,填补后数值类型列的dtype,可选float64/float32
+        + np.float64能够提供较好的精度(小数点后16位)但会占用更多内存,若数据不存在内存问题请将dtype_num设定为float64
+        + np.float32在对精度要求较高的场景中表现不佳(比如使用bm.binSeletor进行最优分箱)但会大大减少内存占用,若后续分析对数据精度要求不高则可设定为float32
+        + 在建模分析任务中，建议设定为float64，设定为float32会产生精度问题
     
     Attributes
     ------
@@ -422,11 +432,11 @@ class nanTransformer(Base,Specials,TransformerMixin):
     """    
     
     def __init__(self,method=('constant','constant'),
-                      missing_values=[np.nan,'nan'],
+                      missing_values=[np.nan,'nan','','special','missing'],
                       fill_value=(np.nan,'missing'),  
                       n_neighbors=10,
                       weights_knn='uniform',
-                      indicator=False,dtype_num='float32'):
+                      indicator=False,dtype_num='float64'):
 
         self.missing_values=missing_values
         self.method=method
@@ -449,6 +459,7 @@ class nanTransformer(Base,Specials,TransformerMixin):
         """       
         
         self._check_X(X)
+        self._check_param_dtype(self.dtype_num)
 
         X=self._sp_replace(X,self.missing_values,fill_num=np.nan,fill_str=np.nan)
         
@@ -532,6 +543,7 @@ class nanTransformer(Base,Specials,TransformerMixin):
 
         """
         
+        self._check_param_dtype(self.dtype_num)
         self._check_X(X)
         self._check_is_fitted()
         

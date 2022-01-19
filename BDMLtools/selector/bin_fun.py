@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from pandas.api.types import is_numeric_dtype,is_string_dtype,is_array_like
 from sklearn.base import BaseEstimator
-from joblib import Parallel,delayed
+from joblib import Parallel,delayed,effective_n_jobs
 import warnings
 from itertools import groupby
 from sklearn.cluster import KMeans
@@ -287,7 +287,9 @@ class binKmeans(Base,Specials,BaseEstimator):
         #breaks_list=self.get_Breaklist_sc(self.breaks_list,X,y)
         breaks_list=self.breaks_list
         
-        parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+        n_jobs=effective_n_jobs(self.n_jobs)  
+        
+        parallel=Parallel(n_jobs=n_jobs,verbose=self.verbose)
         
         col_break=parallel(delayed(self._combine_badprob_kmeans)(X[col],y,
                                                                 self.combine_ratio,
@@ -619,7 +621,9 @@ class binTree(Base,Specials,BaseEstimator):
         
         self._check_data(X, y)
         
-        p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+        n_jobs=effective_n_jobs(self.n_jobs)  
+        
+        p=Parallel(n_jobs=n_jobs,verbose=self.verbose)
         
         res=p(delayed(self._get_treecut)(col[1],y,self.max_bin,
                                         self.criteria,self.max_iters,
@@ -991,8 +995,10 @@ class binChi2(Base,Specials,BaseEstimator):
     def fit(self, X, y):
         
         self._check_data(X, y)
+        
+        n_jobs=effective_n_jobs(self.n_jobs)  
             
-        p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+        p=Parallel(n_jobs=n_jobs,verbose=self.verbose)
         
         res=p(delayed(self._get_chi2merge)(col[1],y,
                                         self.max_bin,
@@ -1352,8 +1358,10 @@ class binPretty(Base,Specials,BaseEstimator):
     def fit(self, X, y):
         
         self._check_data(X,y)
+
+        n_jobs=effective_n_jobs(self.n_jobs)  
         
-        p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+        p=Parallel(n_jobs=n_jobs,verbose=self.verbose)
         
         res=p(delayed(self._get_prettymerge)(col[1],y,
                                         self.max_bin,

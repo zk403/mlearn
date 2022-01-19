@@ -17,6 +17,7 @@ from sklearn.model_selection import RepeatedStratifiedKFold
 #from time import time
 import numpy as np
 import pandas as pd
+from joblib import effective_n_jobs
 
 
 class BayesianXGBTuner(Base,BaseEstimator):
@@ -204,10 +205,12 @@ class BayesianXGBTuner(Base,BaseEstimator):
             raise ValueError('scoring not understood,should be "ks","auc","lift")')
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)        
+        
+        n_jobs=effective_n_jobs(self.n_jobs)
                         
         cv_res=GridSearchCV(
             XGBClassifier(seed=self.random_state,use_label_encoder=False,verbosity=0),para_space,cv=cv,
-            n_jobs=self.n_jobs,verbose=self.verbose,
+            n_jobs=n_jobs,verbose=self.verbose,
             scoring=scorer,error_score=0).fit(self.X,self.y,sample_weight=self.sample_weight)
         
         #print(cv_res.cv_results_['mean_test_score'])
@@ -457,10 +460,12 @@ class BayesianLgbmTuner(Base,BaseEstimator):
             raise ValueError('scoring not understood,should be "ks","auc","lift")')
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)
+        
+        n_jobs=effective_n_jobs(self.n_jobs)
                         
         cv_res=GridSearchCV(
             sLGBMClassifier(seed=self.random_state,min_child_weight=None),para_space,cv=cv,
-            n_jobs=self.n_jobs,verbose=self.verbose,
+            n_jobs=n_jobs,verbose=self.verbose,
             scoring=scorer,error_score=0).fit(self.X,self.y,sample_weight=self.sample_weight)
         
         #print(cv_res.cv_results_['mean_test_score'])

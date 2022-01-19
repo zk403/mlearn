@@ -14,7 +14,7 @@ from glob import glob
 import os
 from itertools import product
 import warnings
-from joblib import Parallel,delayed
+from joblib import Parallel,delayed,effective_n_jobs
 from BDMLtools.base import Base
 from BDMLtools.fun import raw_to_bin_sc,Specials
 
@@ -258,17 +258,19 @@ class businessReport(Base,TransformerMixin):
         print('to_excel done') 
         
 
-class varReportSinge(Specials):
+class varReportSinge(Base,Specials):
     
-    def report(self, X, y,breaks,sample_weight=None,special_values=None):
+    def report(self, X, y,breaks,sample_weight=None,special_values=None,b_dtype='float64'):
+        
+        self._check_param_dtype(b_dtype)
                 
         X=self._sp_replace_single(X,self._check_spvalues(X.name,special_values),fill_num=2**63,fill_str='special')
                
-        report_var=self.getReport_Single(X,y,breaks,sample_weight,special_values)
+        report_var=self.getReport_Single(X,y,breaks,sample_weight,special_values,b_dtype)
         
         return report_var 
         
-    def getReport_Single(self,X,y,breakslist_var,sample_weight,special_values):         
+    def getReport_Single(self,X,y,breakslist_var,sample_weight,special_values,b_dtype):         
 
          col=X.name
 
@@ -283,8 +285,11 @@ class varReportSinge(Specials):
              
              if special_values:
                  
+                 
+                 breaks=breakslist_var+[2**63] if b_dtype=='float64' else np.float32(breakslist_var+[2**63]).tolist()
+                 
                  #按照分箱sc的breaklist的区间进行分箱
-                 var_cut=pd.cut(var_fillna,[-np.inf]+breakslist_var+[2**63]+[np.inf],duplicates='drop',right=False).cat.add_categories('missing')                 
+                 var_cut=pd.cut(var_fillna,[-np.inf]+breaks+[np.inf],duplicates='drop',right=False).cat.add_categories('missing')                 
                  
                  #add missing codes
                  var_bin=var_cut.fillna('missing')
@@ -301,7 +306,9 @@ class varReportSinge(Specials):
                      
              else:
                  
-                 var_cut=pd.cut(var_fillna,[-np.inf]+breakslist_var+[np.inf],duplicates='drop',right=False).cat.add_categories(['special','missing'])                 
+                 breaks=breakslist_var if b_dtype=='float64' else np.float32(breakslist_var).tolist()
+                 
+                 var_cut=pd.cut(var_fillna,[-np.inf]+breaks+[np.inf],duplicates='drop',right=False).cat.add_categories(['special','missing'])                 
                  
                  #add missing codes
                  var_bin=var_cut.fillna('missing')
@@ -394,13 +401,17 @@ class varReport(Base,TransformerMixin):
     产生业务报告
     Params:
     ------
-        breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
+        breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...}
         special_values:特殊值指代值,若数据中某些值或某列某些值需特殊对待(这些值不是np.nan)时设定
             请特别注意,special_values必须与binSelector的special_values一致,否则报告的special行会产生错误结果
             + None,保证数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
         sample_weight:numpy.array or pd.Series or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标
+        b_dtype:可选float32与float64,breaks的数据精度类型，breaks与x的数据精度类型应保持一致，否则会导致在极端条件下的分箱出现错误结果
+            + 若x的数据为np.float32类型,请设定为float32以保证breaks和x的精度类型一致
+            + 若x的数据为np.float64类型,请保持默认
+            + 请不要在原始数据中共用不同的数值精度格式，例如float32与float64并存..，请使用bm.dtypeAllocator统一数据的精度格式
         out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
         tab_suffix:本地excel报告名后缀
         n_jobs:int,并行计算job数
@@ -412,11 +423,12 @@ class varReport(Base,TransformerMixin):
         
     """
     
-    def __init__(self,breaks_list_dict,special_values=None,sample_weight=None,out_path=None,tab_suffix='',n_jobs=-1,verbose=0):
+    def __init__(self,breaks_list_dict,special_values=None,sample_weight=None,out_path=None,tab_suffix='',n_jobs=-1,verbose=0,b_dtype='float64'):
 
         self.breaks_list_dict = breaks_list_dict
         self.special_values = special_values
         self.sample_weight = sample_weight
+        self.b_dtype=b_dtype
         self.n_jobs = n_jobs
         self.verbose = verbose
         self.out_path = out_path
@@ -425,10 +437,12 @@ class varReport(Base,TransformerMixin):
     def fit(self, X, y):
         
         self._check_data(X,y)
-            
-        parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose,batch_size=100)
         
-        out_list=parallel(delayed(self._get_report_single)(X,y,col,self.breaks_list_dict[col],self.sample_weight,self.special_values)
+        n_jobs=effective_n_jobs(self.n_jobs)
+        
+        parallel=Parallel(n_jobs=n_jobs,verbose=self.verbose,batch_size=100)
+        
+        out_list=parallel(delayed(self._get_report_single)(X,y,col,self.breaks_list_dict[col],self.sample_weight,self.special_values,self.b_dtype)
                           for col in self.breaks_list_dict)
         
         self.var_report_dict={col:total for col,total in out_list}
@@ -445,9 +459,9 @@ class varReport(Base,TransformerMixin):
         return X
   
         
-    def _get_report_single(self,X,y,col_name,breaks,sample_weight,special_values):
+    def _get_report_single(self,X,y,col_name,breaks,sample_weight,special_values,b_dtype):
            
-        vtabs=varReportSinge().report(X[col_name],y,breaks,sample_weight,special_values)
+        vtabs=varReportSinge().report(X[col_name],y,breaks,sample_weight,special_values,b_dtype)
         
         return col_name,vtabs
 
@@ -484,7 +498,7 @@ class varGroupsReport(Base,TransformerMixin):
     Params:
     ------
     
-    breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...},支持scorecardpy与toad的breaks_list结构，
+    breaks_list_dict:dict,分箱字典结构,{var_name:[bin],...}
     columns:list,组变量名,最终报告将组变量置于报告列上,组特征可以在breaks_list_dict中
     sort_columns:dict or None,组变量名输出的列顺序,排序后的报告中多重列索引的列顺序将与设定一致
         + sort_columns必须是dict格式，例如sort_columns={col_name1:[value1,value2,...],col_name2:[...],...}
@@ -492,6 +506,10 @@ class varGroupsReport(Base,TransformerMixin):
             + 可使用X[key].astype('str').unique()去查看组变量的所有值并根据其值进行排序
         + sort_columns中某列的排序值[value1,value2,...]必须与原始数据X的中改列的唯一值一致,即set([value1,value2,...])==set(X[col_name1].unique)
     target:目标变量名
+    b_dtype:可选float32与float64,breaks的数据精度类型，breaks与x的数据精度类型应保持一致，否则会导致在极端条件下的分箱出现错误结果
+        + 若x的数据为np.float32类型,请设定为float32以保证breaks和x的精度类型一致
+        + 若x的数据为np.float64类型,请保持默认
+        + 请不要在原始数据中共用不同的数值精度格式，例如float32与float64并存..，请使用bm.dtypeAllocator统一数据的精度格式
     output_psi:bool,是否输出群组psi报告
     psi_base:str,psi计算的基准,可选all，也可用户自定义
         + 'all':以特征在全量数据的分布为基准
@@ -518,7 +536,7 @@ class varGroupsReport(Base,TransformerMixin):
     
     
     def __init__(self,breaks_list_dict,columns,sort_columns=None,target='target',row_limit=1000,output_psi=False,psi_base='all',
-                 special_values=None,sample_weight=None,
+                 special_values=None,sample_weight=None,b_dtype='float64',
                  n_jobs=-1,verbose=0,out_path=None,tab_suffix='_group'):
 
         self.breaks_list_dict=breaks_list_dict
@@ -530,6 +548,7 @@ class varGroupsReport(Base,TransformerMixin):
         self.psi_base=psi_base
         self.special_values=special_values
         self.sample_weight=sample_weight
+        self.b_dtype=b_dtype
         self.n_jobs=n_jobs
         self.verbose=verbose
         self.out_path=out_path
@@ -554,11 +573,15 @@ class varGroupsReport(Base,TransformerMixin):
         
         X_g_gen=X.groupby(self.columns)
         
-        parallel=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+        n_jobs=effective_n_jobs(self.n_jobs)
+        
+        parallel=Parallel(n_jobs=n_jobs,verbose=self.verbose)
+        
         out_list=parallel(delayed(self._group_parallel)(X_g_gen,g,self.target,self.columns,
                                                        self.breaks_list_dict,self.row_limit,
-                                                       self.special_values) for g in X_g_gen.groups)
+                                                       self.special_values,self.b_dtype) for g in X_g_gen.groups)
 
+        self.debug=out_list
         report=pd.concat({columns:vtabs for columns,vtabs in out_list},axis=1)
         
         if self.sort_columns:       
@@ -568,7 +591,7 @@ class varGroupsReport(Base,TransformerMixin):
             report=self._vtab_column_sort(sort_columns_list,report)                
                   
         self.report_dict=self._getReport(X,report,self.breaks_list_dict,self.special_values,self.n_jobs,self.verbose,
-                                        self.target,self.output_psi,self.psi_base)                    
+                                        self.target,self.output_psi,self.psi_base,self.b_dtype)                    
 
         if self.out_path:
                 
@@ -582,7 +605,7 @@ class varGroupsReport(Base,TransformerMixin):
         return X
 
         
-    def _group_parallel(self,X_g_gen,g,target,columns,breaks_list_dict,row_limit,special_values):
+    def _group_parallel(self,X_g_gen,g,target,columns,breaks_list_dict,row_limit,special_values,b_dtype):
     
         group_dt=X_g_gen.get_group(g)
         X_g=group_dt.drop([target]+columns,axis=1)
@@ -606,6 +629,7 @@ class varGroupsReport(Base,TransformerMixin):
             res=varReport(breaks_list_dict=breaks_list_dict,
                           special_values=special_values,
                           sample_weight=w_g,
+                          b_dtype=b_dtype,
                           n_jobs=1,                                  
                           verbose=0).fit(X_g,y_g)
         
@@ -616,7 +640,7 @@ class varGroupsReport(Base,TransformerMixin):
     
    
     def _getReport(self,X,report,breaks_list_dict,special_values,n_jobs,verbose,target,
-                  output_psi=True,psi_base='all'):
+                  output_psi=True,psi_base='all',b_dtype='float64'):
         
         report_out={}
             
@@ -644,6 +668,7 @@ class varGroupsReport(Base,TransformerMixin):
                 
                 all_var=varReport(breaks_list_dict=breaks_list_dict,
                                   special_values=special_values,
+                                  b_dtype=b_dtype,
                                   n_jobs=n_jobs,                                  
                                   verbose=verbose).fit(X.drop(target,axis=1),X[target])
                 base=pd.concat(all_var.var_report_dict)['count_distr']
@@ -674,6 +699,7 @@ class varGroupsReport(Base,TransformerMixin):
                 
                 all_var=varReport(breaks_list_dict=breaks_list_dict,
                                   special_values=special_values,
+                                  b_dtype=b_dtype,
                                   n_jobs=n_jobs,                                  
                                   verbose=verbose).fit(X_q.drop(target,axis=1),X[target])
                 base=pd.concat(all_var.var_report_dict)['count_distr']

@@ -88,12 +88,20 @@ pip uninstall BDMLtools
 ```
 
 
-更新:
+更新日志:
+```
+v0.1.7
+1.修复了float低精度类型的分箱导致少数结果不准确的问题
+2.加入woe_plot模块
+3.文档维护
+```
+
 ```
 v0.1.6
 1.重构代码结构
 2.在preSelector中加入新的特征筛选方法filterByShuffle
 3.修复bug
+4.文档维护
 ```
 
 

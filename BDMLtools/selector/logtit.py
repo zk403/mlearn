@@ -19,7 +19,7 @@ from statsmodels.genmod.generalized_linear_model import GLMResultsWrapper
 from sklearn.linear_model._logistic import LogisticRegression
 from pandas.api.types import is_numeric_dtype,is_string_dtype
 from BDMLtools.fun import raw_to_bin_sc,Specials
-from joblib import Parallel,delayed
+from joblib import Parallel,delayed,effective_n_jobs
 from BDMLtools.base import Base
 
 class stepLogit(Base,BaseEstimator,TransformerMixin):
@@ -295,6 +295,10 @@ class cardScorer(Base,Specials,TransformerMixin):
             + None,保证数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
+        dtype,可选'float32'与'float64',转换最终评分数据为np.float32/np.float64格式，breaks也会以np.float32/np.float64格式分段数据
+            + 模块会使用varbin中的breaks分段数据，其本身为np.float64，因此fit中的数据的number列也必须为float64,否则会因为格式不一致产生精度问题
+            + 若fit中的数据的number列为float32型，则请设定为float32以保证不因格式不一致而产生精度问题
+            + 请不要在原始数据中共用不同的数值精度格式，例如float32与float64共用，int32与int64共用...，请使用bm.dtypeAllocator统一建模数据的格式
         n_jobs=1,并行数量 
         verbose=0,并行信息输出等级  
             
@@ -305,7 +309,7 @@ class cardScorer(Base,Specials,TransformerMixin):
     ''' 
     
     def __init__(self,logit_model,varbin,odds0=1/100,pdo=50,points0=600,digit=0,special_values=None,
-                 check_na=True,n_jobs=1,verbose=0):
+                 check_na=True,dtype='float32',n_jobs=1,verbose=0):
        
         self.logit_model=logit_model
         self.varbin=varbin
@@ -314,13 +318,14 @@ class cardScorer(Base,Specials,TransformerMixin):
         self.points0=points0
         self.digit=digit
         self.special_values=special_values
+        self.dtype=dtype
         self.check_na=check_na
         self.n_jobs=n_jobs
         self.verbose=verbose
         
         self._is_fitted=False
 
-    def fit(self,X,y=None):        
+    def fit(self,X,y=None):     
         
         self._check_X(X)
                 
@@ -348,12 +353,15 @@ class cardScorer(Base,Specials,TransformerMixin):
     
     def transform(self,X,y=None):
         
+        self._check_param_dtype(self.dtype)
         self._check_is_fitted()
         self._check_X(X)
+        
+        n_jobs=effective_n_jobs(self.n_jobs)
 
-        p=Parallel(n_jobs=self.n_jobs,verbose=self.verbose)
+        p=Parallel(n_jobs=n_jobs,verbose=self.verbose)
             
-        res=p(delayed(self._points_map)(X[key],self.scorecard[key],self.check_na,self.special_values) 
+        res=p(delayed(self._points_map)(X[key],self.scorecard[key],self.check_na,self.special_values,self.dtype) 
                               for key in self.columns)
             
         score=pd.concat({col:col_points for col,col_points in res},axis=1)
@@ -394,7 +402,7 @@ class cardScorer(Base,Specials,TransformerMixin):
         return a,b
     
     
-    def _points_map(self,col,bin_df,check_na=True,special_values=None):
+    def _points_map(self,col,bin_df,check_na=True,special_values=None,dtype='float64'):
         
         col=self._sp_replace_single(col,self._check_spvalues(col.name,special_values),fill_num=2**63,fill_str='special')
     
@@ -412,13 +420,17 @@ class cardScorer(Base,Specials,TransformerMixin):
             
             if special_values:
                 
-                col_points=pd.cut(col,[-np.inf]+breaks+[2**63]+[np.inf],labels=points+[points_sp],right=False,ordered=False).astype('float32')
+                breaks_cut=breaks+[2**63] if dtype=='float64' else np.float32(breaks+[2**63]).tolist()
+                
+                col_points=pd.cut(col,[-np.inf]+breaks_cut+[np.inf],labels=points+[points_sp],right=False,ordered=False).astype(dtype)
                 
                 col_points=col_points.fillna(points_nan)                
 
             else:
+                
+                breaks_cut=breaks if dtype=='float64' else np.float32(breaks).tolist()            
     
-                col_points=pd.cut(col,[-np.inf]+breaks+[np.inf],labels=points,right=False,ordered=False).astype('float32')
+                col_points=pd.cut(col,[-np.inf]+breaks_cut+[np.inf],labels=points,right=False,ordered=False).astype(dtype)
                 
                 col_points=col_points.fillna(points_nan)                
             

@@ -8,8 +8,9 @@ Created on Tue Jan 11 22:12:51 2022
 
 
 from sklearn.exceptions import NotFittedError
-from BDMLtools.exception import DataDtypesError,DataTypeError,XyIndexError
+from BDMLtools.exception import DataDtypesError,DataTypeError,XyIndexError,yValueError
 import pandas as pd
+import numpy as np
 
 class Base:
     
@@ -25,7 +26,7 @@ class Base:
         
         if not isinstance(X,pd.core.frame.DataFrame):
             
-            raise DataTypeError("X is pd.core.frame.Series")
+            raise DataTypeError("X is pd.core.frame.DataFrame")
             
         if not X.index.is_unique:
             
@@ -58,9 +59,17 @@ class Base:
         
             raise XyIndexError("X's index not equal to y")
             
+        # if not np.equal(y.unique(),[0,1]).all():
+            
+        #     raise yValueError("vals of y in [0,1] and 0(no-event),1(event)")
+            
         if X.select_dtypes(exclude=['number','object']).columns.size:
             
             raise DataDtypesError("dtypes not in ('number' or 'object')")
     
+    def _check_param_dtype(self,dtype):
         
-    
+        if not dtype in ('float32','float64'):
+            
+            raise ValueError("dtype in ('float32','float64')")
+        
