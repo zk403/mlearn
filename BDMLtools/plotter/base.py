@@ -51,7 +51,7 @@ class BaseWoePlotter:
         binx['neg']=binx['bad']/binx['count'].sum()
         binx['rowid']=binx.index+1
         binx['lineval_l']=binx['badprob'].mul(100).round(2).map(str)+'%'
-        binx['bin']=binx['bin'].astype('str')
+        binx['bin']=binx['bin'].astype('object')
         
         return binx
     
@@ -89,12 +89,14 @@ class BaseWoePlotter:
         if y_left_max>1 or y_left_max<=0 or y_left_max is np.nan or y_left_max is None:
     
             y_left_max=1
+            
+        y_max=max(y_right_max,y_left_max)
     
         #base plot using ggplot2(no sec_axis function in plotnine - 0.8.0)
         figure=(ggplot() + geom_bar(binx_melt,aes(x='bin',y='negpos',fill=''), stat="identity",show_legend = True)
             + geom_point(data=binx,mapping=aes(x='rowid',y='badprob'), stat="identity",color='blue')
             + geom_path(data=binx,mapping=aes(x='rowid',y='badprob'),color='blue')
-            + scale_y_continuous(limits = (0, y_left_max))
+            + scale_y_continuous(limits = (0, y_max))
             + theme_bw()
             + labs(x='',y='Bin count distribution',title=title_string)
             + theme(
@@ -108,8 +110,8 @@ class BaseWoePlotter:
         ax1=figure.get_axes()[-1]
         ax2=ax1.twinx()
         ax2.set_ylabel('Bad probability', color='blue')
-        ax2.set_ylim(top=y_left_max)
-        ax2.set_yticks(np.arange(0, y_left_max, 0.2))
+        ax2.set_ylim(top=y_max)
+        ax2.set_yticks(np.arange(0, y_max, 0.2))
         ax2.tick_params(axis='y', colors='blue')   
         
         if not show_plot:
@@ -170,12 +172,14 @@ class BaseWoePlotter:
     
             y_left_max=1
         
+        y_max=max(y_right_max,y_left_max)
+        
         #base plot using ggplot2(no sec_axis function in plotnine - 0.8.0)
         figure=(ggplot() + geom_bar(binx_g_melt,aes(x='bin',y='negpos',fill=''), stat="identity",show_legend = True)
             + geom_point(data=binx_g_h,mapping=aes(x='rowid',y='badprob'), stat="identity",color='blue')
             + geom_path(data=binx_g_h,mapping=aes(x='rowid',y='badprob'),color='blue')
             + facet_wrap(('g'))
-            + scale_y_continuous(limits = (0, y_left_max))
+            + scale_y_continuous(limits = (0, y_max))
             + theme_bw()
             + labs(x='',y='Bin count distribution',title=title_string)
             + theme(
@@ -189,8 +193,8 @@ class BaseWoePlotter:
         ax1=figure.get_axes()[-1]
         ax2=ax1.twinx()
         ax2.set_ylabel('Bad probability', color='blue')
-        ax2.set_ylim(top=y_left_max)
-        ax2.set_yticks(np.arange(0, y_left_max, 0.2))
+        ax2.set_ylim(top=y_max)
+        ax2.set_yticks(np.arange(0, y_max, 0.2))
         ax2.tick_params(axis='y', colors='blue')
         
         if not show_plot:
