@@ -174,8 +174,11 @@ def test_tab():
     bin_tree=binSelector(method='tree',bin_num_limit=8,n_jobs=1,iv_limit=0).fit(X,y)
     
     vtab=varReport(bin_tree.breaks_list,n_jobs=1).fit(X,y)
+    figs=vtab.woe_plot()
     
     varReportSinge().report(X['age.in.years'],y,[20,30,40,50])
+    varReportSinge().woe_plot(X['age.in.years'],y,[20,30,40,50])
+    
     
     X_all=X.join(y).assign(
         month=np.random.randint(9,13,y.size),
@@ -184,6 +187,7 @@ def test_tab():
     
     vtab_g=varGroupsReport(bin_tree.breaks_list,columns=['month','client_group'],target=y.name,row_limit=0,
                           n_jobs=1).fit(X_all)
+
     
     sort_columns={
     'month':['9','10','11','12'],
@@ -201,6 +205,8 @@ def test_tab():
 
     vtabs_g=varGroupsReport(bin_tree.breaks_list,columns=['client_group'],target=y.name,
                         row_limit=0,output_psi=True,n_jobs=1).fit(X_all)
+    
+    figs_g=vtabs_g.woe_plot_group()
     
     print("vtabs finish")
     

@@ -6,8 +6,8 @@ Created on Wed Jan 12 18:29:30 2022
 @author: zengke
 """
 
-from BDMLtools.encoder.woe import woeTransformer
+from BDMLtools.plotter.base import BaseWoePlotter
 
 __all__ = (    
-    woeTransformer
+    BaseWoePlotter
 )

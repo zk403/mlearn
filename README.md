@@ -92,7 +92,7 @@ pip uninstall BDMLtools
 ```
 v0.1.7
 1.修复了float低精度类型的分箱导致少数结果不准确的问题
-2.加入woe_plot模块
+2.加入woe_plot模块,支持单特征、组特征的特征分析报告的绘图
 3.文档维护
 ```
 

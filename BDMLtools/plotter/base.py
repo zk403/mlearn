@@ -6,9 +6,8 @@ from joblib import Parallel,delayed,effective_n_jobs
 
 
 
-class baseWoePlotter:   
+class BaseWoePlotter:   
     
-
     def _woe_plot(self,varbin,figure_size,n_jobs,verbose):
         
         n_jobs=effective_n_jobs(n_jobs)   
@@ -207,11 +206,8 @@ class baseWoePlotter:
             
             if isinstance(sort_column,list):
                 
-                
-                print(sort_column,gs)
-                
             
-                if not set(gs) in set(sort_column):
+                if set(gs)!=set(sort_column):    
                     
                     
                     raise ValueError("val in sort_column not equal to val in datq[col]")
