@@ -56,11 +56,13 @@ setup(
     ],
     #keywords='credit scorecard',  # Optional
     packages=find_packages(),  # Required
-    install_requires=['numpy>=1.20',
+    install_requires=[
+                      'numpy>=1.20',
                       'fastparquet>=0.7.1',
                       'pandas>=1.3.3',
                       'statsmodels>=0.13.0',
                       'matplotlib>=3.2.2',
+                      'plotnine>=0.8',
                       'scikit-learn>=1.0',
                       'xgboost>=1.4.2',
                       'scipy>=1.5.0',
