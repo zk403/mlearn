@@ -22,6 +22,7 @@ class Base:
                                  "'fit' with appropriate arguments."
                                  .format(self.__class__.__name__))
             
+            
     def _check_X(self,X):
         
         if not isinstance(X,pd.core.frame.DataFrame):

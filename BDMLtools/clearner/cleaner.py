@@ -63,8 +63,6 @@ class dtStandardization(Base,TransformerMixin):
         X_r : pd.DataFrame,经规范化后的数据
 
         """   
-        
-        self._check_X(X)
             
         X = X.copy()  
         
