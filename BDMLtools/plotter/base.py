@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from plotnine import ggplot,geom_bar,geom_point,aes,geom_path,geom_text,facet_wrap,theme,theme_bw,scale_y_continuous,labs,element_text
+from plotnine import ggplot,geom_bar,geom_point,aes,geom_path,geom_text,facet_wrap,theme,theme_bw,scale_y_continuous,labs
 import matplotlib.pyplot as plt
 from joblib import Parallel,delayed,effective_n_jobs
 
