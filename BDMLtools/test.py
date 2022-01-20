@@ -65,7 +65,7 @@ def test_bin():
             
 def test_scorecard():        
     
-    global dt_woe_sc_1,dt_woe_bm
+    global dt_score_sc,dt_score_bm
     
     dt=sc.germancredit().copy()
     dt['creditability']=dt['creditability'].map({'good':0,'bad':1})
@@ -141,7 +141,9 @@ def test_scorecard():
     
     dt_score_bm=card_obj.transform(X)
     
-    print("score_equal:{}".format(dt_score_sc['score'].astype('float32').equals(dt_score_bm['score'].astype('float32'))))
+    
+    
+    print("score_equal:{}".format(dt_score_sc['score'].equals(dt_score_bm['score'])))
     
     
     

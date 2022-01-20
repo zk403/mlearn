@@ -309,7 +309,7 @@ class cardScorer(Base,Specials,TransformerMixin):
     ''' 
     
     def __init__(self,logit_model,varbin,odds0=1/100,pdo=50,points0=600,digit=0,special_values=None,
-                 check_na=True,dtype='float32',n_jobs=1,verbose=0):
+                 check_na=True,dtype='float64',n_jobs=1,verbose=0):
        
         self.logit_model=logit_model
         self.varbin=varbin
@@ -460,7 +460,7 @@ class cardScorer(Base,Specials,TransformerMixin):
             
             breaks_to_points=dict(zip(breaks,points))
             
-            col_points=col.map(raw_to_breaks).map(breaks_to_points).astype('float32')
+            col_points=col.map(raw_to_breaks).map(breaks_to_points).astype(dtype)
             
         else:
             

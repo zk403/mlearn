@@ -175,7 +175,7 @@ class woeTransformer(Base,Specials,TransformerMixin):
             
             breaks_to_woe=dict(zip(breaks,woe))
             
-            col_woe=col.map(raw_to_breaks).map(breaks_to_woe).astype('float32')            
+            col_woe=col.map(raw_to_breaks).map(breaks_to_woe).astype(dtype)            
             
         else:
             
