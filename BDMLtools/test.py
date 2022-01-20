@@ -268,10 +268,10 @@ def test_selector():
                      }).fit(dt_woe_bm,y)
     
     
-test_bin()
+#test_bin()
 
-test_scorecard()
+#test_scorecard()
 
 test_tab()
 
-test_selector()
+#test_selector()
