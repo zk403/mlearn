@@ -834,7 +834,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
                                   special_values=special_values,
                                   b_dtype=b_dtype,
                                   n_jobs=n_jobs,                                  
-                                  verbose=verbose).fit(X_q.drop(target,axis=1),X[target])
+                                  verbose=verbose).fit(X_q.drop(target,axis=1),X_q[target])
                 base=pd.concat(all_var.var_report_dict)['count_distr']
             
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]

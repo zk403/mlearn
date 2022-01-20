@@ -108,8 +108,8 @@ class BaseWoePlotter:
         ax1=figure.get_axes()[-1]
         ax2=ax1.twinx()
         ax2.set_ylabel('Bad probability', color='blue')
-        ax2.set_ylim(top=y_right_max+0.2)
-        ax2.set_yticks(np.arange(0, y_right_max+0.2, 0.2))
+        ax2.set_ylim(top=y_right_max)
+        ax2.set_yticks(np.arange(0, y_right_max, 0.2))
         ax2.tick_params(axis='y', colors='blue')   
         
         if not show_plot:
@@ -189,8 +189,8 @@ class BaseWoePlotter:
         ax1=figure.get_axes()[-1]
         ax2=ax1.twinx()
         ax2.set_ylabel('Bad probability', color='blue')
-        ax2.set_ylim(top=y_right_max+0.2)
-        ax2.set_yticks(np.arange(0, y_right_max+0.2, 0.2))
+        ax2.set_ylim(top=y_right_max)
+        ax2.set_yticks(np.arange(0, y_right_max, 0.2))
         ax2.tick_params(axis='y', colors='blue')
         
         if not show_plot:
