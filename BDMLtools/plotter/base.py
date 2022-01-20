@@ -140,8 +140,11 @@ class BaseWoePlotter:
             binx_g_melt['g']=binx_g_melt['g'].astype('category').cat.reorder_categories(sort_column)
     
         #title
-        iv_d=binx_g_h['total_iv'].droplevel(1).drop_duplicates().to_dict()
-        ks_d=binx_g_h['ks_max'].droplevel(1).drop_duplicates().to_dict()
+        binx_g_ivks=binx_g_h[['total_iv','ks_max']].droplevel(1)
+        binx_g_ivks=binx_g_ivks.loc[~binx_g_ivks.index.duplicated(),:]
+        
+        iv_d=binx_g_ivks['total_iv'].to_dict()
+        ks_d=binx_g_ivks['ks_max'].to_dict()
     
         keys=sort_column if sort_column else iv_d.keys()
         
