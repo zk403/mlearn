@@ -136,8 +136,8 @@ class BaseWoePlotter:
     
         if sort_column:
     
-            binx_g_h['g']=binx_g_h['g'].astype('category').cat.reorder_categories(['train','test','oot'])
-            binx_g_melt['g']=binx_g_melt['g'].astype('category').cat.reorder_categories(['train','test','oot'])
+            binx_g_h['g']=binx_g_h['g'].astype('category').cat.reorder_categories(sort_column)
+            binx_g_melt['g']=binx_g_melt['g'].astype('category').cat.reorder_categories(sort_column)
     
         #title
         iv_d=binx_g_h['total_iv'].droplevel(1).drop_duplicates().to_dict()
