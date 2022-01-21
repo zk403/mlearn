@@ -24,18 +24,14 @@ class Base:
             
             
     def _check_X(self,X):
-        
+ 
         if not isinstance(X,pd.core.frame.DataFrame):
-            
+                
             raise DataTypeError("X is pd.core.frame.DataFrame")
             
         if not X.index.is_unique:
-            
+                
             raise XyIndexError("X.index is not unique")
-
-        if X.select_dtypes(exclude=['number','object']).size:
-            
-            raise DataDtypesError("dtypes not in ('number' or 'object')")
             
             
     def _check_data(self,X,y):
@@ -60,13 +56,19 @@ class Base:
         
             raise XyIndexError("X's index not equal to y")
             
-        # if not np.equal(y.unique(),[0,1]).all():
+        if y.unique().size==1:
             
-        #     raise yValueError("vals of y in [0,1] and 0(no-event),1(event)")
+            if not np.isin(y.unique(),[0,1]).any():
             
-        if X.select_dtypes(exclude=['number','object']).columns.size:
+                raise yValueError("vals of y in [0,1] and 0(no-event),1(event)")                
+        else:
+                    
+            if not np.isin(y.unique(),[0,1]).all():
+                    
+                raise yValueError("vals of y in [0,1] and 0(no-event),1(event)")
+                
             
-            raise DataDtypesError("dtypes not in ('number' or 'object')")
+            
     
     def _check_param_dtype(self,dtype):
         

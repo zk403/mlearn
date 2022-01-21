@@ -16,10 +16,11 @@ from pandas.api.types import is_numeric_dtype
 import warnings
 from BDMLtools.fun import Specials
 from BDMLtools.base import Base
+from BDMLtools.exception import DataTypeError
 #import time
 
 
-class dtStandardization(Base,TransformerMixin):
+class dtStandardization(TransformerMixin):
     
     """ 
     数据规范化：处理原始数据中实体重复,内存占用,索引等问题
@@ -63,6 +64,9 @@ class dtStandardization(Base,TransformerMixin):
         X_r : pd.DataFrame,经规范化后的数据
 
         """   
+        if not isinstance(X,pd.core.frame.DataFrame):
+                
+            raise DataTypeError("X is pd.core.frame.DataFrame")
             
         X = X.copy()  
         
@@ -82,15 +86,18 @@ class dtStandardization(Base,TransformerMixin):
                 
                 X=X.apply(lambda x:pd.to_numeric(x,'ignore','float') if is_numeric_dtype(x) else x)                
                     
-                X=X.loc[:,~X.columns.duplicated()] if self.drop_dup else X
+                X=X.loc[X.index.duplicated(),~X.columns.duplicated()] if self.drop_dup else X
                             
-            elif self.id_col and not self.downcast:                
+            elif self.id_col and not self.downcast:       
+
                     
                 X=X.loc[~X[self.id_col].duplicated(),~X.columns.duplicated()] if self.drop_dup else X
                 
             elif not self.id_col and not self.downcast:
+
                 
-                X=X.loc[:,~X.columns.duplicated()] if self.drop_dup else X
+                X=X.loc[X.index.duplicated(),~X.columns.duplicated()] if self.drop_dup else X
+
                 
             #set index if id exists
             if self.id_col and self.set_index:
@@ -118,8 +125,8 @@ class dtypeAllocator(Base,TransformerMixin):
     """ 
     列类型分配器：将原始数据中的列类型转换为适合进行数据分析与建模的数据类型，请注意
               + 本模块不支持对complex、bytes类型的列进行转换
-              + 本模块将pandas的无序category类视为object类型，若原始数据存在有序category类型列时其将被转换为数值int8型 
-              + 本模块暂不支持对pd.Interval类型的列进行任何转换
+              + 本模块将pandas的无序category类视为object类型，若原始数据存在有序category类型列时其将被转换为数值float类型
+              + 本模块暂不支持对pd.Interval类型的列进行转换
     Params:
     ------
         dtypes_dict={}
@@ -131,7 +138,9 @@ class dtypeAllocator(Base,TransformerMixin):
                 + 初始数据中的时间类型数据(datetime,datetimetz)将保持默认,可通过参数选择是否剔除掉日期型数据
                 + 初始数据中的时间差类型数据(timedelta)将被转换为float,时间单位需自行指定,且作用于全部的timedelta类型
                 + 其他类型的列与col_rm列将不进行转换直接输出
-            + dtypes_dict={'num':colname_list,'str':colname_list,'date':colname_list}:手动处理输入数据的数据类型，通过dtypes_dict对列的类型进行分配转换
+            + dtypes_dict={'num':colname_list,'str':colname_list,'date':colname_list,'tdiff':colname_list}:手动处理输入数据的数据类型，通过dtypes_dict对列的类型进行分配转换
+                + dtypes_dict['num']中的所有列将转换为float类型,dtypes_dict['str']中的所有列将转换为object类型,
+                  dtypes_dict['date']列将转换为datetime类型,dtypes_dict['tdiff']列将转换为float类型，参数t_unit控制时间差单位       
                 + colname_list是列名列表,可以为[],代表无此类特征,注意各个类的列名列表不能出现交集与重复,否则将报错终止
                 + 若所有colname_list的特征只是数据所有列的一部分，则剩下部分的列将不做转换
                 + colname_list不能含有col_rm中的列,否则会报错终止
@@ -139,7 +148,7 @@ class dtypeAllocator(Base,TransformerMixin):
         dtype_num='float64',数值类型列转换方式，默认为float64，可以选择float32，请注意数据中的数值id列,建议不进行32转换
                 + np.float64能够提供较好的精度(小数点后16位)但会占用更多内存,若数据不存在内存问题请将dtype_num设定为float64
                 + np.float32在对精度要求较高的场景中会出现精度问题(比如使用bm.binSeletor进行最优分箱)但会大大减少内存占用,若后续分析对数据精度要求不高则可设定为float32
-                + 在建模分析任务中，建议设定为float64
+                + 在建模分析任务中，建议设定为float64,这是因为numpy的一些数值计算函数结果最低精度类型为float64
         t_unit=‘1 D’,timedelta类列处理为数值的时间单位，默认天
         drop_date=False,是否剔除原始数据中的日期列，默认False
         precision=3,数值类数据的精度,precision=3代表保留小数点后3位小数，设定好设定此值以获得数值的近似结果。
@@ -177,22 +186,30 @@ class dtypeAllocator(Base,TransformerMixin):
         """ 
         
         self._check_param_dtype(self.dtype_num)
+        self._check_X(X)
         
         X = X.copy()
         
         if X.size:
             
-            X_rm=X[self.col_rm] if self.col_rm else None
+            if self.col_rm:
             
-            X=X.drop(self.col_rm,axis=1) if self.col_rm else X        
+                X_rm=X[self.col_rm]
+                
+                X=X.drop(self.col_rm,axis=1)
+                
+            else:
+                
+                X_rm=None      
             
-            if isinstance(self.dtypes_dict,dict) and not self.dtypes_dict:
+            
+            if isinstance(self.dtypes_dict,dict) and not len(self.dtypes_dict):
                 
                 X_out=self._getXAuto(X)
                 
-            elif isinstance(self.dtypes_dict,dict) and self.dtypes_dict:
+            elif isinstance(self.dtypes_dict,dict) and len(self.dtypes_dict):
      
-                X_out=self._getX(X)
+                X_out=self._getX(X,self.dtypes_dict,self.col_rm)
             
             else:
                 
@@ -213,20 +230,39 @@ class dtypeAllocator(Base,TransformerMixin):
         
         return self
     
-    
-    def _getX(self,X):
+    def _check_dtypeAllocator_param(self,dtypes_dict,col_rm):
         
-        col_num=np.unique(self.dtypes_dict['num']).tolist() if 'num' in self.dtypes_dict.keys() else []
+        col_num=np.unique(dtypes_dict['num']).tolist() if 'num' in dtypes_dict.keys() else []
   
-        col_obj=np.unique(self.dtypes_dict['str']).tolist() if 'str' in self.dtypes_dict.keys() else []
+        col_obj=np.unique(dtypes_dict['str']).tolist() if 'str' in dtypes_dict.keys() else []
                      
-        col_date=np.unique(self.dtypes_dict['date']).tolist() if 'date' in self.dtypes_dict.keys() else []
+        col_date=np.unique(dtypes_dict['date']).tolist() if 'date' in dtypes_dict.keys() else []
+        
+        col_tdiff=np.unique(dtypes_dict['tdiff']).tolist() if 'tdiff' in dtypes_dict.keys() else []
                     
-        columns=pd.Series(col_num+col_obj+col_date,dtype='str')
+        columns=pd.Series(col_num+col_obj+col_date+col_tdiff,dtype='str')
+        
+        if np.isin(col_rm,columns).any():
+                       
+            raise ValueError("col_rm in colname_list")
+        
+        if not columns.is_unique:
+        
+            raise ValueError("duplicated colnames")
             
-        if columns.size and columns.is_unique and not np.sum(np.isin(self.col_rm,columns)):
+        return col_num,col_obj,col_date,col_tdiff,columns
+        
+    
+    
+    def _getX(self,X,dtypes_dict,col_rm):
+        
+        col_num,col_obj,col_date,col_tdiff,columns=self._check_dtypeAllocator_param(dtypes_dict,col_rm)
+
+        if columns.size:
                     
             X_keep=X.drop(columns,axis=1)
+            
+            X_tdiff=X[col_tdiff].div(pd.to_timedelta(self.t_unit)).astype(self.dtype_num).apply(np.round,args=(self.precision,))
             
             X_num=X[col_num].astype(self.dtype_num).apply(np.round,args=(self.precision,))
             
@@ -234,7 +270,7 @@ class dtypeAllocator(Base,TransformerMixin):
             
             X_date=None if self.drop_date else X[col_date].replace('[^0-9]','',regex=True).astype('datetime64')
             
-            X_out=pd.concat([X_keep,X_num,X_obj,X_date],axis=1)
+            X_out=pd.concat([X_keep,X_num,X_obj,X_date,X_tdiff],axis=1)
             
         elif not columns.size:
             
@@ -242,13 +278,24 @@ class dtypeAllocator(Base,TransformerMixin):
             
         else:
             
-            raise ValueError("duplicated colnames or col_rm in colname_list")
+            raise ValueError("duplicated colnames")
             
         return X_out
     
     
     def _getXAuto(self,X):
       
+        if X.select_dtypes(include=['timedelta']).size:
+            
+            X_tdiff=X.select_dtypes(include=['timedelta']).div(pd.to_timedelta(self.t_unit)).astype(self.dtype_num).apply(np.round,args=(self.precision,))
+            
+            X=X.select_dtypes(exclude=['timedelta'])
+            
+        else:
+            
+            X_tdiff=None
+            
+  
         #数值
         X_num=X.select_dtypes(include=['number','bool']).astype(self.dtype_num).apply(np.round,args=(self.precision,))        
          
@@ -274,9 +321,7 @@ class dtypeAllocator(Base,TransformerMixin):
         #日期
         X_date=None if self.drop_date else X.select_dtypes(include=['datetime','datetimetz'])
         
-        #时间差
-        X_tdiff=X.select_dtypes(include=['timedelta']).div(pd.to_timedelta(self.t_unit)).astype(self.dtype_num).apply(np.round,args=(self.precision,))
-        
+       
         #其他
         X_oth=X.select_dtypes(exclude=['number','bool','object','category','timedelta','datetime','datetimetz'])
         
