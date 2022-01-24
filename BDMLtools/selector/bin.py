@@ -78,8 +78,7 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
     """
     
     def __init__(self,method='freq',max_bin=50,distr_limit=0.05,bin_num_limit=8,special_values=None,
-                 iv_limit=0.02,keep=None,sample_weight=None,coerce_monotonic=False,b_dtype='float64',
-                 breaks_list_adj=None,n_jobs=-1,verbose=0):
+                 iv_limit=0.02,keep=None,sample_weight=None,coerce_monotonic=False,b_dtype='float64',n_jobs=-1,verbose=0):
         
         self.method=method
         self.max_bin=max_bin
@@ -89,6 +88,7 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
         self.keep=keep
         self.special_values=special_values
         self.coerce_monotonic=coerce_monotonic
+        self.b_dtype=b_dtype
         self.sample_weight=sample_weight
         self.n_jobs=n_jobs
         self.verbose=verbose
@@ -221,10 +221,3 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
         self._is_fitted=True
        
         return self        
-    
-    
-    def _fit_adjustBin(self):
-        """
-        developing...        
-        """          
-        return self   

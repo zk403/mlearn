@@ -54,21 +54,12 @@ class Base:
             
         if not X.index.equals(y.index):
         
-            raise XyIndexError("X's index not equal to y")
-            
-        if y.unique().size==1:
-            
-            if not np.isin(y.unique(),[0,1]).any():
-            
-                raise yValueError("vals of y in [0,1] and 0(no-event),1(event)")                
-        else:
-                    
-            if not np.isin(y.unique(),[0,1]).all():
-                    
-                raise yValueError("vals of y in [0,1] and 0(no-event),1(event)")
-                
-            
-            
+            raise XyIndexError("X's index not equal to y")            
+
+        if not np.isin(y.unique(),[0,1]).any():
+        
+            raise yValueError("vals of y in [0,1] and 0(no-event),1(event)")                
+
     
     def _check_param_dtype(self,dtype):
         
