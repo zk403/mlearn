@@ -6,12 +6,13 @@ Created on Wed Jan 12 18:29:30 2022
 @author: zengke
 """
 
-from BDMLtools.report.report import EDAReport,businessReport,varReportSinge,varReport,varGroupsReport
+from BDMLtools.report.report import EDAReport,businessReport,varReportSinge,varReport,varGroupsReport,varGroupsPlot
 
 __all__ = (    
     EDAReport,
     businessReport,
     varReportSinge,
     varReport,
-    varGroupsReport
+    varGroupsReport,
+    varGroupsPlot
 )
