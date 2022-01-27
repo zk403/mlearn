@@ -318,7 +318,7 @@ class binAdjuster(Base,BaseWoePlotter):
     def _menu(self,i, xs_len, x_i):
     
         print('>>> Adjust breaks for ({}/{}) {}?'.format(i, xs_len, x_i))
-        print('1: next \n2: yes \n3: back \n0: exit')
+        print('1: next \n2: yes \n3: back \n4: remove \n0: exit')
         
         adj_brk = input("Selection: ")
         
@@ -328,14 +328,14 @@ class binAdjuster(Base,BaseWoePlotter):
                 
                 adj_brk = int(adj_brk)
                 
-                if adj_brk not in [0,1,2,3]:
+                if adj_brk not in [0,1,2,3,4]:
                     
                     warnings.warn('Enter an item from the menu, or 0 to exit.')         
                     
                     adj_brk = input("Selection: ")  
             else: 
                 
-                warnings.warn('1: next \n2: yes \n3: back \n0: exit')
+                warnings.warn('input 1,2,3,4,0')
                 
                 adj_brk = input("Selection: ") 
             
@@ -369,8 +369,11 @@ class binAdjuster(Base,BaseWoePlotter):
         # set output
         breaks_list_adj={}
         vtabs_dict_adj={}
-    
-    
+        
+        # colname_del
+        
+        colname_del=set()
+
         while True:
     
             # default binning and plotting using given breaks 
@@ -473,7 +476,19 @@ class binAdjuster(Base,BaseWoePlotter):
                 
                 print('Roll back to previous variable.')
     
-                adj_status=False
+                adj_status=False     
+                
+            #opt==4:remove current variable and go next  
+            elif option==4:
+    
+                adj_count+=1
+                
+                colname_del.add(colname)
+                
+                print('variable {} will be removed and go next.'.format(colname))
+    
+                adj_status=False          
+            
             
             #opt==0:stop adjustion by user     
             elif option==0:
@@ -493,7 +508,7 @@ class binAdjuster(Base,BaseWoePlotter):
                     
             else:
                     
-                raise ValueError('option not in (0,1,2,3)')
+                raise ValueError('option not in (0,1,2,3,4)')
                      
             # stop condition (2/2):all variables done
             if adj_count==var_sum:
@@ -501,6 +516,18 @@ class binAdjuster(Base,BaseWoePlotter):
                 print('Adjustion complete...')
     
                 break 
+            
+        if colname_del:
+            
+            for key in colname_del:   
+                
+                if key in breaks_list_adj:             
+                    
+                    del breaks_list_adj[key] 
+                    
+                if key in vtabs_dict_adj:            
+                    
+                    del vtabs_dict_adj[key] 
                 
         return breaks_list_adj,vtabs_dict_adj
 
@@ -520,7 +547,8 @@ class binAdjuster(Base,BaseWoePlotter):
         # set output
         breaks_list_adj_g={}
         vtabs_dict_adj_g={}
-    
+        
+        colname_del=set()
     
         while True:
     
@@ -547,7 +575,7 @@ class binAdjuster(Base,BaseWoePlotter):
             
             binx_psi=bins.report_dict['report_psi']
             
-            psi_col=sort_column if sort_column else X[column].unique()
+            psi_col=sort_column if sort_column else X[column].astype('str').unique()
             
             psi_info=[(i,round(binx_psi.loc[binx_psi.bin=='psi'][i]['count_distr'].values[0],4)) for i in psi_col]
             
@@ -646,6 +674,17 @@ class binAdjuster(Base,BaseWoePlotter):
                 print('Roll back to previous variable.')
     
                 adj_status=False
+                
+            #opt==4:remove current variable and go next  
+            elif option==4:
+    
+                adj_count+=1
+                
+                colname_del.add(colname)
+                
+                print('variable {} will be removed and go next.'.format(colname))
+    
+                adj_status=False   
             
             #opt==0:stop adjustion by user     
             elif option==0:
@@ -662,6 +701,10 @@ class binAdjuster(Base,BaseWoePlotter):
                     print('Stop adjusting...,result store in global variables "breaks_list_adj_g" and "vtabs_dict_adj_g"')
                     
                     break
+                
+            else:
+                    
+                raise ValueError('option not in (0,1,2,3,4)')
                      
             # stop condition (2/2):all variables done
             if adj_count==var_sum:
@@ -669,6 +712,18 @@ class binAdjuster(Base,BaseWoePlotter):
                 print('Adjustion complete...')
     
                 break 
+            
+        if colname_del:
+            
+            for key in colname_del:   
+                
+                if key in breaks_list_adj_g:             
+                    
+                    del breaks_list_adj_g[key] 
+                    
+                if key in vtabs_dict_adj_g:            
+                    
+                    del vtabs_dict_adj_g[key] 
                 
         return breaks_list_adj_g,vtabs_dict_adj_g 
     
