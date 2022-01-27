@@ -6,7 +6,7 @@ Created on Wed Jan 12 18:29:30 2022
 @author: zengke
 """
 
-from BDMLtools.selector.bin import binSelector
+from BDMLtools.selector.bin import binSelector,binAdjuster
 from BDMLtools.selector.bin_fun import binFreq,binPretty,binTree,binChi2,binKmeans
 from BDMLtools.selector.fa import faSelector
 from BDMLtools.selector.embeded import lassoSelector
@@ -17,6 +17,7 @@ from BDMLtools.selector.simple import prefitModel,preSelector,corrSelector
 
 __all__ = (    
     binSelector,
+    binAdjuster,
     binFreq,
     binPretty,
     binTree,

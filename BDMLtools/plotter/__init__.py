@@ -7,7 +7,10 @@ Created on Wed Jan 12 18:29:30 2022
 """
 
 from BDMLtools.plotter.base import BaseWoePlotter
+from BDMLtools.plotter.plotter import varGroupsPlot
+
 
 __all__ = (    
-    BaseWoePlotter
+    BaseWoePlotter,
+    varGroupsPlot
 )

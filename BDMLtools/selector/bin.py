@@ -232,6 +232,18 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
     
 class binAdjuster(Base,BaseWoePlotter):  
     
+    """ 
+    自动分箱
+    本模块提供自动分箱方法包括等频、kmeans,pretty，决策树、卡方等
+    由于numpy部分计算函数的结果的最低精度类型为float64，
+    因此数值类数据的精度类型最好为float64，若为float32则为近似结果且可能会有精度问题
+    此外字符类数据的levels不要为['','missing','special']
+
+    Parameters:
+    
+    """         
+        
+    
     
     def __init__(self,breaks_list_dict,column=None,sort_column=None,psi_base='all',
                  special_values=None,sample_weight=None,b_dtype='float64',figure_size=None):
@@ -279,6 +291,8 @@ class binAdjuster(Base,BaseWoePlotter):
         self.vtabs_dict_adj=vtabs_dict_adj
 
         self._is_fitted=True
+        
+        return self
               
 
     def transform(self,X,y=None):
@@ -533,7 +547,7 @@ class binAdjuster(Base,BaseWoePlotter):
             
             binx_psi=bins.report_dict['report_psi']
             
-            psi_col=sort_column if sort_column else X['split'].unique()
+            psi_col=sort_column if sort_column else X[column].unique()
             
             psi_info=[(i,round(binx_psi.loc[binx_psi.bin=='psi'][i]['count_distr'].values[0],4)) for i in psi_col]
             
