@@ -493,7 +493,7 @@ class binAdjuster(Base,BaseWoePlotter):
                     
             else:
                     
-                raise ValueError('opt error')
+                raise ValueError('option not in (0,1,2,3)')
                      
             # stop condition (2/2):all variables done
             if adj_count==var_sum:

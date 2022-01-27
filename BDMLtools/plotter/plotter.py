@@ -6,7 +6,7 @@ Created on Thu Jan 27 09:43:15 2022
 @author: zengke
 """
 
-from BDMLtools.report import varGroupsReport
+from BDMLtools.report.report import varGroupsReport
 from BDMLtools.plotter.base import BaseWoePlotter
 from BDMLtools.base import Base
 import pandas as pd
