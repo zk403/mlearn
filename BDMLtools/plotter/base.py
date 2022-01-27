@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Oct 27 23:08:38 2021
+
+@author: zengke
+"""
+
 import pandas as pd
 import numpy as np
 from plotnine import ggplot,geom_bar,geom_point,aes,geom_path,geom_text,facet_wrap,theme,theme_bw,scale_y_continuous,labs
@@ -27,7 +35,7 @@ class BaseWoePlotter:
                               
         p=Parallel(n_jobs=n_jobs,verbose=verbose)
         
-        res=p(delayed(self._get_plot_single_group)(varbin_g[varbin_g['variable']==col],sort_column,figure_size,False) for col in varbin_g['variable'].unique())
+        res=p(delayed(self._get_plot_single_group)(pd.concat(varbin_g[key],axis=1).droplevel(0),sort_column,figure_size,False) for key in varbin_g)
         
         out={colname:fig for fig,colname in res}     
         
@@ -35,8 +43,6 @@ class BaseWoePlotter:
          
 
     def _get_bin(self,binx):
-    
-        binx=binx.copy().set_index('bin')
         
         if not binx.loc['missing','count']:
     
@@ -51,14 +57,13 @@ class BaseWoePlotter:
         binx['neg']=binx['bad']/binx['count'].sum()
         binx['rowid']=binx.index+1
         binx['lineval_l']=binx['badprob'].mul(100).round(2).map(str)+'%'
-        binx['bin']=binx['bin'].astype('object')
         
         return binx
     
     def _get_plot_single(self,binx,figure_size=None,show_plot=True):
     
         #dt transform
-        binx=self._get_bin(binx.reset_index())
+        binx=self._get_bin(binx)
         
         binx_melt=pd.melt(binx,id_vars = ["bin","rowid"], value_vars =["pos", "neg"], 
                     value_name = "negpos").rename(columns={'variable':''})
@@ -127,9 +132,9 @@ class BaseWoePlotter:
         
         self._check_plot_sort(sort_column,gs)
     
-        binx_g_h=pd.concat({g:self._get_bin(binx_g[g].join(binx_g['variable']).join(binx_g['bin']).assign(g=g)) for g in gs})    
+        binx_g_h=pd.concat({g:self._get_bin(binx_g[g].assign(g=g)) for g in gs})    
     
-        binx_g_melt=pd.concat({g:pd.melt(self._get_bin(binx_g[g].join(binx_g['variable']).join(binx_g['bin'])),
+        binx_g_melt=pd.concat({g:pd.melt(self._get_bin(binx_g[g]),
                       id_vars = ["bin","rowid"], 
                       value_vars =["pos", "neg"], 
                       value_name = "negpos").rename(columns={'variable':''}).assign(g=g) for g in gs})

@@ -1,4 +1,4 @@
-# BDMLtools-0.1.7
+# BDMLtools-0.1.8
 
 BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数据量的二分类模型的机器学习建模工具包。
 本模组将集成商业分析场景中二分类模型中常用的机器学习模型，并使之能够兼顾模型开发效率、报告制作与建模流程标准化。
@@ -23,17 +23,19 @@ BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数�
     - BDMLtools.outliersTransformer:异常值处理
     - BDMLtools.prefitModel:预拟合数据，在不进行任何特征工程的前提下使用全量特征预拟合数据以预估模型表现
 
-+ 特征工程
++ 特征工程/评分卡
 
     - BDMLtools.preSelector:特征预筛，按照缺失值、唯一值、方差、卡方值、f值、树模型、iv等进行特征预筛
-    - BDMLtools.binSelector:分箱筛选器，提供等频、决策树、卡方、单调等分箱算法并依据分箱结果进行特征筛选
     - BDMLtools.corrSelector:相关性分析筛选器，按照相关性筛选特征
     - BDMLtools.faSelector:变量聚类筛选器，先进行变量聚类，再依据r2ratio等指标筛选特征
     - BDMLtools.RFECVSelector:递归式特征消除筛选器，开发中
-    - BDMLtools.stepLogit:逐步回归筛选器，提供基于aic/bic与statsmodel的logit-reg的逐步法进行筛选特征与模型构建
     - BDMLtools.lassoSelector:lasso筛选器，基于logit-lasso算法进行特征筛选
     - BDMLtools.sequentialSelector:sequential筛选器，开发中
     - BDMLtools.woeTransformer:WOE编码，对原始数据进行woe编码
+    - BDMLtools.binSelector:分箱筛选器，提供等频、决策树、卡方、单调等分箱算法并依据分箱结果进行特征筛选
+    - BDMLtools.binAdjuster:分箱调整器,支持单特征、组特征的交互式分箱及分箱调整
+    - BDMLtools.stepLogit:统计逐步回归筛选器，提供基于aic/bic与statsmodel的logit-reg的逐步法进行筛选特征与模型构建
+    - BDMLtools.cardScorer:制作评分卡
     
 + 报告
 
@@ -43,9 +45,6 @@ BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数�
     - BDMLtools.varReport:特征分析报告
     - BDMLtools.varGroupsReport:分群特征分析报告
 
-+ 评分卡
-    - BDMLtools.stepLogit:统计逐步回归
-    - BDMLtools.cardScorer:制作评分卡
 
 + 机器学习-分类算法
     - BDMLtools.girdTuner:网格优化与随机优化的xgb或lgbm
@@ -89,6 +88,13 @@ pip uninstall BDMLtools
 
 
 更新日志:
+```
+v0.1.8
+1.加入binAdjuster模块，支持单特征、组特征的交互式分箱
+2.修复bug
+3.文档维护
+```
+
 ```
 v0.1.7
 1.修复了float低精度类型的分箱导致少数结果不准确的问题

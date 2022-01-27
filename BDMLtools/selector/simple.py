@@ -379,16 +379,27 @@ class preSelector(Base,Specials,TransformerMixin):
     
     """ 
     线性预筛选,适用于二分类模型
+    
+    筛选过程(设定为None时代表跳过相应步骤):
+    Step 1.缺失值(所有):缺失率高于用户定义值的列将被筛除
+    Step 2.唯一值(字符)/方差(数值):唯一值占比高于用户定义值列将被筛除/方差低于用户定义值列的列将被筛除
+    Step 3.卡方p值(字符)/方差分析p值(数值):p值大于用户定义值的列将被剔除
+    Step 4.乱序筛选(所有):原始顺序与随机顺序后使用模型预测的auc差异小于用户定义值的列将被剔除
+    Step 5.Lightgbm筛选(所有):split重要性低于用户定义值的列将被剔除
+    Step 6.Iv值筛选(所有):等频30箱后iv值低于用户定义值的列将被剔除
+    
     Parameters:
     ----------
         na_pct:float or None,(0,1),默认0.99,缺失率高于na_pct的列将被筛除，设定为None将跳过此步骤
         unique_pct:float or None,(0,1),默认0.99,唯一值占比高于unique_pct的列将被筛除,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
         variance:float or None,默认0,方差低于variance的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
-        chif_pvalue:float or None,(0,1),默认0.05,大于chif_pvalue的列将被剔除,缺失值将被视为单独一类,为None将跳过此步骤
+        chif_pvalue:float or None,(0,1),默认0.05,大于chif_pvalue的列将被剔除,为None将跳过此步骤
+                    + 卡方计算中，缺失值将被视为单独一类,
+                    + f值计算中，缺失值将被填补为接近+inf和-inf，计算两次，两次结果都不显著的列都将被剔除
         tree_imps:int or None,lightgbm树的split_gain小于等于tree_imps的列将被剔除,默认1，设定为None将跳过此步骤
         tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
         auc_limit:float,使用shuffle法计算原始数据与乱序数据的mean_decreasing_auc,小于等于auc_val的特征将被踢出,默认0,建议范围0-0.005
-        s_times:int,shuffle法乱序次数，越多mean_decreasing_auc越具备统计意义，但会增加计算量
+        s_times:int,shuffle法乱序次数，越多的s_times的mean_decreasing_auc越具备统计意义，但这会增加计算量
         iv_limit:float or None使用进行iv快速筛选的iv阈值(数值等频30箱，分类则按照类别分箱)
         out_path:str or None,模型报告路径,将预筛选过程每一步的筛选过程输出到模型报告中
         missing_values:缺失值指代值
@@ -456,7 +467,7 @@ class preSelector(Base,Specials,TransformerMixin):
         
         keep_col=self.features_info['1.orgin']
         
-        print('1.start______________________________________complete')
+        print('0.start__________________________________complete')
         
         #fliter by nan
         if self.na_pct is not None:
@@ -464,11 +475,9 @@ class preSelector(Base,Specials,TransformerMixin):
             keep_col=self._filterByNA(X[keep_col],self.na_pct)
             
             self.features_info['2.filterbyNA']=keep_col
-
-            
-            print('2.filterbyNA_____________________________complete')
-            
-            
+          
+            print('1.filterbyNA_____________________________complete')
+                      
         #fliter by variance and unique_pct
         if (self.variance is not None) and (self.unique_pct is not None): 
             
@@ -476,7 +485,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info['3.filterbyVariance']=keep_col
             
-            print('3.filterbyVariance&Uniquepct_______________________complete')
+            print('2.filterbyVariance&Uniquepct_____________complete')
 
         
         #fliter by chi and f-value
@@ -486,7 +495,17 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info['4.filterbyChi2Oneway']=keep_col
             
-            print('4.filterbyChi2Oneway_____________________complete')            
+            print('3.filterbyChi2Oneway_____________________complete')     
+            
+            
+        #fliter by shuffle  
+        if self.auc_limit is not None:
+            
+            keep_col=fliterByShuffle(s_times=self.s_times,auc_val=self.auc_limit,n_jobs=-1).fit(X[keep_col],y).keep
+            
+            self.features_info['6.filterbyShuffle']=keep_col
+
+            print('4.filterbyShuffle________________________complete')  
         
         
         #fliter by lgbm-tree-imp  
@@ -498,15 +517,6 @@ class preSelector(Base,Specials,TransformerMixin):
             
             print('5.filterbyTrees__________________________complete')
             
-            
-        #fliter by shuffle  
-        if self.auc_limit is not None:
-            
-            keep_col=fliterByShuffle(s_times=self.s_times,auc_val=self.auc_limit,n_jobs=-1).fit(X[keep_col],y).keep
-            
-            self.features_info['6.filterbyShuffle']=keep_col
-
-            print('6.filterbyShuffle__________________________complete')            
         
         #fliter by iv 
         if self.iv_limit is not None:   
@@ -515,10 +525,10 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info['7.filterbyIV']=keep_col
             
-            print('7.filterbyIV_____________________________complete')
+            print('6.filterbyIV_____________________________complete')
    
         
-        print('Done_________________________________________________')  
+        print('Done_____________________________________________')  
         
         #打印筛选汇总信息
         for key in self.features_info:
@@ -601,17 +611,17 @@ class preSelector(Base,Specials,TransformerMixin):
     def _filterByOneway(self,X,y,chif_pvalue):
         
         """ 
-        特征选择-连续变量:方差分析(假定方差齐性)
+        特征选择-连续变量:方差分析(假定方差齐性成立)
         """
         X_numeric=X.select_dtypes('number')
         
         if X_numeric.columns.size:
             
-            p_values_pos=f_oneway(X_numeric.replace(np.nan,1e10),y)[1]
+            p_values_pos=f_oneway(X_numeric.replace(np.nan,2**31),y)[1]
             
-            p_values_neg=f_oneway(X_numeric.replace(np.nan,-1e10),y)[1]   
+            p_values_neg=f_oneway(X_numeric.replace(np.nan,-2**31),y)[1]  
             
-            return X_numeric.columns[(p_values_pos<chif_pvalue) | (p_values_neg<chif_pvalue)].tolist() #返回满足方差分析的列名
+            return X_numeric.columns[(p_values_pos<chif_pvalue) | (p_values_neg<chif_pvalue)].tolist() #
         
         else:
             
@@ -707,9 +717,9 @@ class preSelector(Base,Specials,TransformerMixin):
                 
         if self.tree_imps is not None:
             
-            if not self.tree_imps>0:
+            if not self.tree_imps>=0:
                 
-                raise ValueError("tree_imps is in (0,inf]")
+                raise ValueError("tree_imps is in [0,inf]")
                 
         if self.auc_limit is not None:
             

@@ -625,7 +625,6 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
         
     """        
     
-    
     def __init__(self,breaks_list_dict,columns,sort_columns=None,target='target',row_limit=0,output_psi=False,psi_base='all',
                  special_values=None,sample_weight=None,b_dtype='float64',
                  n_jobs=-1,verbose=0,out_path=None,tab_suffix='_group'):
@@ -673,8 +672,10 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
         out_list=parallel(delayed(self._group_parallel)(X_g_gen,g,self.target,self.columns,
                                                        self.breaks_list_dict,self.row_limit,
                                                        self.special_values,self.b_dtype) for g in X_g_gen.groups)
+        
+        self.report_dict_raw={columns:vtabs for columns,vtabs in out_list}
 
-        report=pd.concat({columns:vtabs for columns,vtabs in out_list},axis=1)
+        report=pd.concat(self.report_dict_raw,axis=1)
         
         report.index.rename([None, 'bin'],inplace=True)
 
@@ -698,45 +699,6 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
     def transform(self, X):     
      
         return X
-    
-    
-    def woe_plot_group(self,sort_column=None,figure_size=None,n_jobs=-1,verbose=0):
-                 
-        """ 
-        根据组特征分析报告批量绘图并输出          
-        考虑到组绘图的美观与性能，woe_plot_group只支持一个组水平的绘图，因此varGroupsReport的参数columns长度必须为1，此外row_limit参数必须设定为0
-        Params:
-        ------
-        sort_column=None or list,在绘图中排序组水平,要求组水平值必须与原始数据的组水平一致
-        figure_size=None:matplotlib的画布大小
-        n_jobs=-1:joblib并行任务数量
-        verbose=0:joblib信息打印等级
-        
-        Return:
-        ------
-        fig_out:dict,{特征名:绘图报告figure}
-            
-        """
-        
-        self._check_is_fitted()
-        
-        self._check_param_for_plot(self.row_limit,self.columns)
-
-        fig_out=self._woe_plot_group(self.report_dict['report_all'],sort_column,figure_size,n_jobs,verbose)
-        
-        return fig_out
-    
-    
-    def _check_param_for_plot(self,row_limit,columns):
-        
-        if row_limit != 0:
-            
-            raise ValueError('Param "row_limit" of varGroupsReport instance must set to 0 if call ".woe_plot_group"')
-            
-        if len(columns) != 1:
-            
-            raise ValueError('".woe_plot_group" only support single grouper,reset param "columns" in varGroupsReport instance')    
-        
 
     def _group_parallel(self,X_g_gen,g,target,columns,breaks_list_dict,row_limit,special_values,b_dtype):
     

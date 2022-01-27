@@ -3,8 +3,14 @@ from sklearn.base import BaseEstimator,TransformerMixin
 import numpy as np
 import pandas as pd
 import warnings
+import re
 from BDMLtools.base import Base
 from BDMLtools.selector.bin_fun import binFreq,binPretty,binTree,binChi2,binKmeans
+from BDMLtools.report.report import varGroupsReport,varReportSinge
+import matplotlib.pyplot as plt
+from pandas.api.types import is_string_dtype,is_numeric_dtype
+from BDMLtools.plotter.base import BaseWoePlotter
+
 #from joblib import Parallel,delayed
 #from pandas.api.types import is_numeric_dtype
 
@@ -101,7 +107,7 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
         self._check_X(X)
         
         return X[self.keep_col]
-              
+
     def fit(self,X,y):
         """ 
         
@@ -220,4 +226,436 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
             
         self._is_fitted=True
        
-        return self        
+        return self     
+    
+
+    
+class binAdjuster(Base,BaseWoePlotter):  
+    
+    
+    def __init__(self,breaks_list_dict,column=None,sort_column=None,psi_base='all',
+                 special_values=None,sample_weight=None,b_dtype='float64',figure_size=None):
+        
+        self.breaks_list_dict=breaks_list_dict
+        self.column=column
+        self.sort_column=sort_column
+        self.psi_base=psi_base
+        self.special_values=special_values
+        self.b_dtype=b_dtype
+        self.sample_weight=sample_weight  
+        self.figure_size=figure_size
+
+        self._is_fitted=False
+        
+    def fit(self,X,y):
+        
+        self._check_param_dtype(self.b_dtype)
+        self._check_data(X,y)    
+        
+        if self.column is None:
+            
+            breaks_list_adj,vtabs_dict_adj=self._get_breaks_adj(self.breaks_list_dict,
+                                                                X,y,
+                                                                sample_weight=self.sample_weight,
+                                                                special_values=self.special_values,
+                                                                b_dtype=self.b_dtype,
+                                                                figure_size=self.figure_size)
+            
+        else:
+            
+            breaks_list_adj,vtabs_dict_adj=self._get_breaks_adj_g(self.breaks_list_dict,
+                                                                X,y,
+                                                                column=self.column,
+                                                                sort_column=self.sort_column,
+                                                                psi_base=self.psi_base,
+                                                                sample_weight=self.sample_weight,
+                                                                special_values=self.special_values,
+                                                                b_dtype=self.b_dtype,
+                                                                figure_size=self.figure_size)           
+            
+            
+        self.breaks_list_adj=breaks_list_adj
+            
+        self.vtabs_dict_adj=vtabs_dict_adj
+
+        self._is_fitted=True
+              
+
+    def transform(self,X,y=None):
+        
+        self._check_is_fitted()
+        self._check_X(X)
+        
+        return X[self.breaks_list_dict.keys()]
+        
+    
+    def _split_by_re(self,string,pattern):
+    
+        indices=[i.start() for i in re.finditer(pattern,string)]
+        
+        indices=[0]+indices+[len(string)] if 0 not in indices else indices+[len(string)]
+        
+        ind_range=[indices[i:i + 2] for i in range(len(indices) - 1) if i]
+        
+        res=[string[:indices[1]]]+[string[i[0]+1:i[1]] for i in ind_range]
+        
+        return res
+    
+    def _menu(self,i, xs_len, x_i):
+    
+        print('>>> Adjust breaks for ({}/{}) {}?'.format(i, xs_len, x_i))
+        print('1: next \n2: yes \n3: back \n0: exit')
+        
+        adj_brk = input("Selection: ")
+        
+        while isinstance(adj_brk,str):
+            
+            if str(adj_brk).isdigit():
+                
+                adj_brk = int(adj_brk)
+                
+                if adj_brk not in [0,1,2,3]:
+                    
+                    warnings.warn('Enter an item from the menu, or 0 to exit.')         
+                    
+                    adj_brk = input("Selection: ")  
+            else: 
+                
+                warnings.warn('1: next \n2: yes \n3: back \n0: exit')
+                
+                adj_brk = input("Selection: ") 
+            
+        return adj_brk
+    
+    
+    def _is_numeric(self,strung):
+        
+        try:
+            
+            float(strung)
+            
+            return True
+        
+        except:
+            
+            return False
+    
+    def _get_breaks_adj(self,br_adj,X,y,
+                        sample_weight=None,special_values=None,b_dtype='float64',
+                        figure_size=None):
+    
+        global breaks_list_adj,vtabs_dict_adj
+        
+        # set param
+        adj_count=0
+        var_sum=len(br_adj)
+        var_dict=dict(zip(range(len(br_adj)),br_adj.keys()))
+        adj_status=False
+    
+        # set output
+        breaks_list_adj={}
+        vtabs_dict_adj={}
+    
+    
+        while True:
+    
+            # default binning and plotting using given breaks 
+            if not adj_status:
+    
+                colname=var_dict[adj_count]
+    
+                breaks=br_adj[colname] 
+    
+            print('Adjusting {}...'.format(colname))
+            print('Current breaks: {}...'.format(breaks))
+            
+            binx=varReportSinge().report(X[colname],y,breaks,sample_weight=sample_weight,
+                                            special_values=special_values,b_dtype=b_dtype) 
+    
+            fig,_=self._get_plot_single(binx,figure_size=None,show_plot=True)
+    
+            plt.show(fig)
+    
+            # interactive options
+            option=self._menu(adj_count+1,var_sum,colname)
+    
+            #opt==1:no adjustion,go next variable
+            if option==1:
+    
+                adj_count+=1
+    
+                breaks_list_adj[colname]=breaks
+                vtabs_dict_adj[colname]=binx
+    
+                adj_status=False
+                
+                print('Adjusting {} finish.'.format(colname))
+                
+            #opt==2:adjusting breaks and re-binning variable 
+            elif option==2:   
+    
+                if is_numeric_dtype(X[colname]):
+                    
+                    breaks = input(">>> Enter modified breaks: ")
+                
+                    breaks = re.sub("^[,\.]+|[,\.]+$|\s", "", breaks).split(',')  
+    
+                    while True:
+    
+                        if breaks==['']:
+                            
+                            breaks=binTree(n_jobs=1,coerce_monotonic=True).fit(X[[colname]],y).breaks_list[colname]
+    
+                            break
+    
+                        elif all([self._is_numeric(i) for i in breaks]):
+    
+                            break
+    
+                        else:
+    
+                            warnings.warn('Breaks could not be converted to number.')
+    
+                            breaks = input(">>> Enter modified breaks: ")
+    
+                            breaks = re.sub("^[,\.]+|[,\.]+$|\s", "", breaks).split(',')  
+    
+                    #check break dtype 
+                    if b_dtype=='float64':
+    
+                        breaks = np.float64(breaks).tolist()
+    
+                    else:
+    
+                        breaks = np.float32(breaks).tolist()
+                                
+    
+                elif is_string_dtype(X[colname]):
+                    
+                    breaks = input(">>> Enter modified breaks: ")
+                
+                    breaks = re.sub("^[,\.]+|[,\.]+$|\s", "", breaks)
+    
+                    
+                    if not breaks:
+                        
+                        breaks=binTree(n_jobs=1,coerce_monotonic=True).fit(X[[colname]],y).breaks_list[colname]
+                        
+                    else:
+    
+                        breaks = self._split_by_re(breaks,'[,][^%]')
+    
+                else:
+    
+                    raise ValueError("{}'s dtype in ('number' or 'object')".format(colname))
+    
+    
+                adj_status=True
+    
+            #opt==3:roll back to previous variable     
+            elif option==3:
+    
+                adj_count+=-1 if adj_count else adj_count
+                
+                print('Roll back to previous variable.')
+    
+                adj_status=False
+            
+            #opt==0:stop adjustion by user     
+            elif option==0:
+                
+                print('Adjustion has not been completed yet,are you sure?')
+                
+                adj_status=False
+                
+                if_exit = input("Input 'y' to exit or other to continue :")
+                
+                # stop condition (1/2):user defined
+                if if_exit=='y':
+                    
+                    print('Stop adjusting...,result store in global variables "breaks_list_adj" and "vtabs_dict_adj"')
+                    
+                    break
+                    
+            else:
+                    
+                raise ValueError('opt error')
+                     
+            # stop condition (2/2):all variables done
+            if adj_count==var_sum:
+    
+                print('Adjustion complete...')
+    
+                break 
+                
+        return breaks_list_adj,vtabs_dict_adj
+
+
+    def _get_breaks_adj_g(self,br_adj,X,y,column,sort_column=None,psi_base='all',
+                    sample_weight=None,special_values=None,b_dtype='float64',
+                    figure_size=None):
+
+        global breaks_list_adj_g,vtabs_dict_adj_g
+        
+        # set param
+        adj_count=0
+        var_sum=len(br_adj)
+        var_dict=dict(zip(range(len(br_adj)),br_adj.keys()))
+        adj_status=False
+    
+        # set output
+        breaks_list_adj_g={}
+        vtabs_dict_adj_g={}
+    
+    
+        while True:
+    
+            # default binning and plotting using given breaks 
+            if not adj_status:
+    
+                colname=var_dict[adj_count]
+    
+                breaks=br_adj[colname] 
+    
+            print('Adjusting {}...'.format(colname))
+            print('Current breaks: {}...'.format(breaks))
+            
+            bins=varGroupsReport({colname:breaks},target=y.name,
+                                      columns=[column],
+                                      sort_columns={column:sort_column} if sort_column else sort_column,
+                                      output_psi=True,
+                                      psi_base=psi_base,
+                                      sample_weight=sample_weight,
+                                      b_dtype=b_dtype,
+                                      row_limit=0,n_jobs=1).fit(X[[colname]+[column]].join(y))
+            
+            binx_g=pd.concat(bins.report_dict_raw,axis=1).droplevel(0)
+            
+            binx_psi=bins.report_dict['report_psi']
+            
+            psi_col=sort_column if sort_column else X['split'].unique()
+            
+            psi_info=[(i,round(binx_psi.loc[binx_psi.bin=='psi'][i]['count_distr'].values[0],4)) for i in psi_col]
+            
+            print('PSI at current breaks:{}'.format(psi_info))
+            
+            fig,_=self._get_plot_single_group(binx_g,
+                                              sort_column=sort_column,
+                                              figure_size=figure_size,
+                                              show_plot=True)
+                
+                
+    
+            plt.show(fig)
+    
+            # interactive options
+            option=self._menu(adj_count+1,var_sum,colname)
+    
+            #opt==1:no adjustion,go next variable
+            if option==1:
+    
+                adj_count+=1
+    
+                breaks_list_adj_g[colname]=breaks
+                vtabs_dict_adj_g[colname]=binx_g
+    
+                adj_status=False
+                
+                print('Adjusting {} finish.'.format(colname))
+                
+            #opt==2:adjusting breaks and re-binning variable 
+            elif option==2:   
+    
+                if is_numeric_dtype(X[colname]):
+                    
+                    breaks = input(">>> Enter modified breaks: ")
+                
+                    breaks = re.sub("^[,\.]+|[,\.]+$|\s", "", breaks).split(',')  
+    
+                    while True:
+    
+                        if breaks==['']:
+                            
+                            breaks=binTree(n_jobs=1,coerce_monotonic=True).fit(X[[colname]],y).breaks_list[colname]
+    
+                            break
+    
+                        elif all([self._is_numeric(i) for i in breaks]):
+    
+                            break
+    
+                        else:
+    
+                            warnings.warn('Breaks could not be converted to number.')
+    
+                            breaks = input(">>> Enter modified breaks: ")
+    
+                            breaks = re.sub("^[,\.]+|[,\.]+$|\s", "", breaks).split(',')  
+    
+                    #check break dtype 
+                    if b_dtype=='float64':
+    
+                        breaks = np.float64(breaks).tolist()
+    
+                    else:
+    
+                        breaks = np.float32(breaks).tolist()
+                                
+    
+                elif is_string_dtype(X[colname]):
+                    
+                    breaks = input(">>> Enter modified breaks: ")
+                
+                    breaks = re.sub("^[,\.]+|[,\.]+$|\s", "", breaks)
+    
+                    
+                    if not breaks:
+                        
+                        breaks = binTree(n_jobs=1,coerce_monotonic=True).fit(X[[colname]],y).breaks_list[colname]
+                        
+                    else:
+    
+                        breaks = self._split_by_re(breaks,'[,][^%]')
+    
+                else:
+    
+                    raise ValueError("{}'s dtype in ('number' or 'object')".format(colname))
+    
+    
+                adj_status=True
+    
+            #opt==3:roll back to previous variable     
+            elif option==3:
+    
+                adj_count+=-1 if adj_count else adj_count
+                
+                print('Roll back to previous variable.')
+    
+                adj_status=False
+            
+            #opt==0:stop adjustion by user     
+            elif option==0:
+                
+                print('Adjustion has not been completed yet,are you sure?')
+                
+                adj_status=False
+                
+                if_exit = input("Input 'y' to exit or other to continue :")
+                
+                # stop condition (1/2):user defined
+                if if_exit=='y':
+                    
+                    print('Stop adjusting...,result store in global variables "breaks_list_adj_g" and "vtabs_dict_adj_g"')
+                    
+                    break
+                     
+            # stop condition (2/2):all variables done
+            if adj_count==var_sum:
+    
+                print('Adjustion complete...')
+    
+                break 
+                
+        return breaks_list_adj_g,vtabs_dict_adj_g 
+    
+    

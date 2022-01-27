@@ -62,7 +62,7 @@ setup(
                       'pandas>=1.3.3',
                       'statsmodels>=0.13.0',
                       'matplotlib>=3.2.2',
-                      'plotnine>=0.8',
+                      'plotnine>=0.8.0',
                       'scikit-learn>=1.0',
                       'xgboost>=1.4.2',
                       'scipy>=1.5.0',
