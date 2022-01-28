@@ -22,6 +22,7 @@ class prefitModel(Base,BaseEstimator):
     """ 
     预拟合数据，在不进行任何特征工程的前提下，使用全量特征预拟合数据并输出模型指标
     此功能用于在建模之前预估现有取数范围下模型的最终的性能，为取数、y定义的合理性提供参考
+    若X存在object或number以外类型的列，那么这些列将被算法忽略
     
     Parameters:
     ----------
@@ -161,6 +162,10 @@ class prefitModel(Base,BaseEstimator):
             self.encoder=WOEEncoder(regularization=1e-3).fit(X_categoty,y)
                 
             X_categoty=self.encoder.transform(X_categoty)   
+            
+        else:
+            
+            self.encoder=None
             
             
         return X_numeric,X_categoty

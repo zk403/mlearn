@@ -27,19 +27,6 @@ class BaseWoePlotter:
         out={colname:fig for fig,colname in res}
         
         return out     
-
-    
-    def _woe_plot_group(self,varbin_g,sort_column,figure_size,n_jobs,verbose):
-
-        n_jobs=effective_n_jobs(n_jobs)   
-                              
-        p=Parallel(n_jobs=n_jobs,verbose=verbose)
-        
-        res=p(delayed(self._get_plot_single_group)(pd.concat(varbin_g[key],axis=1).droplevel(0),sort_column,figure_size,False) for key in varbin_g)
-        
-        out={colname:fig for fig,colname in res}     
-        
-        return out
          
 
     def _get_bin(self,binx):
@@ -96,6 +83,8 @@ class BaseWoePlotter:
             y_left_max=1
             
         y_max=max(y_right_max,y_left_max)
+        
+        labels=(binx['count'].astype('str')+','+binx['count_distr'].mul(100).round(2).astype('str')+'%').tolist()
     
         #base plot using ggplot2(no sec_axis function in plotnine - 0.8.0)
         figure=(ggplot() + geom_bar(binx_melt,aes(x='bin',y='negpos',fill=''), stat="identity",show_legend = True)
@@ -109,6 +98,7 @@ class BaseWoePlotter:
               legend_position=(0.5,0),legend_direction="horizontal",
               legend_key_size=10)
             + geom_text(data=binx, mapping=aes(x = 'rowid',y='badprob',label='lineval_l'),va = 'bottom',color='blue')
+            + geom_text(data=binx, mapping=aes(x='rowid',y='count_distr',label=labels),va = 'bottom',color='black',alpha=0.6)
         ).draw()
     
         #add subplot(second axis) using matplotlib 
@@ -182,6 +172,8 @@ class BaseWoePlotter:
         
         y_max=max(y_right_max,y_left_max)
         
+        labels=(binx_g_h['count'].astype('str')+','+binx_g_h['count_distr'].mul(100).round(2).astype('str')+'%').tolist()
+        
         #base plot using ggplot2(no sec_axis function in plotnine - 0.8.0)
         figure=(ggplot() + geom_bar(binx_g_melt,aes(x='bin',y='negpos',fill=''), stat="identity",show_legend = True)
             + geom_point(data=binx_g_h,mapping=aes(x='rowid',y='badprob'), stat="identity",color='blue')
@@ -195,6 +187,7 @@ class BaseWoePlotter:
               legend_position=(0.5,0),legend_direction="horizontal",
               legend_key_size=10)
             + geom_text(data=binx_g_h, mapping=aes(x = 'rowid',y='badprob',label='lineval_l'),va = 'bottom',color='blue')
+            + geom_text(data=binx_g_h, mapping=aes(x='rowid',y='count_distr',label=labels),va = 'bottom',color='black',alpha=0.6)
         ).draw()
     
         #add subplot(second axis) using matplotlib 

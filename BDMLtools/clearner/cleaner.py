@@ -389,6 +389,8 @@ class outliersTransformer(Base,TransformerMixin):
         """
         返回分位数替代后的数据
         
+        上下3倍iqr范围以外的值被定义为异常值并会进行处理
+        
         Parameters
         ----------
         X : pd.DataFrame,X数据，(n_smaples,n_features)                       
@@ -475,7 +477,7 @@ class nanTransformer(Base,Specials,TransformerMixin):
     """    
     
     def __init__(self,method=('constant','constant'),
-                      missing_values=[np.nan,'nan','','special','missing'],
+                      missing_values=[np.nan,np.inf,-np.inf,'nan','','special','missing'],
                       fill_value=(np.nan,'missing'),  
                       n_neighbors=10,
                       weights_knn='uniform',

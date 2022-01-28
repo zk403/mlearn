@@ -17,7 +17,6 @@ from BDMLtools.selector import lassoSelector
 from BDMLtools.encoder import woeTransformer
 from BDMLtools.tuner import girdTuner,hgirdTuner
 from BDMLtools.tuner import BayesianXGBTuner,BayesianLgbmTuner,shapCheck
-
 import scorecardpy as sc
 from sklearn.linear_model import LogisticRegression 
 import pandas as pd
@@ -30,6 +29,8 @@ class test:
         
         self.test_dtStandardization()
         self.test_dtypeAllocator()
+        self.test_outliersTransformer()
+        self.test_nanTransformer()
         self.test_binSelector()
         self.test_binSelector()
         self.test_scorecard()
@@ -205,6 +206,81 @@ class test:
 
         print('dtypeAllocator test successfully')
         
+        
+        
+    def test_outliersTransformer(self):
+        
+        dt=sc.germancredit().copy()
+        da=dtypeAllocator().fit(dt)
+        dt=da.transform(dt)
+        
+        dt_nan=outliersTransformer(columns=['credit.amount'],method='nan').fit_transform(dt)
+        dt_fill=outliersTransformer(columns=['credit.amount'],method='fill').fit_transform(dt)
+        
+        dt['credit.amount'].hist()    
+        
+        dt_nan['credit.amount'].hist()    
+        
+        dt_fill['credit.amount'].hist()
+        
+        if dt_nan['credit.amount'].isnull().sum()!=24:
+            
+            raise ValueError('outliersTransformer error') 
+            
+        if dt_fill['credit.amount'][dt_nan['credit.amount'].isnull()].unique()!=[11792.5]:
+        
+            raise ValueError('outliersTransformer error') 
+            
+        print('outliersTransformer test successfully')
+        
+    
+    def test_nanTransformer(self):
+        
+        dt=pd.DataFrame(
+            {
+                'v1':np.arange(5),
+                'v2':np.array([np.inf,-np.inf,np.nan,5.1,1.0]),
+                'v3':np.array(['g1','','special','g3','nan'])
+            })
+        
+        missing_list=[1,np.nan, -np.inf,np.inf,'nan', '', 'special', 'missing']
+        
+        dt_1=nanTransformer(missing_values=missing_list).fit_transform(dt)
+        
+        if not np.isnan(dt_1.v2[0:2]).all():
+            raise ValueError('nanTransformer error:inf')
+        
+        if not (dt_1.v3.unique()==['g1', 'missing', 'g3']).all():
+            raise ValueError('nanTransformer error:string')
+            
+        if not np.isnan(dt_1['v1'][dt['v1']==1].values).all() :   
+            raise ValueError('nanTransformer error:int')
+            
+        if not np.isnan(dt_1['v2'][dt['v2']==1].values).all() :   
+            raise ValueError('nanTransformer error:float')    
+            
+            
+        missing_dict={
+            'v1':[1,np.nan, -np.inf,np.inf,'nan', '', 'special', 'missing'],
+            'v2':[1,np.nan, -np.inf,np.inf,'nan', '', 'special', 'missing'],
+            'v3':[1,np.nan, -np.inf,np.inf,'nan', '', 'special', 'missing']
+        }    
+                    
+        dt_1=nanTransformer(missing_values=missing_dict,fill_value=(-9999,'na')).fit_transform(dt)
+        
+        if not np.isin(dt_1.v2[0:2],[-9999]).all():
+            raise ValueError('nanTransformer error:inf')
+        
+        if not (dt_1.v3.unique()==['g1', 'na', 'g3']).all():
+            raise ValueError('nanTransformer error:string')
+            
+        if not np.isin(dt_1['v1'][dt['v1']==1].values,[-9999]).all() :   
+            raise ValueError('nanTransformer error:int')
+            
+        if not np.isin(dt_1['v2'][dt['v2']==1].values,[-9999]).all() :   
+            raise ValueError('nanTransformer error:float') 
+            
+        print('nanTransformer test successfully')
 
 
     def test_binSelector(self):
@@ -246,8 +322,7 @@ class test:
                 print('no monotonic trend shows in {}'.format(key))
                 
         print('binSelector test successfully')
-            
-    
+               
             
     def test_scorecard(self):        
     
@@ -329,8 +404,7 @@ class test:
         
         print("score_equal:{}".format(dt_score_sc['score'].equals(dt_score_bm['score'])))
         
-        print('scorecard test successfully')
-    
+        print('scorecard test successfully')    
     
     
     def test_tab(self):
@@ -394,7 +468,7 @@ class test:
         vtabs_g=varGroupsReport(bin_tree.breaks_list,columns=['client_group'],target=y.name,
                             row_limit=0,output_psi=True,n_jobs=1).fit(X_all)
         
-        figs_g=vtabs_g.woe_plot_group()
+        
         
         print("vtabs test successfully")
     
