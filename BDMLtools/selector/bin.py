@@ -536,7 +536,7 @@ class binAdjuster(Base,BaseWoePlotter):
                     sample_weight=None,special_values=None,b_dtype='float64',
                     figure_size=None):
 
-        global breaks_list_adj_g,vtabs_dict_adj_g
+        global breaks_list_adj,vtabs_dict_adj
         
         # set param
         adj_count=0
@@ -545,8 +545,8 @@ class binAdjuster(Base,BaseWoePlotter):
         adj_status=False
     
         # set output
-        breaks_list_adj_g={}
-        vtabs_dict_adj_g={}
+        breaks_list_adj={}
+        vtabs_dict_adj={}
         
         colname_del=set()
     
@@ -598,8 +598,8 @@ class binAdjuster(Base,BaseWoePlotter):
     
                 adj_count+=1
     
-                breaks_list_adj_g[colname]=breaks
-                vtabs_dict_adj_g[colname]=binx_g
+                breaks_list_adj[colname]=breaks
+                vtabs_dict_adj[colname]=binx_g
     
                 adj_status=False
                 
@@ -698,7 +698,7 @@ class binAdjuster(Base,BaseWoePlotter):
                 # stop condition (1/2):user defined
                 if if_exit=='y':
                     
-                    print('Stop adjusting...,result store in global variables "breaks_list_adj_g" and "vtabs_dict_adj_g"')
+                    print('Stop adjusting...,result store in global variables "breaks_list_adj" and "vtabs_dict_adj"')
                     
                     break
                 
@@ -717,14 +717,14 @@ class binAdjuster(Base,BaseWoePlotter):
             
             for key in colname_del:   
                 
-                if key in breaks_list_adj_g:             
+                if key in breaks_list_adj:             
                     
-                    del breaks_list_adj_g[key] 
+                    del breaks_list_adj[key] 
                     
-                if key in vtabs_dict_adj_g:            
+                if key in vtabs_dict_adj:            
                     
-                    del vtabs_dict_adj_g[key] 
+                    del vtabs_dict_adj[key] 
                 
-        return breaks_list_adj_g,vtabs_dict_adj_g 
+        return breaks_list_adj,vtabs_dict_adj
     
     
