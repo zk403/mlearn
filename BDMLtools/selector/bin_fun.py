@@ -765,16 +765,16 @@ class binTree(Base,Specials,BaseEstimator):
             col_rm_outlier=remove_outlier(col)
             
             #adjust max_bin for improving performance
-            if np.unique(col_rm_outlier).size<max_bin:
+            if pd.unique(col_rm_outlier).size<max_bin:
 
-                max_bin_adj=np.unique(col_rm_outlier).size
+                max_bin_adj=pd.unique(col_rm_outlier).size
 
             else:
 
                 max_bin_adj=max_bin  
 
             #R pretty bins:cut points looks better but will lose iv or ks gain
-            cuts_remain=R_pretty(col_rm_outlier.min(),col_rm_outlier.max(),max_bin_adj) 
+            cuts_remain=R_pretty(np.nanmin(col_rm_outlier),np.nanmax(col_rm_outlier),max_bin_adj) 
 
             #equal freqs
             #cuts_remain = np.unique(np.nanpercentile(col_rm_outlier,np.linspace(0, 1, max_bin + 1)[1:-1] * 100, interpolation='lower'))

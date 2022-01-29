@@ -383,7 +383,7 @@ class binAdjuster(Base,BaseWoePlotter):
     
                 breaks=br_adj[colname] 
     
-            print('Adjusting {}...'.format(colname))
+            print('----djusting {}...----'.format(colname))
             print('Current breaks: {}...'.format(breaks))
             
             binx=varReportSinge().report(X[colname],y,breaks,sample_weight=sample_weight,
@@ -406,7 +406,7 @@ class binAdjuster(Base,BaseWoePlotter):
     
                 adj_status=False
                 
-                print('Adjusting {} finish.'.format(colname))
+                print('----Adjusting {} finish.----'.format(colname))
                 
             #opt==2:adjusting breaks and re-binning variable 
             elif option==2:   
@@ -559,7 +559,7 @@ class binAdjuster(Base,BaseWoePlotter):
     
                 breaks=br_adj[colname] 
     
-            print('Adjusting {}...'.format(colname))
+            print('----Adjusting {}...----'.format(colname))
             print('Current breaks: {}...'.format(breaks))
             
             bins=varGroupsReport({colname:breaks},target=y.name,
@@ -603,7 +603,7 @@ class binAdjuster(Base,BaseWoePlotter):
     
                 adj_status=False
                 
-                print('Adjusting {} finish.'.format(colname))
+                print('----Adjusting {} finish.----'.format(colname))
                 
             #opt==2:adjusting breaks and re-binning variable 
             elif option==2:   

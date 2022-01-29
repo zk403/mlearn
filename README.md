@@ -91,8 +91,9 @@ pip uninstall BDMLtools
 ```
 v0.1.8
 1.加入binAdjuster模块，支持单特征、组特征的交互式分箱
-2.修复bug
-3.文档维护
+2.优化了woe_plot的制图
+3.修复了诸多bug
+4.文档维护
 ```
 
 ```
