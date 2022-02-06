@@ -31,6 +31,7 @@ class test:
         self.test_dtypeAllocator()
         self.test_outliersTransformer()
         self.test_nanTransformer()
+        self.test_preSelector()
         self.test_binSelector()
         self.test_binSelector()
         self.test_scorecard()
@@ -281,6 +282,71 @@ class test:
             raise ValueError('nanTransformer error:float') 
             
         print('nanTransformer test successfully')
+        
+    
+    def test_preSelector(self):
+        
+        X=pd.DataFrame(
+            {
+                'na_test':np.append(np.ones(100),np.repeat(np.nan,900)),#nan pop=0.9
+                'uni_test':np.append(np.repeat('-1',800),np.arange(200)),#-1 unique pop=0.8
+                'var_test':np.repeat(1,1000), #variance = 0
+                'chi2_test':np.repeat('g1',1000), #p_value no significancne
+                'f_test':np.random.randint(0,100,1000), #p_value no significancne      
+            }
+        )
+        
+        y=pd.Series(np.random.randint(0,2,1000),name='target')
+        
+        keep_col=preSelector(na_pct=0.89,
+                   unique_pct=None,
+                   variance=None,
+                   chif_pvalue=None,
+                   tree_imps=None,
+                   auc_limit=None,
+                   iv_limit=None).fit(X[['na_test']],y).keep_col
+
+        if 'na_test' in keep_col:
+            
+            raise ValueError("param na_pct error")
+            
+        keep_col=preSelector(na_pct=None,
+                           unique_pct=0.81,
+                           variance=None,
+                           chif_pvalue=None,
+                           tree_imps=None,
+                           auc_limit=None,
+                           iv_limit=None).fit(X[['uni_test']],y).keep_col
+        
+        if not 'uni_test' in keep_col:
+            
+            raise ValueError("param unique_pct error")
+            
+        keep_col=preSelector(na_pct=None,
+                           unique_pct=None,
+                           variance=0,
+                           chif_pvalue=None,
+                           tree_imps=None,
+                           auc_limit=None,
+                           iv_limit=None).fit(X[['var_test']],y).keep_col
+        
+        if 'var_test' in keep_col:
+            
+            raise ValueError("param variance error")
+            
+        keep_col=preSelector(na_pct=None,
+                           unique_pct=None,
+                           variance=None,
+                           chif_pvalue=0.05,
+                           tree_imps=None,
+                           auc_limit=None,
+                           iv_limit=None).fit(X[['chi2_test','f_test']],y).keep_col
+        
+        if 'chi2_test' in keep_col or 'f_test' in keep_col:
+            
+            raise ValueError("param chif_pvalue error")
+            
+        print('preSelector test successfully')
 
 
     def test_binSelector(self):
@@ -528,6 +594,5 @@ class test:
                          }).fit(dt_woe_bm,y)
         
         print("tunner test successfully")
-        
 
 test().test_all()

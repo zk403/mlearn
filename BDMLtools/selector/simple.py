@@ -1,5 +1,12 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Oct 27 23:08:38 2021
+
+@author: zengke
+"""
 from sklearn.base import TransformerMixin,BaseEstimator
-from sklearn.feature_selection import VarianceThreshold,f_oneway,chi2
+from sklearn.feature_selection import f_classif,chi2
 from category_encoders.ordinal import OrdinalEncoder
 from category_encoders import WOEEncoder
 from joblib import Parallel,delayed,effective_n_jobs
@@ -483,14 +490,24 @@ class preSelector(Base,Specials,TransformerMixin):
           
             print('1.filterbyNA_____________________________complete')
                       
-        #fliter by variance and unique_pct
-        if (self.variance is not None) and (self.unique_pct is not None): 
+        #fliter by variance
+        if self.variance is not None: 
             
-            keep_col=self._filterByUnique(X[keep_col],self.unique_pct)+self._fliterByVariance(X[keep_col],self.variance)
+            keep_col=self._fliterByVariance(X[keep_col],self.variance)
             
             self.features_info['3.filterbyVariance']=keep_col
             
-            print('2.filterbyVariance&Uniquepct_____________complete')
+            print('2.filterbyVariance_______________________complete')
+            
+            
+        #fliter byunique_pct
+        if self.unique_pct is not None: 
+            
+            keep_col=self._filterByUnique(X[keep_col],self.unique_pct)
+            
+            self.features_info['3.filterbyVariance']=keep_col
+            
+            print('3.filterbyUniquepct______________________complete')
 
         
         #fliter by chi and f-value
@@ -500,7 +517,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info['4.filterbyChi2Oneway']=keep_col
             
-            print('3.filterbyChi2Oneway_____________________complete')     
+            print('4.filterbyChi2Oneway_____________________complete')     
             
             
         #fliter by shuffle  
@@ -510,7 +527,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info['6.filterbyShuffle']=keep_col
 
-            print('4.filterbyShuffle________________________complete')  
+            print('5.filterbyShuffle________________________complete')  
         
         
         #fliter by lgbm-tree-imp  
@@ -520,7 +537,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info['5.filterbyTrees']=keep_col
             
-            print('5.filterbyTrees__________________________complete')
+            print('6.filterbyTrees__________________________complete')
             
         
         #fliter by iv 
@@ -530,10 +547,10 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info['7.filterbyIV']=keep_col
             
-            print('6.filterbyIV_____________________________complete')
+            print('7.filterbyIV_____________________________complete')
    
         
-        print('Done_____________________________________________')  
+        print('_____________________________________________Done')  
         
         #打印筛选汇总信息
         for key in self.features_info:
@@ -565,19 +582,22 @@ class preSelector(Base,Specials,TransformerMixin):
     
     def _filterByUnique(self,X,unique_pct):
         """ 
-        唯一值处理-分类变量
+        唯一值处理
         """     
-        X_categoty=X.select_dtypes(include='object')
+        X=X.select_dtypes(include=['object','number'])
         
-        if X_categoty.columns.size:
+        if X.columns.size:
             
-            unique_pct=X_categoty.apply(lambda x:x.value_counts(dropna=False).div(len(X_categoty)).max())    
+            print(X.columns)
             
-            return unique_pct[unique_pct<unique_pct].index.tolist()
+            X_unique_pct=X.apply(lambda x:x.value_counts(dropna=False).div(len(X)).max())   
+            
+            return X_unique_pct[X_unique_pct<unique_pct]
         
         else:
             
             return []
+
     
     def _fliterByVariance(self,X,variance):
         """ 
@@ -587,13 +607,14 @@ class preSelector(Base,Specials,TransformerMixin):
         
         if X_numeric.columns.size:
             
-            support_vars=VarianceThreshold(threshold=variance).fit(X_numeric).get_support()    
+            X_var=X_numeric.var(ddof=0)
             
-            return X_numeric.columns[support_vars].tolist()
+            return X_var[X_var<variance].index
         
         else:
             
             return []
+        
 
     def _filterByChisquare(self,X,y,chif_pvalue):
         
@@ -603,6 +624,9 @@ class preSelector(Base,Specials,TransformerMixin):
         
         X_categoty=X.select_dtypes(include='object')
         
+        #drop constant columns
+        X_categoty=X_categoty.loc[:,X_categoty.apply(lambda col: False if col.unique().size==1 else True)]
+
         if X_categoty.columns.size:      
             
             X_categoty_encode=OrdinalEncoder().fit_transform(X_categoty.replace(np.nan,'missing'))
@@ -620,11 +644,14 @@ class preSelector(Base,Specials,TransformerMixin):
         """
         X_numeric=X.select_dtypes('number')
         
+        #drop constant columns
+        X_numeric=X_numeric.loc[:,X_numeric.apply(lambda col: False if col.unique().size==1 else True)]
+        
         if X_numeric.columns.size:
             
-            p_values_pos=f_oneway(X_numeric.replace(np.nan,2**31),y)[1]
+            p_values_pos=f_classif(X_numeric.replace(np.nan,2**31),y)[1]
             
-            p_values_neg=f_oneway(X_numeric.replace(np.nan,-2**31),y)[1]  
+            p_values_neg=f_classif(X_numeric.replace(np.nan,-2**31),y)[1] 
             
             return X_numeric.columns[(p_values_pos<chif_pvalue) | (p_values_neg<chif_pvalue)].tolist() #
         
@@ -699,26 +726,26 @@ class preSelector(Base,Specials,TransformerMixin):
             
             if not 0<self.na_pct<1:
             
-                raise ValueError("na_pct is float and in (0-1)")
+                raise ValueError("na_pct is float and in (0,1)")
             
         if self.variance is not None:
             
             if not self.variance>=0:
                 
-                raise ValueError("variance is in (0-1)")
+                raise ValueError("variance is in (0,1)")
 
         if self.unique_pct is not None:
             
             if not 0<=self.unique_pct<1:
                 
-                raise ValueError("variance is in (0-1)")
+                raise ValueError("variance is in (0,1)")
                 
                 
         if self.chif_pvalue is not None:
             
             if not 0<self.chif_pvalue<=1:
             
-                raise ValueError("chif_pvalue is float and in (0-1]")
+                raise ValueError("chif_pvalue is float and in (0,1]")
                 
         if self.tree_imps is not None:
             
@@ -764,6 +791,3 @@ class preSelector(Base,Specials,TransformerMixin):
             
         writer.save()     
         print('to_excel done') 
-        
-        
-        
