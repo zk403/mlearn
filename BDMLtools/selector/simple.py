@@ -395,7 +395,7 @@ class preSelector(Base,Specials,TransformerMixin):
     筛选过程(设定为None时代表跳过相应步骤):
     Step 1.缺失值(所有):缺失率高于用户定义值的列将被筛除
     Step 2.唯一值(字符)/方差(数值):唯一值占比高于用户定义值列将被筛除/方差低于用户定义值列的列将被筛除
-    Step 3.卡方p值(字符)/方差分析p值(数值):p值大于用户定义值的列将被剔除
+    Step 3.卡方独立性检验p值(字符)/方差分析p值(数值):p值大于用户定义值的列将被剔除
     Step 4.乱序筛选(所有):原始顺序与随机顺序后使用模型预测的auc差异小于用户定义值的列将被剔除
     Step 5.Lightgbm筛选(所有):split重要性低于用户定义值的列将被剔除
     Step 6.Iv值筛选(所有):等频30箱后iv值低于用户定义值的列将被剔除
@@ -475,9 +475,9 @@ class preSelector(Base,Specials,TransformerMixin):
         self.features_info={}
     
         #开始筛选
-        self.features_info['1.orgin']=X.columns.tolist()
+        self.features_info['0.orgin']=X.columns.tolist()
         
-        keep_col=self.features_info['1.orgin']
+        keep_col=self.features_info['0.orgin']
         
         print('0.start__________________________________complete')
         
@@ -486,9 +486,18 @@ class preSelector(Base,Specials,TransformerMixin):
             
             keep_col=self._filterByNA(X[keep_col],self.na_pct)
             
-            self.features_info['2.filterbyNA']=keep_col
+            self.features_info['1.filterbyNA']=keep_col
           
             print('1.filterbyNA_____________________________complete')
+            
+        #fliter by unique_pct
+        if self.unique_pct is not None: 
+            
+            keep_col=self._filterByUnique(X[keep_col],self.unique_pct)
+            
+            self.features_info['2.filterbyUnique']=keep_col
+            
+            print('2.filterbyUniquepct______________________complete')    
                       
         #fliter by variance
         if self.variance is not None: 
@@ -497,23 +506,13 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info['3.filterbyVariance']=keep_col
             
-            print('2.filterbyVariance_______________________complete')
+            print('3.filterbyVariance_______________________complete')
             
-            
-        #fliter byunique_pct
-        if self.unique_pct is not None: 
-            
-            keep_col=self._filterByUnique(X[keep_col],self.unique_pct)
-            
-            self.features_info['3.filterbyVariance']=keep_col
-            
-            print('3.filterbyUniquepct______________________complete')
-
-        
+       
         #fliter by chi and f-value
         if self.chif_pvalue is not None:
             
-            keep_col=self._filterByChisquare(X[keep_col],y,self.chif_pvalue)+self._filterByOneway(X[keep_col],y,self.chif_pvalue)    
+            keep_col=self._filterByChif(X[keep_col],y,self.chif_pvalue)  
             
             self.features_info['4.filterbyChi2Oneway']=keep_col
             
@@ -525,7 +524,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             keep_col=fliterByShuffle(s_times=self.s_times,auc_val=self.auc_limit,n_jobs=-1).fit(X[keep_col],y).keep
             
-            self.features_info['6.filterbyShuffle']=keep_col
+            self.features_info['5.filterbyShuffle']=keep_col
 
             print('5.filterbyShuffle________________________complete')  
         
@@ -535,7 +534,7 @@ class preSelector(Base,Specials,TransformerMixin):
 
             keep_col=self._filterByTrees(X[keep_col],y,self.tree_size,self.tree_imps)
             
-            self.features_info['5.filterbyTrees']=keep_col
+            self.features_info['6.filterbyTrees']=keep_col
             
             print('6.filterbyTrees__________________________complete')
             
@@ -552,12 +551,12 @@ class preSelector(Base,Specials,TransformerMixin):
         
         print('_____________________________________________Done')  
         
-        #打印筛选汇总信息
+        #summary
         for key in self.features_info:
             
             print('步骤{},保留的特征数:{}'.format(key,len(self.features_info[key])))
         
-        #输出报告    
+        #report
         if self.out_path: 
             
             self.preSelector_report=pd.concat([pd.Series(self.features_info[key],name=key) for key in self.features_info.keys()],axis=1)
@@ -572,111 +571,105 @@ class preSelector(Base,Specials,TransformerMixin):
     
     def _filterByNA(self,X,na_pct):
         
-        """ 
-        缺失值处理
-        """ 
-        
         NAreport=X.isnull().sum().div(len(X))
         
         return NAreport[NAreport<=na_pct].index.tolist() #返回满足缺失率要求的列名
     
     def _filterByUnique(self,X,unique_pct):
-        """ 
-        唯一值处理
-        """     
+  
         X=X.select_dtypes(include=['object','number'])
+        X_oth=X.select_dtypes(exclude=['object','number'])
         
         if X.columns.size:
             
-            print(X.columns)
-            
             X_unique_pct=X.apply(lambda x:x.value_counts(dropna=False).div(len(X)).max())   
             
-            return X_unique_pct[X_unique_pct<unique_pct]
+            return X_unique_pct[X_unique_pct<unique_pct].index.tolist()+X_oth.columns.tolist()
         
         else:
             
-            return []
+            return X_oth.columns.tolist()
 
     
     def _fliterByVariance(self,X,variance):
-        """ 
-        方差处理-连续变量,缺失值将被忽略
-        """     
-        X_numeric=X.select_dtypes('number')
-        
-        if X_numeric.columns.size:
-            
-            X_var=X_numeric.var(ddof=0)
-            
-            return X_var[X_var<variance].index
-        
-        else:
-            
-            return []
-        
 
-    def _filterByChisquare(self,X,y,chif_pvalue):
-        
-        """ 
-        特征选择-分类变量:卡方值
-        """
-        
-        X_categoty=X.select_dtypes(include='object')
-        
-        #drop constant columns
-        X_categoty=X_categoty.loc[:,X_categoty.apply(lambda col: False if col.unique().size==1 else True)]
-
-        if X_categoty.columns.size:      
-            
-            X_categoty_encode=OrdinalEncoder().fit_transform(X_categoty.replace(np.nan,'missing'))
-            
-            p_values=chi2(X_categoty_encode,y)[1]
-            
-            return  X_categoty_encode.columns[p_values<chif_pvalue].tolist()#返回满足卡方值要求的列名
-        else:
-            return []
-    
-    def _filterByOneway(self,X,y,chif_pvalue):
-        
-        """ 
-        特征选择-连续变量:方差分析(假定方差齐性成立)
-        """
         X_numeric=X.select_dtypes('number')
+        X_oth=X.select_dtypes(exclude='number')
         
         #drop constant columns
         X_numeric=X_numeric.loc[:,X_numeric.apply(lambda col: False if col.unique().size==1 else True)]
         
         if X_numeric.columns.size:
             
-            p_values_pos=f_classif(X_numeric.replace(np.nan,2**31),y)[1]
+            X_var=X_numeric.var(ddof=0)
             
-            p_values_neg=f_classif(X_numeric.replace(np.nan,-2**31),y)[1] 
-            
-            return X_numeric.columns[(p_values_pos<chif_pvalue) | (p_values_neg<chif_pvalue)].tolist() #
+            return X_var[X_var>variance].index.tolist()+X_oth.columns.tolist()
         
         else:
             
-            return []
+            return X_oth.columns.tolist()
+        
+
+    def _filterByChif(self,X,y,chif_pvalue):
+        
+        #drop constant columns
+        X=X.loc[:,X.apply(lambda col: False if col.unique().size==1 else True)]
+        
+        
+        X_categoty=X.select_dtypes('object')
+        
+        X_numeric=X.select_dtypes('number')
+        
+        X_oth=X.select_dtypes(exclude=['object','number'])
+
+        
+        #filter by chi2
+        if X_categoty.columns.size:      
+            
+            X_categoty_encode=OrdinalEncoder().fit_transform(X_categoty.replace(np.nan,'missing'))
+            
+            p_values=chi2(X_categoty_encode,y)[1]
+            
+            cate_cols=X_categoty_encode.columns[p_values<chif_pvalue].tolist()
+            
+        else:
+            
+            cate_cols=[]
+            
+        
+        #filter by oneway
+        if X_numeric.columns.size:
+            
+            cols_fill=X_numeric.median().to_dict()
+            
+            p_values_pos=f_classif(X_numeric.fillna(2**31),y)[1]
+            
+            p_values_mean=f_classif(X_numeric.fillna(cols_fill),y)[1]
+            
+            p_values_neg=f_classif(X_numeric.fillna(-2**31),y)[1]             
+            
+            num_cols=X_numeric.columns[(p_values_pos<chif_pvalue) | (p_values_neg<chif_pvalue) | (p_values_mean<chif_pvalue)].tolist()
+            
+        else:
+                
+            num_cols=[]
+            
+        
+        return cate_cols+num_cols+X_oth.columns.tolist()
+    
 
     def _filterByTrees(self,X,y,tree_size,tree_imps):
-        """ 
-        特征选择:树模型
-        """
+
         X_numeric=X.select_dtypes(include='number')
-        X_categoty=X.select_dtypes(include='object')
+        X_category=X.select_dtypes(include='object')
         X_oth=X.select_dtypes(exclude=['number','object'])
         
-        if X_oth.columns.size:
-            
-            raise ValueError('dtype only in ("number" or "object")')
         
-        
-        if X_categoty.columns.size:
+        if X_category.columns.size:
             
-            X_categoty_encode=OrdinalEncoder().fit_transform(X_categoty).sub(1)
+            X_category_encode=OrdinalEncoder().fit_transform(X_category).sub(1)
             
-            X_new=pd.concat([X_numeric,X_categoty_encode],axis=1)
+            X_new=pd.concat([X_numeric,X_category_encode],axis=1)
 
             lgb=sLGBMClassifier(
                 boosting_type='gbdt',
@@ -685,11 +678,11 @@ class preSelector(Base,Specials,TransformerMixin):
                 n_estimators=tree_size,
                 subsample=0.7,
                 colsample_bytree=1,
-            ).fit(X_new,y,categorical_feature=X_categoty_encode.columns.tolist())         
+            ).fit(X_new,y,categorical_feature=X_category_encode.columns.tolist())         
 
             lgb_imps=lgb.booster_.feature_importance(importance_type='split')
         
-            return X_new.columns[lgb_imps>tree_imps].tolist()
+            return X_new.columns[lgb_imps>tree_imps].tolist()+X_oth.columns.tolist()
         
         elif X_numeric.columns.size:
             
@@ -704,11 +697,11 @@ class preSelector(Base,Specials,TransformerMixin):
 
             lgb_imps=lgb.booster_.feature_importance(importance_type='split')
         
-            return X_numeric.columns[lgb_imps>tree_imps].tolist()
+            return X_numeric.columns[lgb_imps>tree_imps].tolist()+X_oth.columns.tolist()
         
         else:
             
-            return []
+            return X_oth.columns.tolist()
         
     
     def _filterbyIV(self,X,y,iv_limit):        
