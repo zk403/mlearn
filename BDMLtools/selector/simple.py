@@ -15,6 +15,7 @@ from sklearn.impute import SimpleImputer
 from BDMLtools.fun import Specials
 from BDMLtools.selector.bin_fun import binFreq
 from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import StandardScaler
 from pandas.api.types import is_numeric_dtype,is_string_dtype
 import numpy as np
 import pandas as pd
@@ -34,13 +35,14 @@ class prefitModel(Base,BaseEstimator):
     Parameters:
     ----------
         method='ceiling',预拟合数据方法，可选‘floor’,‘ceiling’
-            floor:地板算法，这里使用线性模型(sklearn对的logit回归(C=0.1))进行prefit  
+            floor:地板算法，这里使用线性模型(sklearn对的logit回归(C=0.1 & solver='saga'))进行prefit  
                  + 分类变量处理方式:进行woe编码
                  + 数值特征缺失值:均值填补,当数据缺失值较多时，建议使用ceiling的lightbgm,其可应对缺失数据
             ceiling:天花板算法,这里使用lightgbm进行prefit，且不进行任何交叉验证
                 + 分类变量处理方式:进行woe编码
-                + 数值特征缺失值:不处理
-        params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},method='ceiling'时lightgbm的参数设定        
+                + 数值特征缺失值:不处理        
+        max_iter:100,logit回归最大迭代次数
+        tree_params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},method='ceiling'时lightgbm的参数设定        
         col_rm=None or list,需要移除的列名list，例如id类
         sample_weight=None or pd.Series,样本权重
         
@@ -50,11 +52,12 @@ class prefitModel(Base,BaseEstimator):
         imputer:sklearn.impute.SimpleImputer object,使用回归时数值特征缺失值处理器
         model:sklearn.linear_model.LogisticRegression or lightgbm.LGBMClassifier object拟合的模型对象
     """      
-    def __init__(self,method='ceiling',params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},
+    def __init__(self,method='ceiling',max_iter=100,tree_params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},
                  col_rm=None,sample_weight=None):
 
         self.method=method
-        self.params=params
+        self.tree_params=tree_params
+        self.max_iter=max_iter
         self.col_rm=col_rm
         self.sample_weight=sample_weight    
         
@@ -69,20 +72,27 @@ class prefitModel(Base,BaseEstimator):
         
         X=X[f_names]
         
-        X_numeric=X.select_dtypes('number');X_categoty=X.select_dtypes('object')
+        X_numeric=X.select_dtypes('number')
+        X_categoty=X.select_dtypes('object')
         
         if self.method=='floor':
             
             X_numeric=pd.DataFrame(self.imputer.transform(X_numeric),
                                    columns=self.imputer.feature_names_in_,
                                    index=X_numeric.index,dtype='float32') 
+            
 
         if self.encoder:
             
-            X_categoty=self.encoder.transform(X_categoty)    
+            X_categoty=self.encoder.transform(X_categoty)
 
         
         X_new=pd.concat([X_numeric,X_categoty],axis=1)[f_names]
+        
+        if self.method=='floor':
+            
+            X_new=pd.DataFrame(self._scaler.transform(X_new),columns=self._scaler.feature_names_in_,
+                                       index=X_new.index,dtype='float32')
         
         return X_new
     
@@ -102,11 +112,11 @@ class prefitModel(Base,BaseEstimator):
         
         if self.method=='ceiling':
             
-            self.model=self._fit_lgbm(X,y,self.params,self.sample_weight)
+            self.model=self._fit_lgbm(X,y,self.tree_params,self.sample_weight)
             
         elif self.method=='floor':
             
-            self.model=self._fit_reg(X,y,self.sample_weight)
+            self.model=self._fit_reg(X,y,self.max_iter,self.sample_weight)
             
         else:
             
@@ -139,13 +149,20 @@ class prefitModel(Base,BaseEstimator):
         return lgb
     
     
-    def _fit_reg(self,X,y,sample_weight):
+    def _fit_reg(self,X,y,max_iter,sample_weight):
         
         X_numeric,X_categoty_encode=self._get_X(X,y)
         
         X_new=pd.concat([X_numeric,X_categoty_encode],axis=1)
         
-        logit=LogisticRegression(C=0.1,penalty='l1',solver='saga').fit(X_new,y,sample_weight=sample_weight)  
+        self._scaler=StandardScaler().fit(X_new)
+
+        X_new=pd.DataFrame(self._scaler.transform(X_new),
+                       columns=X_new.columns,
+                       index=X_numeric.index,dtype='float32')
+
+        logit=LogisticRegression(C=0.1,penalty='l2',solver='saga',max_iter=max_iter).fit(X_new,y,
+                                                                                         sample_weight=sample_weight)  
         
         return logit
                 
@@ -176,6 +193,7 @@ class prefitModel(Base,BaseEstimator):
             
             
         return X_numeric,X_categoty
+
     
     
 class fliterByShuffle(Base,BaseEstimator):

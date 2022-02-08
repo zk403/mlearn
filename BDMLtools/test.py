@@ -31,8 +31,8 @@ class test:
         self.test_dtypeAllocator()
         self.test_outliersTransformer()
         self.test_nanTransformer()
+        self.test_prefitModel()
         self.test_preSelector()
-        self.test_binSelector()
         self.test_binSelector()
         self.test_scorecard()
         self.test_tab()
@@ -125,7 +125,7 @@ class test:
                                                           drop_date=False,precision=3).fit(dt)
         dt_1=da.transform(dt)
         
-        dt_1.dtypes
+       
 
         if not np.equal(dt_1[['housing','telephone']].dtypes,['category','category']).all():
             
@@ -347,6 +347,51 @@ class test:
             raise ValueError("param chif_pvalue error")
             
         print('preSelector test successfully')
+        
+
+    def test_prefitModel():
+        
+        dt=sc.germancredit().copy()
+    
+        dt['creditability']=dt['creditability'].map({'good':0,'bad':1})
+    
+        dtypes_dict={
+            'num':['age.in.years',
+                 'credit.amount',
+                 'creditability',
+                 'duration.in.month',
+                 'installment.rate.in.percentage.of.disposable.income',
+                 'number.of.existing.credits.at.this.bank',
+                 'number.of.people.being.liable.to.provide.maintenance.for',
+                 'present.residence.since',
+                 ],
+            'str':[
+                   'housing',
+                   'telephone',
+                   'foreign.worker','purpose','job','personal.status.and.sex','property',
+                   'credit.history','savings.account.and.bonds','present.employment.since',
+                   'status.of.existing.checking.account',
+                   'other.installment.plans','other.debtors.or.guarantors']
+        }
+    
+        da=dtypeAllocator(dtypes_dict=dtypes_dict,t_unit='1 D',dtype_num='float64',
+                                            drop_date=True,precision=3).fit(dt)
+    
+        dt_1=da.transform(dt)
+    
+        X=dt_1.drop('creditability',axis=1)
+        y=dt_1['creditability']    
+        
+        from sklearn.metrics import roc_auc_score
+        res=prefitModel(method='floor',max_iter=300,col_rm=['credit.amount','telephone']).fit(X,y)
+        auc=roc_auc_score(y,res.predict_proba(X))
+        print('floor auc:{}'.format(auc)) 
+    
+        res=prefitModel(method='ceiling',tree_params={'max_depth': 2, 'learning_rate': 0.1, 'n_estimators': 50},col_rm=['credit.amount','telephone']).fit(X,y)
+        auc=roc_auc_score(y,res.predict_proba(X))
+        print('ceiling auc:{}'.format(auc)) 
+        
+        print('prefitModel test successfully')
 
 
     def test_binSelector(self):
