@@ -1,4 +1,4 @@
-# BDMLtools-0.1.8
+# BDMLtools-0.1.9
 
 BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数据量的二分类模型的机器学习建模工具包。
 本模组将集成商业分析场景中二分类模型中常用的机器学习模型，并使之能够兼顾模型开发效率、报告制作与建模流程标准化。
@@ -58,7 +58,7 @@ BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数�
     
 + 模型评估 
 
-    - 待补充   
+    - BDMLtools.perfEval:二分类排序模型评估，包含绘制图ks、roc、gini、gain、lorenz、f1、pr、density的功能
     
 安装: 
 
@@ -88,6 +88,14 @@ pip uninstall BDMLtools
 
 
 更新日志:
+```
+v0.1.9
+1.加入perfEval模块，支持二分类排序模型评估常见的评估图ks、roc、gini、gain、lorenz、f1、pr、density
+2.优化了部分模块
+3.修复bug
+4.文档维护
+```
+
 ```
 v0.1.8
 1.加入binAdjuster模块，支持单特征、组特征的交互式分箱

@@ -8,7 +8,9 @@ Created on Tue Jan 11 22:12:51 2022
 
 
 from sklearn.exceptions import NotFittedError
-from BDMLtools.exception import DataDtypesError,DataTypeError,XyIndexError,yValueError
+from BDMLtools.exception import DataTypeError,XyIndexError,yValueError
+from pandas.api.types import is_array_like
+from warnings import warn
 import pandas as pd
 import numpy as np
 
@@ -66,4 +68,84 @@ class Base:
         if not dtype in ('float32','float64'):
             
             raise ValueError("dtype in ('float32','float64')")
+
+
+
+class BaseEval:    
+    
+    
+    def _check_plot_params(self,show_plot):
         
+        if not isinstance(show_plot ,tuple):
+            
+            raise ValueError("show_plot is tuple")  
+            
+        if not np.isin(show_plot,('ks', 'lift', 'gain', 'roc', 'lz', 'pr', 'f1', 'density')).any() :
+            
+            raise ValueError("show_plot in ('ks', 'lift', 'gain', 'roc', 'lz', 'pr', 'f1', 'density')")   
+    
+    
+    def _check_params(self,y_pred,y_true,group,sample_weight):
+        
+        if not isinstance(y_pred,pd.Series):
+            
+            raise DataTypeError("y_pred is not pandas.Series.")   
+            
+        if not isinstance(y_true,pd.Series):
+            
+            raise DataTypeError("y_true is not pandas.Series.")  
+            
+        if not y_pred.index.equals(y_true.index):
+            
+            raise XyIndexError("index of y_true not equal to y_pred")  
+            
+        if sample_weight is not None:
+            
+            if not is_array_like(sample_weight):
+                
+                raise DataTypeError("sample_weight is not array.") 
+            
+        if group is not None:    
+            
+            if not is_array_like(group):
+                
+                raise DataTypeError("group is not array.")              
+
+
+    def _check_values(self,y_pred,y_true,group,sample_weight):   
+        
+        if pd.isnull(y_pred).any():
+            
+            warn("y_pred contains NAN and will be droped.")   
+            
+        if pd.isnull(y_true).any():
+            
+            raise yValueError("y contains NAN")  
+            
+        if not y_pred.size==y_true.size:
+            
+            raise ValueError("length of y_true and y_pred not same.")  
+        
+        if group is not None: 
+            
+            if pd.isnull(group).any():
+            
+                warn("group contains NAN and will be droped.")  
+
+        if not np.isin(y_true.unique(),[0,1]).any():
+        
+            raise yValueError("vals of y in [0,1] and 0(no-event),1(event).")   
+            
+        if sample_weight is not None:          
+                            
+            if sample_weight.size!=y_pred.size or sample_weight.size!=y_true.size:
+                
+                raise ValueError("length of sample_weight not equal to y_true and y_pred") 
+            
+            if (sample_weight<0).any():
+                
+                raise ValueError("vals of sample_weight should be non-negative")  
+                
+            if pd.isnull(sample_weight).any():
+                
+                raise ValueError("sample_weight contains NAN")        

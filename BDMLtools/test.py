@@ -14,6 +14,7 @@ from BDMLtools.selector import stepLogit,cardScorer
 from BDMLtools.selector import preSelector,corrSelector,prefitModel
 #from BDMLtools.selector import RFECVSelector
 from BDMLtools.selector import lassoSelector
+from BDMLtools.plotter import  perfEval
 from BDMLtools.encoder import woeTransformer
 from BDMLtools.tuner import girdTuner,hgirdTuner
 from BDMLtools.tuner import BayesianXGBTuner,BayesianLgbmTuner,shapCheck
@@ -35,6 +36,7 @@ class test:
         self.test_preSelector()
         self.test_binSelector()
         self.test_scorecard()
+        self.test_perfEval()
         self.test_tab()
         self.test_tunner()
         
@@ -349,12 +351,12 @@ class test:
         print('preSelector test successfully')
         
 
-    def test_prefitModel():
+    def test_prefitModel(self):
         
         dt=sc.germancredit().copy()
-    
+        
         dt['creditability']=dt['creditability'].map({'good':0,'bad':1})
-    
+        
         dtypes_dict={
             'num':['age.in.years',
                  'credit.amount',
@@ -373,12 +375,12 @@ class test:
                    'status.of.existing.checking.account',
                    'other.installment.plans','other.debtors.or.guarantors']
         }
-    
+        
         da=dtypeAllocator(dtypes_dict=dtypes_dict,t_unit='1 D',dtype_num='float64',
                                             drop_date=True,precision=3).fit(dt)
-    
+        
         dt_1=da.transform(dt)
-    
+        
         X=dt_1.drop('creditability',axis=1)
         y=dt_1['creditability']    
         
@@ -386,7 +388,7 @@ class test:
         res=prefitModel(method='floor',max_iter=300,col_rm=['credit.amount','telephone']).fit(X,y)
         auc=roc_auc_score(y,res.predict_proba(X))
         print('floor auc:{}'.format(auc)) 
-    
+        
         res=prefitModel(method='ceiling',tree_params={'max_depth': 2, 'learning_rate': 0.1, 'n_estimators': 50},col_rm=['credit.amount','telephone']).fit(X,y)
         auc=roc_auc_score(y,res.predict_proba(X))
         print('ceiling auc:{}'.format(auc)) 
@@ -639,5 +641,75 @@ class test:
                          }).fit(dt_woe_bm,y)
         
         print("tunner test successfully")
+        
+        
+    def test_perfEval(self):
+        
+        dt=sc.germancredit().copy()
+        dt['creditability']=dt['creditability'].map({'good':0,'bad':1})
+        
+        da=dtypeAllocator().fit(dt)
+        dt=da.transform(dt)
+        
+        X=dt.drop('creditability',axis=1)
+        y=dt['creditability']
+            
+        breaks_list_user={'age.in.years': [26.0, 30.0, 35.0],
+         'credit.amount': [4000.0, 6200.0, 8000.0],
+         'credit.history': [2.0, 3.0, 4.0],
+         'duration.in.month': [8.0, 16.0, 44.0],
+         'foreign.worker': [1],
+         'housing': [1.0],
+         'installment.rate.in.percentage.of.disposable.income': [2.0, 3.0, 4.0],
+         'job': [2.0, 3.0],
+         'number.of.existing.credits.at.this.bank': [2.0],
+         'number.of.people.being.liable.to.provide.maintenance.for': [2.0],
+         'other.debtors.or.guarantors': [2.0],
+         'other.installment.plans': [2.0],
+         'personal.status.and.sex': [2.0, 3.0],
+         'present.employment.since': [2.0, 3.0],
+         'present.residence.since': [2.0],
+         'property': [1.0, 2.0, 3.0],
+         'purpose': ['retraining%,%car (used)',
+          'radio/television',
+          'furniture/equipment%,%domestic appliances%,%business',
+          'repairs%,%car (new)%,%others%,%education'],
+         'savings.account.and.bonds': [1.0, 2.0, 3.0],
+         'status.of.existing.checking.account': [1.0, 2.0, 3.0],
+         'telephone': [1.0]}
+          
+        bin_bm=varReport(breaks_list_dict=breaks_list_user,n_jobs=1).fit(X,y).var_report_dict
+        
+        dt_woe_bm = woeTransformer(varbin=bin_bm,n_jobs=1).transform(X,y)
+          
+        lr_bm = LogisticRegression(penalty='l1',C=0.9,solver='saga').fit(dt_woe_bm, y)  
+        
+        y_pred=pd.Series(lr_bm.predict_proba(dt_woe_bm)[:,1],index=dt_woe_bm.index)
+        
+        y_true=y
+        
+        group=pd.Series(np.repeat('g-credit data',len(dt_woe_bm)),index=dt_woe_bm.index)
+        
+        sample_weight=np.ones(len(dt_woe_bm))
+        
+        figs=perfEval(title='g-credit',n_jobs=1).plot(y_pred, y_true,group,sample_weight,figure_size=(6,6))
+        
+        card_obj = cardScorer(lr_bm,bin_bm,
+                            odds0=0.05263157894736842,
+                            pdo=50,
+                            points0=600).fit(X)
+        
+        card_bm = card_obj.scorecard
+        
+        dt_score_bm=card_obj.transform(X)
+        
+        figs_score=perfEval(title='g-credit score',n_jobs=1).plot(dt_score_bm['score'],y_true,group,sample_weight,figure_size=(6,6))
+        
+        figs
+        figs_score
+        
+        print('perfEval test successfully')            
+        
+        
 
 test().test_all()

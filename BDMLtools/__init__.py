@@ -9,12 +9,13 @@ from BDMLtools.selector import preSelector,corrSelector,prefitModel
 #from BDMLtools.selector import RFECVSelector
 from BDMLtools.selector import lassoSelector
 from BDMLtools.plotter import BaseWoePlotter
+from BDMLtools.plotter import perfEval
 from BDMLtools.encoder import woeTransformer
 from BDMLtools.tuner import girdTuner,hgirdTuner
 from BDMLtools.tuner import BayesianXGBTuner,BayesianLgbmTuner,shapCheck
 
 
-__version__ = '0.1.8'
+__version__ = '0.1.9'
 
 __all__ = (    
     dtStandardization,
@@ -47,6 +48,7 @@ __all__ = (
     hgirdTuner,
     BayesianXGBTuner,
     BayesianLgbmTuner,
+    perfEval,
     shapCheck
 )
 
