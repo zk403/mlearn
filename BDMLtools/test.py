@@ -692,7 +692,7 @@ class test:
         
         sample_weight=np.ones(len(dt_woe_bm))
         
-        figs=perfEval(title='g-credit',n_jobs=1).plot(y_pred, y_true,group,sample_weight,figure_size=(6,6))
+        figs=perfEval(title='g-credit').plot(y_pred, y_true,group,sample_weight,figure_size=(6,6))
         
         card_obj = cardScorer(lr_bm,bin_bm,
                             odds0=0.05263157894736842,
@@ -703,10 +703,10 @@ class test:
         
         dt_score_bm=card_obj.transform(X)
         
-        figs_score=perfEval(title='g-credit score',n_jobs=1).plot(dt_score_bm['score'],y_true,group,sample_weight,figure_size=(6,6))
+        figs_score=perfEval(title='g-credit score').plot(dt_score_bm['score'],y_true,group,sample_weight,figure_size=(6,6))
         
-        figs
-        figs_score
+        print(figs)
+        print(figs_score)
         
         print('perfEval test successfully')            
         

@@ -426,51 +426,57 @@ class BaseEvalData:
                     pd.Series(y_pred,name='pred'),
                     pd.Series(y_true,name='label',dtype='category')             
                  ],axis=1
-                ).assign(group='').dropna() 
+                ).assign(group='data').dropna() 
             
         return dt_df
     
-    def _get_dfev(self,dt_df,sample_weight=None,n_jobs=-1,verbose=0): 
-    
-        y_true=dt_df['label']
-        y_pred=dt_df['pred'] 
+    def _get_dfev(self,dt_df,sample_weight=None,groupnum=None): 
         
+        dt_df=dt_df.copy()
+        
+        ws=np.ones(len(dt_df)) if sample_weight is None else sample_weight
         
         if self.pred_desc:
+    
+            dt_df['pred']=-dt_df['pred']
+        
+        dt_ev=dt_df.assign(nP=ws*dt_df['label'].astype('float'),
+                           nN=ws*dt_df['label'].astype('float').map({0:1,1:0})).groupby('pred')[['nP','nN']].sum().reset_index()
+        
+        if groupnum is not None:
             
-            y_pred=-y_pred 
-        
-        n_jobs=effective_n_jobs(n_jobs)
-        p=Parallel(n_jobs=n_jobs,verbose=verbose,batch_size=50)
+            if groupnum<=len(dt_df):
     
-        res=p(delayed(self._get_cm_index)(y_true, y_pred>=y_pred[i],sample_weight) for i in y_pred.index)
-    
-        y_true=y_true.astype('float') if sample_weight is None else y_true.astype('float').mul(sample_weight)
-        
-        y_true.name='label'
-    
-        dt_ev=pd.DataFrame(res,columns=['tn', 'fp', 'fn', 'tp'],
-                           index=y_pred.index).join(y_pred).join(y_true).sort_values('pred',ascending=False)[['pred','label','fn','tn', 'tp','fp']]#.drop_duplicates()
-        
-        if sample_weight is not None:
-        
-            sample_weight_s=sample_weight[dt_ev.index]
-             
-        dt_ev['tpr']=dt_ev['tp'].div(dt_ev['tp'].add(dt_ev['fn'])) #tpr/recall
-        dt_ev['fpr']=dt_ev['fp'].div(dt_ev['fp'].add(dt_ev['tn'])) #fpr
-        dt_ev['precision']=dt_ev['tp'].div(dt_ev['tp'].add(dt_ev['fp'])) #precision
-        dt_ev['recall']=dt_ev['tp'].div(dt_ev['tp'].add(dt_ev['fn'])) #recall
-        dt_ev['cumpop']=np.cumsum(np.ones(len(dt_ev)))/len(dt_ev) if sample_weight is None else sample_weight_s.cumsum().div(sample_weight_s.sum()).values        
+                pred2=np.ceil(dt_ev[['nP','nN']].sum(1).cumsum()/(np.sum(ws)/groupnum)).rename('pred2')
+                dt_ev=dt_ev.groupby(pred2)[['nP','nN']].sum().join(
+                    dt_ev.groupby(pred2)['pred'].max() 
+                ).reset_index(drop=True)[['pred','nP','nN']]
 
+    
+        dt_ev=dt_ev.sort_values('pred',ascending=False)
+        dt_ev['tp']=dt_ev['nP'].cumsum()
+        dt_ev['fp']=dt_ev['nN'].cumsum()
+        dt_ev['fn']=dt_ev['nP'].sum()-dt_ev['tp']
+        dt_ev['tn']=dt_ev['nN'].sum()-dt_ev['fp']
+        dt_ev['cumpop']=dt_ev[['tp','fp']].sum(1)/(dt_ev['nP'].sum()+dt_ev['nN'].sum())    
+        dt_ev['tpr']=dt_ev['tp']/dt_ev['nP'].sum() #tpr/recall
+        dt_ev['fpr']=dt_ev['fp']/dt_ev['nN'].sum()#fpr
+        dt_ev['precision']=dt_ev['tp'].div(dt_ev['tp'].add(dt_ev['fp'])) #precision
+        dt_ev['recall']=dt_ev['tp']/dt_ev['nP'].sum() #recall/tpr
+        
         return dt_ev
     
-    def _get_dfev_dict(self,dt_df,sample_weight,n_jobs,verbose):
+    def _get_dfev_dict(self,dt_df,sample_weight):
+        
+
+        groupnum=1000 if len(dt_df)>1000 else None
         
         g_dict=dt_df.groupby('group').groups
 
         g_dtev={group:self._get_dfev(dt_df.loc[g_dict[group]],
                                      sample_weight=sample_weight[dt_df.loc[g_dict[group]].index] if sample_weight is not None else None,
-                                     n_jobs=n_jobs,verbose=verbose) for group in g_dict}
+                                     groupnum=groupnum
+                                     ) for group in g_dict}
         
         return g_dtev
     
@@ -528,8 +534,8 @@ class BaseEvalData:
     
     def _get_dt_lz(self,dt_ev,group):
     
-        dt_lz=dt_ev[['cumpop','label','fpr','tpr']].assign(
-            cumposrate=dt_ev['label'].astype('float').cumsum()/dt_ev['label'].astype('float').sum()
+        dt_lz=dt_ev[['cumpop','nP','fpr','tpr']].assign(
+            cumposrate=dt_ev['nP'].cumsum()/dt_ev['nP'].sum()
             ).sort_values(['fpr','tpr'])
 
         auc=np.sum(dt_lz['tpr'].add(dt_lz['tpr'].shift(1).fillna(0)).div(2)*dt_lz['fpr'].sub(dt_lz['fpr'].shift(1).fillna(0)))   

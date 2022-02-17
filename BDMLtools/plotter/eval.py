@@ -23,8 +23,6 @@ class perfEval(BaseEval,BaseEvalPlotter):
         pred_desc=None,是否反相排序y_pred,
             + pred_desc=False情况下即y_pred越大代表event的概率估计越大，若y_pred越小代表event的概率估计越大时，请设定为pred_desc=True
             + pred_desc=None时,将自动检测y_pred，若y_pred范围在[0,1]之内时pred_desc将设定为False，y_pred范围在[0,1]之外时pred_desc将设定为True
-        n_jobs=1,int,不同的threhold下confusion matrix的各项指标的并行计算任务数量，当实际样本非常多时可使用n_jobs进行并行处理
-        verbose=0,并行计算信息打印等级
         
     Method:
     -------
@@ -33,14 +31,13 @@ class perfEval(BaseEval,BaseEvalPlotter):
     """
     
     
-    def __init__(self,show_plot=('ks','roc'),title=None,pred_desc=None,n_jobs=1,verbose=0):
+    def __init__(self,show_plot=('ks','roc'),title=None,pred_desc=None):
         
 
         self.show_plot=show_plot
         self.title=title
         self.pred_desc=pred_desc
-        self.n_jobs=n_jobs
-        self.verbose=verbose   
+
         
     @property
     def _plot_funs(self):
@@ -95,7 +92,7 @@ class perfEval(BaseEval,BaseEvalPlotter):
             
             sample_weight=pd.Series(sample_weight,index=dt_plt.index) 
             
-        dt_plt_dict=self._get_dfev_dict(dt_plt,sample_weight,self.n_jobs,self.verbose)
+        dt_plt_dict=self._get_dfev_dict(dt_plt,sample_weight)
            
         
         figs_d={}
