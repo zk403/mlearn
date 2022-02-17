@@ -690,7 +690,7 @@ class test:
         
         group=pd.Series(np.repeat('g-credit data',len(dt_woe_bm)),index=dt_woe_bm.index)
         
-        sample_weight=np.ones(len(dt_woe_bm))
+        sample_weight=pd.Series(np.ones(len(dt_woe_bm)),index=dt_woe_bm.index)
         
         figs=perfEval(title='g-credit').plot(y_pred, y_true,group,sample_weight,figure_size=(6,6))
         

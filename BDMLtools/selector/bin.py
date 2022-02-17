@@ -389,7 +389,7 @@ class binAdjuster(Base,BaseWoePlotter):
     
                 breaks=br_adj[colname] 
     
-            print('----djusting {}...----'.format(colname))
+            print('----Adjusting {}...----'.format(colname))
             print('Current breaks: {}...'.format(breaks))
             
             binx=varReportSinge().report(X[colname],y,breaks,sample_weight=sample_weight,

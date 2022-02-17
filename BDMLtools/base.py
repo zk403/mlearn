@@ -107,9 +107,13 @@ class BaseEval:
             
         if sample_weight is not None:
             
-            if not is_array_like(sample_weight):
+            if not isinstance(sample_weight,pd.Series):
                 
-                raise DataTypeError("sample_weight is not array.") 
+                raise DataTypeError("sample_weight is not pandas.Series.") 
+                
+            if not y_pred.index.equals(sample_weight.index):
+                
+                raise XyIndexError("index of sample_weight not equal to y_pred or y_true") 
             
         if group is not None:    
             
@@ -155,3 +159,5 @@ class BaseEval:
             if pd.isnull(sample_weight).any():
                 
                 raise ValueError("sample_weight contains NAN")        
+                
+            

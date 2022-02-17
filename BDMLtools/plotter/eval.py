@@ -19,6 +19,14 @@ class perfEval(BaseEval,BaseEvalPlotter):
     Params:
     ------
         show_plot=('ks','roc'):tuple,产生的模型评估图种类,可选('ks', 'lift', 'gain', 'roc', 'lz', 'pr', 'f1', 'density')
+            + 'ks':ks曲线
+            + 'lift':lift曲线
+            + 'gain':gain曲线
+            + 'roc':roc曲线
+            + 'pr':pr曲线
+            + 'lz':lorenz曲线
+            + 'f1':f1曲线
+            + 'density':核密度分布曲线       
         title=None,str,评估图的title
         pred_desc=None,是否反相排序y_pred,
             + pred_desc=False情况下即y_pred越大代表event的概率估计越大，若y_pred越小代表event的概率估计越大时，请设定为pred_desc=True
@@ -61,7 +69,7 @@ class perfEval(BaseEval,BaseEvalPlotter):
             y_pred:pandas.Series,预测值,可以是预测概率也可以是预测评分
             y_true:pandas.Series,实际值,包含0,1的实际值Series,其index必须与y_pred一致
             group=None:pandas.Series,组变量,用于指代预测值与实际值的组，其index必须与y_pred一致，默认None即无组变量
-            sample_weight=None:array,样本权重,用于标识样本点的权重,非负非0，默认None即每个样本点权重都是1,其顺序必须与y_pred或y_true的index一致
+            sample_weight=None:pandas.Series,样本权重,用于标识样本点的权重,非负非0，默认None即每个样本点权重都是1,其index必须与y_pred或y_true的index一致
             figure_size=(4,4),图的大小
             
         Return:
@@ -85,12 +93,13 @@ class perfEval(BaseEval,BaseEvalPlotter):
                 
                 self.pred_desc=False                            
                   
-        dt_plt=self._get_df(y_pred,y_true,group)
+        dt_plt=self._get_df(y_pred,y_true,group).sample(frac=1,random_state=182)
         
         
         if sample_weight is not None:
             
-            sample_weight=pd.Series(sample_weight,index=dt_plt.index) 
+            sample_weight=sample_weight[dt_plt.index]
+
             
         dt_plt_dict=self._get_dfev_dict(dt_plt,sample_weight)
            
