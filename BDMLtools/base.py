@@ -74,7 +74,7 @@ class Base:
 class BaseEval:    
     
     
-    def _check_plot_params(self,show_plot):
+    def _check_plot_params(self,show_plot,pred_desc):
         
         if not isinstance(show_plot ,tuple):
             
@@ -82,7 +82,13 @@ class BaseEval:
             
         if not np.isin(show_plot,('ks', 'lift', 'gain', 'roc', 'lz', 'pr', 'f1', 'density')).any() :
             
-            raise ValueError("show_plot in ('ks', 'lift', 'gain', 'roc', 'lz', 'pr', 'f1', 'density')")   
+            raise ValueError("show_plot in ('ks', 'lift', 'gain', 'roc', 'lz', 'pr', 'f1', 'density')")  
+            
+        if pred_desc is not None:
+            
+            if not isinstance(pred_desc,bool):
+                
+                raise ValueError("pred_desc is bool type.")  
     
     
     def _check_params(self,y_pred,y_true,group,sample_weight):
