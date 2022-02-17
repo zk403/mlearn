@@ -74,7 +74,7 @@ class perfEval(BaseEval,BaseEvalPlotter):
         """
         
         
-        self._check_plot_params(self.show_plot)
+        self._check_plot_params(self.show_plot,self.pred_desc)
         self._check_params(y_pred, y_true, group,sample_weight)
         self._check_values(y_pred, y_true, group,sample_weight)
         
