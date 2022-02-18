@@ -6,7 +6,6 @@ Created on Fri Feb 11 14:49:51 2022
 @author: zengke
 """
 
-import pandas as pd
 from BDMLtools.base import BaseEval
 from BDMLtools.plotter.base import BaseEvalPlotter
 
@@ -110,7 +109,9 @@ class perfEval(BaseEval,BaseEvalPlotter):
             
             if ty=='density':
                 
-                figs_d[ty]=self._plot_funs[ty](dt_plt,figure_size,sample_weight,self.title)
+                dt_dens=self._get_df_density(dt_plt,sample_weight)
+                
+                figs_d[ty]=self._plot_funs[ty](dt_dens,figure_size,self.title)
                 
             else:
                 

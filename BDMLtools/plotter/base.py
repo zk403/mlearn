@@ -481,11 +481,45 @@ class BaseEvalData:
         
         return g_dtev
     
-    def _get_cm_index(self,y_true,y_pred,sample_weight=None):
+    def _get_df_density(self,dt_df,sample_weight=None):
     
-        out=confusion_matrix(y_true, y_pred,sample_weight=sample_weight).ravel()
+        dt_df=dt_df.copy()
         
-        return out
+        dt_df['ws']=np.ones(len(dt_df)) if sample_weight is None else sample_weight
+        
+        groupnum=1000 if len(dt_df)>1000 else None
+        
+        def get_df_density_g(dt_df,group,groupnum=None):
+        
+            dt_df=dt_df.copy()
+    
+            dt_ev_density=dt_df.groupby('pred')['ws'].sum().reset_index()
+    
+            if groupnum is not None:
+    
+                if groupnum<=len(dt_df):
+    
+                    pred2=np.ceil(dt_ev_density['ws'].cumsum()/(dt_ev_density['ws'].sum()/groupnum)).rename('pred2')
+    
+                    out=dt_df[dt_df['pred'].isin(dt_ev_density.groupby(pred2)['pred'].max())][['pred','label','ws']]\
+                            .drop_duplicates(subset='pred').assign(group=group)
+    
+                else:
+    
+                    out=dt_df
+    
+            else:
+    
+                out=dt_df
+    
+            return out
+        
+        g_dict=dt_df.groupby('group').groups
+    
+        g_dtdens=[get_df_density_g(dt_df.loc[g_dict[group]],group,groupnum=groupnum) for group in g_dict]
+        
+        return pd.concat(g_dtdens,ignore_index=True)
+
     
     def _get_dt_ks(self,dt_ev,group):
 
@@ -578,16 +612,16 @@ class BaseEvalData:
 
 class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):    
         
-    def _plot_density(self,dt_df,figure_size,sample_weight=None,title=None):
+    def _plot_density(self,dt_density,figure_size,title=None):
         
-        if dt_df['pred'].mean()<-1:
+        if dt_density['pred'].mean()<-1:
     
-            dt_df['pred']=dt_df['pred'].abs()
+            dt_density['pred']=dt_density['pred'].abs()
             
-        max_pred = dt_df['pred'].max()
-        min_pred = dt_df['pred'].min()
+        max_pred = dt_density['pred'].max()
+        min_pred = dt_density['pred'].min()
         
-        max_density_by_datset_label=dt_df.groupby(['group','label'])['pred'].apply(lambda x:self._compute_density(x,sample_weight[x.index] if sample_weight is not None else None)).rename('dens').droplevel(2).reset_index()       
+        max_density_by_datset_label=dt_density.groupby(['group','label'])['pred'].apply(lambda x:self._compute_density(x,dt_density['ws'][x.index])).rename('dens').droplevel(2).reset_index()       
         
         max_density=np.ceil(max_density_by_datset_label['dens'].max())
         
@@ -596,11 +630,11 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             max_density=max_density_by_datset_label['dens'].max()+max_density_by_datset_label['dens'].max()/10
         
         coord_label=max_density_by_datset_label.groupby(['label'])[['dens']].max().join(
-            dt_df.groupby('label')['pred'].median()
+            dt_density.groupby('label')['pred'].median()
         )
         
-        fig=(ggplot(data = dt_df) +
-            geom_density(aes(x='pred',linetype='label',color='group',weight=sample_weight if sample_weight is not None else 1),fill='gray', alpha=0.1,show_legend = True) +
+        fig=(ggplot(data = dt_density) +
+            geom_density(aes(x='pred',linetype='label',color='group',weight='ws'),fill='gray', alpha=0.1,show_legend = True) +
             geom_text(coord_label, aes(x='pred', y='dens', label=coord_label.index.map({0:'Neg',1:'Pos'}))) +
             guides(linetype=None, color=guide_legend(title='')) +
             theme_bw() +
