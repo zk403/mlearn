@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 from joblib import Parallel,delayed,effective_n_jobs
 from scipy.stats import iqr
 import statsmodels.api as sm
-from sklearn.metrics import confusion_matrix
 
 
 class BaseWoePlotter:   

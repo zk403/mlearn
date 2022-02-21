@@ -35,7 +35,7 @@ class hgirdTuner(Base,BaseEstimator):
         random_state:随机种子
         sample_weight:样本权重
         calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准
-        cv_calibration:CalibratedClassifierCV的交叉验证数,注意此处不接受验证数据，不推荐设定为'prefit'            
+        cv_calibration:CalibratedClassifierCV的交叉验证数
         
         """参数空间写法
             当Estimator=XGBClassifier,method="h_gird":

@@ -37,8 +37,8 @@ class BayesianXGBTuner(Base,BaseEstimator):
         verbose,int,并行信息输出等级
         random_state,随机种子
         sample_weight:样本权重
-        calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准
-        cv_calibration:CalibratedClassifierCV的交叉验证数,注意因无验证数据，不推荐设定为'prefit'
+        calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准(method='sigmoid')
+        cv_calibration:CalibratedClassifierCV的交叉验证数
         
         """参数空间写法
     
@@ -291,7 +291,7 @@ class BayesianLgbmTuner(Base,BaseEstimator):
         random_state,随机种子
         sample_weight:样本权重
         calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准
-        cv_calibration:CalibratedClassifierCV的交叉验证数,注意因无验证数据，不推荐设定为'prefit'
+        cv_calibration:CalibratedClassifierCV的交叉验证数
         
         """参数空间写法        
     

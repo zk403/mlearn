@@ -76,27 +76,33 @@ class dtStandardization(TransformerMixin):
             X=X.drop(np.unique(self.col_rm),axis=1) if self.col_rm else X
             
             #downcast and drop dups
-            if self.id_col and self.downcast:
+            if self.id_col:
                 
-                X=X.apply(lambda x:pd.to_numeric(x,'ignore','float') if x.name not in self.id_col and is_numeric_dtype(x) else x)
+                if self.downcast:
+                
+                    X=X.apply(lambda x:pd.to_numeric(x,'ignore','float') if x.name not in self.id_col and is_numeric_dtype(x) else x)
+                        
+                    X=X.loc[~X[self.id_col].duplicated(),~X.columns.duplicated()] if self.drop_dup else X
                     
-                X=X.loc[~X[self.id_col].duplicated(),~X.columns.duplicated()] if self.drop_dup else X
+                else:
+                    
+                    X=X.loc[~X[self.id_col].duplicated(),~X.columns.duplicated()] if self.drop_dup else X
             
-            elif not self.id_col and self.downcast:
+            elif not self.id_col:
                 
-                X=X.apply(lambda x:pd.to_numeric(x,'ignore','float') if is_numeric_dtype(x) else x)                
+                if self.downcast:
+                
+                    X=X.apply(lambda x:pd.to_numeric(x,'ignore','float') if is_numeric_dtype(x) else x)                
+                        
+                    X=X.loc[~X.index.duplicated(),~X.columns.duplicated()] if self.drop_dup else X                    
                     
-                X=X.loc[X.index.duplicated(),~X.columns.duplicated()] if self.drop_dup else X
-                            
-            elif self.id_col and not self.downcast:       
-
+                else:
                     
-                X=X.loc[~X[self.id_col].duplicated(),~X.columns.duplicated()] if self.drop_dup else X
+                    X=X.loc[~X.index.duplicated(),~X.columns.duplicated()] if self.drop_dup else X
+                    
+            else:
                 
-            elif not self.id_col and not self.downcast:
-
-                
-                X=X.loc[X.index.duplicated(),~X.columns.duplicated()] if self.drop_dup else X
+                raise ValueError('params setting error.')
 
                 
             #set index if id exists
