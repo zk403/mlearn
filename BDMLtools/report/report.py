@@ -49,6 +49,10 @@ class EDAReport(Base,TransformerMixin):
     def fit(self, X, y=None):
 
         self._check_X(X)
+        
+        if X.select_dtypes(exclude=['number','object','category']).shape[1]>0:
+            
+            warnings.warn("column which not in ['number','object','category'] will not be shown in report")
 
         #产生报告
         self.num_report=self._num_info(X)
@@ -78,9 +82,12 @@ class EDAReport(Base,TransformerMixin):
         """
         
         if self.numeric_col is None:
-            num_col=X.select_dtypes(include='number').columns
+            
+            num_col=X.select_dtypes(include='number').columns.tolist()
+            
         else:
-            num_col=self.num_col
+            
+            num_col=self.numeric_col
 
         report=X[num_col].describe(percentiles=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]).T.assign(
             MissingRate=X.apply(   
@@ -96,9 +103,12 @@ class EDAReport(Base,TransformerMixin):
         """
         
         if self.categorical_col is None:
-            category_col=X.select_dtypes(include=['object','category']).columns
+            
+            category_col=X.select_dtypes(include=['object','category']).columns.tolist()
+            
         else:
-            category_col=self.category_col
+            
+            category_col=self.categorical_col
     
         report=pd.DataFrame()
         for Col in category_col:
@@ -118,7 +128,13 @@ class EDAReport(Base,TransformerMixin):
     def _nan_info(self,X):
         """ 数据质量报告-缺失特征
         """        
+                   
+        category_col=X.select_dtypes(include=['object','category']).columns.tolist() if self.categorical_col is None else self.categorical_col
+            
+        numeric_col=X.select_dtypes(include='number').columns.tolist() if self.numeric_col is None else self.numeric_col
         
+        X=X[set(category_col+numeric_col)].copy()
+ 
         report=pd.DataFrame(
         {'N':X.apply(   
             lambda col:col.size      
@@ -138,9 +154,17 @@ class EDAReport(Base,TransformerMixin):
     def _nan_corr(self,X):
         """ 数据质量报告-缺失特征相关性
         """        
+        
+        category_col=X.select_dtypes(include=['object','category']).columns.tolist() if self.categorical_col is None else self.categorical_col
+            
+        numeric_col=X.select_dtypes(include='number').columns.tolist() if self.numeric_col is None else self.numeric_col
+        
+        X=X[set(category_col+numeric_col)].copy()
       
         nan_info=X.isnull().sum()
+        
         nan_corr_table=X[nan_info[nan_info>0].index].isnull().corr()
+        
         return nan_corr_table
     
     def _writeExcel(self):
