@@ -204,7 +204,7 @@ class fliterByShuffle(Base,BaseEstimator):
     Parameters:
     ----------
         s_times=1,int,随机乱序次数，次数越多auc差异越具备统计学意义，但会导致运算量增加
-        auc_val=1,float,mean_decreasing_auc阈值,小于等于auc_val的特征将被踢出,默认0,建议范围0-0.005
+        auc_val=0,float,mean_decreasing_auc阈值,小于等于auc_val的特征将被踢出,默认0,建议范围0-0.005
         n_jobs=-1,int,列并行时任务数
         verbose=0,int,并行信息输出等级  
         
@@ -412,11 +412,12 @@ class preSelector(Base,Specials,TransformerMixin):
     
     筛选过程(设定为None时代表跳过相应步骤):
     Step 1.缺失值(所有):缺失率高于用户定义值的列将被筛除
-    Step 2.唯一值(字符)/方差(数值):唯一值占比高于用户定义值列将被筛除/方差低于用户定义值列的列将被筛除
-    Step 3.卡方独立性检验p值(字符)/方差分析p值(数值):p值大于用户定义值的列将被剔除
-    Step 4.乱序筛选(所有):原始顺序与随机顺序后使用模型预测的auc差异小于用户定义值的列将被剔除
-    Step 5.Lightgbm筛选(所有):split重要性低于用户定义值的列将被剔除
-    Step 6.Iv值筛选(所有):等频30箱后iv值低于用户定义值的列将被剔除
+    Step 2.唯一值(所有):唯一值占比高于用户定义值列将被筛除
+    Step 3.方差(数值特征):/方差低于用户定义值列的列将被筛除
+    Step 4.卡方独立性检验p值(字符)/方差分析p值(数值):p值大于用户定义值的列将被剔除
+    Step 5.乱序筛选(所有):原始顺序与随机顺序后使用模型预测的auc差异小于用户定义值的列将被剔除
+    Step 6.Lightgbm筛选(所有):split重要性低于用户定义值的列将被剔除
+    Step 7.Iv值筛选(所有):等频30箱后iv值低于用户定义值的列将被剔除
     
     Parameters:
     ----------

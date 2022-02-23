@@ -240,7 +240,7 @@ class binKmeans(Base,Specials,BaseEstimator):
     
     """ 
     基于Kmeans的分箱调整算法:一种自动非优化分箱算法        
-    一般通过细分箱后各个分箱的BadRate近似时需要合并,本算法可自动实现这一过程。注意‘missing’值将不进行合并
+    一般通过细分箱后各个分箱的BadRate近似时需要合并,本算法可自动实现这一过程。注意‘missing’值与'special'值将不进行合并
     
     Params:
     ------
@@ -563,7 +563,7 @@ class binTree(Base,Specials,BaseEstimator):
     
     """ 
     决策树递归最优分箱
-    分类特征处理方式:按照badrate对类进行排序并进行ordinal编码再进行卡方分箱(与scorecardpy一致)
+    分类特征处理方式:按照badrate对类进行排序并进行ordinal编码再进行分箱(与scorecardpy一致)
     分类中不要出现字符空('' or "")类
     Params:
     ------
@@ -590,7 +590,7 @@ class binTree(Base,Specials,BaseEstimator):
     special_values:特殊值指代值,若数据中某些值或某列某些值需特殊对待(这些值不是np.nan)时设定
         + None,保证数据默认
         + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
-        + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
+        + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被算法认定为'special'
     n_jobs=-1,int,并行数量,默认-1,在数据量较大、列较多的前提下可极大提升效率但会增加内存占用
     verbose=0,并行信息输出等级    
         

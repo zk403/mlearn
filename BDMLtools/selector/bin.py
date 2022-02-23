@@ -85,8 +85,6 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
         bins:dict,经指定方法分箱后产生的特征分析报告
         iv_info:pd.Series,分箱后各个特征的iv
         ks_info:pd.Series,分箱后各个特征的ks
-        adjbin:dict,若breaks_list_adj存在,调整的分箱下的特征分析报告
-
     """
     
     def __init__(self,method='freq',max_bin=50,distr_limit=0.05,bin_num_limit=8,special_values=None,
@@ -239,13 +237,7 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
 class binAdjuster(Base,BaseWoePlotter):  
     
     """ 
-    自动分箱
-    本模块提供自动分箱方法包括等频、kmeans,pretty，决策树、卡方等
-    由于numpy部分计算函数的结果的最低精度类型为float64，
-    因此数值类数据的精度类型最好为float64，若为float32则为近似结果且可能会有精度问题
-    此外字符类数据的levels不要为['','missing','special']
-
-    Parameters:
+    交互式分箱
     
     """         
         
