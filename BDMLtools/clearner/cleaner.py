@@ -341,7 +341,17 @@ class dtypeAllocator(Base,TransformerMixin):
 class outliersTransformer(Base,TransformerMixin):
     
     """ 
-    基于iqr处理异常值,将忽略缺失值
+    outliersTransformer将在列维度进行异常值处理,仅对数值类列有效
+
+    + 数值数据中IQR=75%分位数-25%分位数:
+        + 若IQR为0(数据分布非常集中)，异常值被定义为1%分位数与99%分为数区间以外的数据
+            + <1%分位数的异常值被填补为1%分位数
+            + >99%分位数的异常值被填补为99%分位数
+        + 若IQR有值，异常值被定义为25%与75%分位数以外的上下三倍IQR以外的数据
+            + 25%分位数-3倍IQR以下的异常值将被填补为25%分位数-3倍IQR
+            + 75%分位数+3倍IQR以下的异常值将被填补为75%分位数+3倍IQR
+            
+    方法fit用于拟合数据的IQR，方法transform用于处理异常数据
     Params:
     ------
     
@@ -453,7 +463,7 @@ class nanTransformer(Base,Specials,TransformerMixin):
     
     """ 
     缺失值填补，集成sklearn.impute        
-    注意本模块不支持除字符、数值以外（时间、日期、时间差类）列的填充，这些列将直接返回原始值
+    注意本模块不支持除字符、数值以外（时间、日期、时间差类）列的填充，这些列将直接返回原始值。请使用bm.dtypeAllocator分配列的dtype类型
     Params:
     ------
     method:(str,str)应对连续特征和分类特征的缺失值填补方法,连续可选constant,mean,median,knn,most_frequent,分类特征可选constant,most_frequent

@@ -115,7 +115,7 @@ class faSelector(Base,BaseEstimator,TransformerMixin):
             
         elif self.n_clusters=='auto':
             
-            self.n_clusters=len(corrSelector(corr_limit=self.corr_limit).fit(X,y).var_keep)
+            self.n_clusters=len(corrSelector(corr_limit=self.corr_limit).fit(X,y).keep_col)
             print('n_clusters set to '+str(self.n_clusters))
             
             self.model=self._featurecluster(X,self._distance(),self.linkage,self.n_clusters,self.distance_threshold)
@@ -329,15 +329,20 @@ class faSelector(Base,BaseEstimator,TransformerMixin):
                 #ols_in=LinearRegression().fit(label_components_df[[label]],X[feature])
                 #r2_in=ols_in.score(label_components_df[[label]],X[feature])      
                 r2_in=np.corrcoef(label_components_df[label],X[feature])[0, 1] ** 2
+                
                 featrues_r2[feature]=r2_in
 
                 #计算类间的R方,类内所有特征与最邻近类的主成分回归的R方
                 #ols_between=LinearRegression().fit(label_components_df[[label_neigbor[label]]],X[feature])
                 #r2_between=ols_between.score(label_components_df[[label_neigbor[label]]],X[feature])
                 r2_between=[]
+                
                 for components in label_components:
+                    
                     if components !=label: #非自类主成分   
+                    
                         r2_between.append(np.corrcoef(label_components_df[components],X[feature])[0, 1] ** 2) 
+                        
                 neigbors_r2[feature]=max(r2_between) if len(r2_between) > 0 else 0
 
         #汇总结果输出

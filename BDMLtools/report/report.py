@@ -110,19 +110,19 @@ class EDAReport(Base,TransformerMixin):
             
             category_col=self.categorical_col
     
-        report=pd.DataFrame()
-        for Col in category_col:
+        report={}
+        for col in category_col:
 
-            ColTable=X[Col].value_counts().sort_index().rename('Freq').reset_index() \
-                .rename(columns={'index':'Levels'}).assign(VarName=Col)[['VarName','Levels','Freq']]
+            ColTable=X[col].value_counts().sort_index().rename('Freq').reset_index() \
+                .rename(columns={'index':'Levels'})[['Levels','Freq']]
 
-            ColTable['Percent']=ColTable.Freq/X[Col].size #占比
+            ColTable['Percent']=ColTable.Freq/X[col].size #占比
             ColTable['CumFreq']=ColTable.Freq.cumsum() #累计(分类特征类别有次序性时有参考价值)
-            ColTable['CumPercent']=ColTable.CumFreq/X[Col].size #累计占比(分类特征类别有次序性时有参考价值)
+            ColTable['CumPercent']=ColTable.CumFreq/X[col].size #累计占比(分类特征类别有次序性时有参考价值)
 
-            report=pd.concat([report,ColTable])
+            report[col]=ColTable
         
-        return report
+        return pd.concat(report).droplevel(1).reset_index().rename(columns={'index':'Name'})
     
    
     def _nan_info(self,X):
@@ -634,7 +634,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
     row_limit,int,分组行数限制，建议设定该参数至合理水平
         + 默认每组最少1000行，小于限制的组不统计其任何指标，返回空，
         + 当数据中存在组样本过少时，分组进行统计的bin可能会在某些分段内缺失导致concat时出现index overlapping错误，此时可适当提高row_limit以避免此类错误
-    special_values:缺失值指代值
+    special_values:特殊值指代值
             + None,保持数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  

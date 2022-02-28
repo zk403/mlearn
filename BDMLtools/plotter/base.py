@@ -217,7 +217,7 @@ class BaseWoePlotter:
                 if set(gs)!=set(sort_column):    
                     
                     
-                    raise ValueError("val in sort_column not equal to val in datq[col]")
+                    raise ValueError("val in sort_column not equal to val in dat[col]")
                     
             else:
                     

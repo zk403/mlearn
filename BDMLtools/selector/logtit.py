@@ -26,6 +26,18 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
     
     '''
     逐步回归,请注意column name需能够被pasty识别
+    
+    逐步回归过程:
+        
+        + 首先尝试加入特征:
+            + 从潜在特征中尝试所有特征并选择出使指标(aic,bic)优化的特征进入,潜在特征中同时剔除掉这个加入的特征
+            + 循环上述步骤直到
+                + 无潜在特征可使指标(aic,bic)优化
+                + 无潜在特征可用
+
+        + 再进行剔除特征:
+            + 若特征的在模型中的p值过高(大于p_value_enter),那么该特征将被剔除
+    
     Parameters:
     --
         custom_column=None:list,自定义列名,调整回归模型时使用,默认为None表示所有特征都会进行筛选

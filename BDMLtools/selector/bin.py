@@ -237,8 +237,54 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
 class binAdjuster(Base,BaseWoePlotter):  
     
     """ 
-    交互式分箱
+    交互式分箱,支持单特征、组特征的交互式分箱及分箱调整
     
+    Parameters:
+    ----------
+    breaks_list_dict:dict,需要调整的特征分箱字典
+    column:str,来自X的组变量,用于分组调整,且只支持单个组特征
+    sort_column:list,排序组变量水平,必须涵盖组的所有的水平
+    psi_base:str,若column不为None时,进行组分箱调整时的psi基准,需符合X.query(str)语法
+        + 'all':以特征在全量数据的分布为基准
+        + user-define:用户输入支持X.query的表达式以确定base        
+    special_values:特殊值指代值
+        + None,保持数据默认
+        + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
+        + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
+    sample_weight:numpy.array or pd.Series(...,index=X.index) or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标以还原抽样对分析影响
+    b_dtype:可选float32与float64,breaks的数据精度类型，breaks与x的数据精度类型应保持一致，否则会导致在极端条件下的分箱出现错误结果
+        + 若x的数据为np.float32类型,请设定为float32以保证breaks和x的精度类型一致
+        + 若x的数据为np.float64类型,请保持默认
+        + 请不要在原始数据中共用不同的数值精度格式，例如float32与float64并存..，请使用bm.dtypeAllocator统一数据的精度格式
+    figure_size:tuple,特征分析图的图形大小
+    
+    Attribute:
+    ----------
+        breaks_list_adj:dict,经调整后的分箱结果
+        vtabs_dict_adj:dict,经调整后的特征分析报告
+        
+    Method:
+    ----------     
+        fit(X,y):给定X,y并开始分箱调整
+        transform(X):给定X并根据调整结果进行特征选择
+    
+    binAdjuster的交互内容    
+    
+        1: next:当前特征分箱完毕,跳转到下个特征
+        2: yes:调整当前特征分箱:
+            输入需调整的分箱:
+                + 连续:输入[数值1,数值2,...]调整分段继续，
+                    - 分段中不用写最大/最小值
+                    - 若输入空白则会在全数据上进行最优分箱
+                + 分类:输入[字符1,字符2,...]调整分段继续，
+                    - 其中若合并分类特征写成“字符3%,%字符4”
+                    - 其中字符必须涵盖该分类特征的所有水平,若有遗漏则将被转换为missing            
+        3: back :返回前一个特征并进行调整
+        4: remove :当前特征分箱无法调整至合理水平,在调整最终结果中剔除该特征信息
+                + 只要某特征被选择为remove,那么该特征无论调整了多少次分箱都会被最终从结果中剔除
+        0: exit:终止分箱程序
+            + 输入"y"终止,其他则继续
+            
     """         
         
     

@@ -413,7 +413,7 @@ class preSelector(Base,Specials,TransformerMixin):
     筛选过程(设定为None时代表跳过相应步骤):
     Step 1.缺失值(所有):缺失率高于用户定义值的列将被筛除
     Step 2.唯一值(所有):唯一值占比高于用户定义值列将被筛除
-    Step 3.方差(数值特征):/方差低于用户定义值列的列将被筛除
+    Step 3.方差(数值特征):方差低于用户定义值列的列将被筛除
     Step 4.卡方独立性检验p值(字符)/方差分析p值(数值):p值大于用户定义值的列将被剔除
     Step 5.乱序筛选(所有):原始顺序与随机顺序后使用模型预测的auc差异小于用户定义值的列将被剔除
     Step 6.Lightgbm筛选(所有):split重要性低于用户定义值的列将被剔除
@@ -427,10 +427,10 @@ class preSelector(Base,Specials,TransformerMixin):
         chif_pvalue:float or None,(0,1),默认0.05,大于chif_pvalue的列将被剔除,为None将跳过此步骤
                     + 卡方计算中，缺失值将被视为单独一类,
                     + f值计算中，缺失值将被填补为接近+inf和-inf，计算两次，两次结果都不显著的列都将被剔除
+        auc_limit:float,使用shuffle法计算原始数据与乱序数据的mean_decreasing_auc,小于等于auc_val的特征将被踢出,默认0,建议范围0-0.005,设定为None将跳过此步骤
+        s_times:int,shuffle法乱序次数，越多的s_times的mean_decreasing_auc越具备统计意义，但这会增加计算量
         tree_imps:int or None,lightgbm树的split_gain小于等于tree_imps的列将被剔除,默认1，设定为None将跳过此步骤
         tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
-        auc_limit:float,使用shuffle法计算原始数据与乱序数据的mean_decreasing_auc,小于等于auc_val的特征将被踢出,默认0,建议范围0-0.005
-        s_times:int,shuffle法乱序次数，越多的s_times的mean_decreasing_auc越具备统计意义，但这会增加计算量
         iv_limit:float or None使用进行iv快速筛选的iv阈值(数值等频30箱，分类则按照类别分箱)
         out_path:str or None,模型报告路径,将预筛选过程每一步的筛选过程输出到模型报告中
         missing_values:缺失值指代值
