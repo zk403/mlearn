@@ -90,7 +90,7 @@ pip uninstall BDMLtools
 更新日志:
 ```
 v0.1.9.1
-1.更新了demo:4.经典Logistic评分卡。ipynb
+1.更新了demo:4.经典Logistic评分卡.ipynb
 2.修复了诸多bug
 3.文档维护
 ```

@@ -109,20 +109,26 @@ class EDAReport(Base,TransformerMixin):
         else:
             
             category_col=self.categorical_col
+            
+        if len(category_col):    
     
-        report={}
-        for col in category_col:
-
-            ColTable=X[col].value_counts().sort_index().rename('Freq').reset_index() \
-                .rename(columns={'index':'Levels'})[['Levels','Freq']]
-
-            ColTable['Percent']=ColTable.Freq/X[col].size #占比
-            ColTable['CumFreq']=ColTable.Freq.cumsum() #累计(分类特征类别有次序性时有参考价值)
-            ColTable['CumPercent']=ColTable.CumFreq/X[col].size #累计占比(分类特征类别有次序性时有参考价值)
-
-            report[col]=ColTable
+            report={}
+            for col in category_col:
+    
+                ColTable=X[col].value_counts().sort_index().rename('Freq').reset_index() \
+                    .rename(columns={'index':'Levels'})[['Levels','Freq']]
+    
+                ColTable['Percent']=ColTable.Freq/X[col].size #占比
+                ColTable['CumFreq']=ColTable.Freq.cumsum() #累计(分类特征类别有次序性时有参考价值)
+                ColTable['CumPercent']=ColTable.CumFreq/X[col].size #累计占比(分类特征类别有次序性时有参考价值)
+    
+                report[col]=ColTable
+            
+            return pd.concat(report).droplevel(1).reset_index().rename(columns={'index':'Name'})
         
-        return pd.concat(report).droplevel(1).reset_index().rename(columns={'index':'Name'})
+        else:
+            
+            return None
     
    
     def _nan_info(self,X):
