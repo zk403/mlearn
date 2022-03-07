@@ -195,11 +195,11 @@ class faSelector(Base,BaseEstimator,TransformerMixin):
                 
         if self.scale:
             
-            X_t=StandardScaler().fit_transform(X)
+            X_t=np.transpose(StandardScaler().fit_transform(X))
             
         else:
             
-            X_t=X
+            X_t=X.T
         
         m = pd.DataFrame(pairwise_distances(X_t,X_t,metric=custom_distance)) #距离衡量
         
@@ -249,11 +249,11 @@ class faSelector(Base,BaseEstimator,TransformerMixin):
         #m为预计算的距离矩阵
         if self.scale:
             
-            X_t=StandardScaler().fit_transform(X)
+            X_t=np.transpose(StandardScaler().fit_transform(X))
             
         else:
             
-            X_t=X
+            X_t=X.T
         
         m = pd.DataFrame(pairwise_distances(X_t, X_t, metric=custom_distance)) #使用相关系数距离衡量
 
