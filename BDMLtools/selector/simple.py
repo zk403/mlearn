@@ -447,7 +447,7 @@ class preSelector(Base,Specials,TransformerMixin):
     
     
     def __init__(self,na_pct=0.99,unique_pct=0.99,variance=0,chif_pvalue=0.05,tree_imps=1,
-                 tree_size=100,auc_limit=0,s_times=1,iv_limit=0.02,out_path=None,missing_values=None,keep=None
+                 tree_size=100,auc_limit=None,s_times=1,iv_limit=0.02,out_path=None,missing_values=None,keep=None
                  ):
 
         self.na_pct=na_pct

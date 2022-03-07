@@ -310,9 +310,8 @@ class BayesianLgbmTuner(Base,BaseEstimator):
                  'reg_lambda':(0,10), 
                  }
         
-          """
-    
-    
+          """   
+          
     Attribute:    
     --
         Optimize:贝叶斯优化迭代器,需先使用fit

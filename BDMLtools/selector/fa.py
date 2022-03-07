@@ -25,7 +25,9 @@ from BDMLtools.base import Base
 class faSelector(Base,BaseEstimator,TransformerMixin):
     
     """
-    变量聚类:
+    变量聚类:基于sklearn.cluster.FeatureAgglomeration
+    
+        
     Parameters:
     --
         n_clusters=5:int,聚类数量
@@ -102,8 +104,11 @@ class faSelector(Base,BaseEstimator,TransformerMixin):
                 return 1-r2
             
             return r2_distance
+        
         else: 
+            
             raise ValueError('distances support:r2,pearson,spearman')
+            
   
     def fit(self,X,y):    
         
@@ -190,18 +195,24 @@ class faSelector(Base,BaseEstimator,TransformerMixin):
                 
         if self.scale:
             
-            X_t=StandardScaler().fit_transform(X.T)
+            X_t=StandardScaler().fit_transform(X)
             
         else:
             
-            X_t=X.T
+            X_t=X
         
         m = pd.DataFrame(pairwise_distances(X_t,X_t,metric=custom_distance)) #距离衡量
+        
         if distance_threshold:
+            
             model = FeatureAgglomeration(distance_threshold=distance_threshold,n_clusters=None,affinity='precomputed',linkage=linkage).fit(m)
+            
         elif n_clusters:
+            
             model = FeatureAgglomeration(n_clusters=n_clusters,affinity='precomputed',linkage='average').fit(m)
+            
         else:
+            
             raise ValueError('set n_clusters or distance_threshold')
 
         if np.unique(model.labels_).size==1:
@@ -238,11 +249,11 @@ class faSelector(Base,BaseEstimator,TransformerMixin):
         #m为预计算的距离矩阵
         if self.scale:
             
-            X_t=StandardScaler().fit_transform(X.T)
+            X_t=StandardScaler().fit_transform(X)
             
         else:
             
-            X_t=X.T
+            X_t=X
         
         m = pd.DataFrame(pairwise_distances(X_t, X_t, metric=custom_distance)) #使用相关系数距离衡量
 

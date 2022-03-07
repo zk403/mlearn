@@ -88,14 +88,20 @@ class EDAReport(Base,TransformerMixin):
         else:
             
             num_col=self.numeric_col
+            
+        if len(num_col):
 
-        report=X[num_col].describe(percentiles=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]).T.assign(
-            MissingRate=X.apply(   
-                lambda col:col.isnull().sum()/col.size    
-               )
-        ).reset_index().rename(columns={'index':'VarName'})
+            report=X[num_col].describe(percentiles=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]).T.assign(
+                MissingRate=X.apply(   
+                    lambda col:col.isnull().sum()/col.size    
+                   )
+            ).reset_index().rename(columns={'index':'VarName'})
+            
+            return report
         
-        return report
+        else:
+            
+            return None
     
 
     def _char_info(self,X):
