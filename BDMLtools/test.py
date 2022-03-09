@@ -11,9 +11,9 @@ from BDMLtools.report import businessReport,EDAReport,varReport,varGroupsReport,
 from BDMLtools.selector import binSelector,binFreq,binPretty,binTree,binChi2,binKmeans
 from BDMLtools.selector import faSelector
 from BDMLtools.selector import stepLogit,cardScorer
-from BDMLtools.selector import preSelector,corrSelector,prefitModel
+from BDMLtools.selector import preSelector,prefitModel
 #from BDMLtools.selector import RFECVSelector
-from BDMLtools.selector import lassoSelector
+from BDMLtools.selector import lassoSelector,LgbmRFESelector,LgbmSeqSelector
 from BDMLtools.plotter import  perfEval
 from BDMLtools.encoder import woeTransformer
 from BDMLtools.tuner import girdTuner,hgirdTuner
@@ -22,6 +22,8 @@ import scorecardpy as sc
 from sklearn.linear_model import LogisticRegression 
 import pandas as pd
 import numpy as np
+from xgboost import XGBClassifier
+from lightgbm import LGBMClassifier
 
 
 class test:
@@ -608,10 +610,14 @@ class test:
         
         faSelector().fit(dt_woe_bm,y)
         
-        corrSelector().fit(dt_woe_bm,y)
-        
         lassoSelector().fit(dt_woe_bm,y)
         
+        LgbmRFESelector().fit(dt_woe_bm,y)
+        
+        LgbmSeqSelector().fit(dt_woe_bm,y)
+        
+        
+        #Bayesian based tunner
         BayesianXGBTuner(para_space={
                      'n_estimators': (80, 150),
                      'learning_rate': (0.05, 0.2),
@@ -640,7 +646,152 @@ class test:
                          'reg_lambda':(0,10), 
                          }).fit(dt_woe_bm,y)
         
+        #Gird based tunner
+        girdTuner(XGBClassifier,para_space={
+                             'n_estimators':[100],
+                             'learning_rate':[0.1],
+                            
+                             'max_depth':[3],
+                             'gamma': [0,10],
+                             'min_child_weight':[0],
+                             
+                             'subsample':[0.6,0.8],
+                             'colsample_bytree' :[0.6,0.8],
+                             'reg_lambda':[0,10], 
+                             'scale_pos_weight':[1,10],
+                             'max_delta_step':[0]
+                             },method='gird'           
+            ).fit(dt_woe_bm,y)
+        
+        
+        from scipy.stats import randint as sp_randint
+        from scipy.stats import uniform as sp_uniform 
+        
+        girdTuner(XGBClassifier,para_space={
+                  'n_estimators':sp_randint(low=60,high=120),#迭代次数
+                  'learning_rate':sp_uniform(loc=0.05,scale=0.15), #学习率
+                 
+                  'max_depth':sp_randint(low=2,high=4),
+                  'gamma': sp_uniform(loc=0,scale=21),
+                  'min_child_weight': sp_uniform(loc=0,scale=21),
+                  
+                  'subsample':sp_uniform(loc=0.5,scale=0.5),
+                  'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),
+                  
+                  'reg_lambda':sp_randint(low=0,high=1), 
+                  'scale_pos_weight':sp_uniform(loc=1,scale=0), 
+                  'max_delta_step':sp_uniform(loc=0,scale=0)
+                  } ,method='random_gird'           
+            ).fit(dt_woe_bm,y)        
+        
+        
+        girdTuner(LGBMClassifier,para_space={
+                     'boosting_type':['gbdt','goss'], 
+                     'n_estimators':[100],
+                     'learning_rate':[0.1], 
+                    
+                     'max_depth':[3],#[0,∞],
+                     'min_split_gain': [0],
+                     'min_child_weight':[0],
+                     
+                     'scale_pos_weight':[1],
+                     'subsample':[0.6,0.8],
+                     'colsample_bytree' :[0.6,0.8],
+                     'reg_lambda':[0,10], 
+                             },method='gird'           
+            ).fit(dt_woe_bm,y)
+
+        
+        girdTuner(LGBMClassifier,para_space={
+                     'boosting_type':['gbdt','goss'], #'goss','gbdt'
+                     'n_estimators':sp_randint(low=100,high=110),
+                     'learning_rate':sp_uniform(loc=0.1,scale=0), 
+                    
+                     'max_depth':sp_randint(low=2,high=4),#[0,∞],
+                     'min_split_gain': sp_uniform(loc=0,scale=0),
+                     'min_child_weight': sp_uniform(loc=0,scale=0),
+                     
+                     'scale_pos_weight':[1,11],
+                     'subsample':sp_uniform(loc=0.5,scale=0.5),
+                     'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),
+                     'reg_lambda':sp_uniform(loc=0,scale=20),
+
+                  } ,method='random_gird'           
+            ).fit(dt_woe_bm,y)        
+        
+        #Halving based tunner
+        hgirdTuner(XGBClassifier,para_space={
+                             'n_estimators':[100],
+                             'learning_rate':[0.1],
+                            
+                             'max_depth':[3],
+                             'gamma': [0,10],
+                             'min_child_weight':[0],
+                             
+                             'subsample':[0.6,0.8],
+                             'colsample_bytree' :[0.6,0.8],
+                             'reg_lambda':[0,10], 
+                             'scale_pos_weight':[1,10],
+                             'max_delta_step':[0]
+                             },method='h_gird'           
+            ).fit(dt_woe_bm,y)
+        
+        
+        hgirdTuner(XGBClassifier,para_space={
+                  'n_estimators':sp_randint(low=60,high=120),#迭代次数
+                  'learning_rate':sp_uniform(loc=0.05,scale=0.15), #学习率
+                 
+                  'max_depth':sp_randint(low=2,high=4),
+                  'gamma': sp_uniform(loc=0,scale=21),
+                  'min_child_weight': sp_uniform(loc=0,scale=21),
+                  
+                  'subsample':sp_uniform(loc=0.5,scale=0.5),
+                  'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),
+                  
+                  'reg_lambda':sp_randint(low=0,high=1), 
+                  'scale_pos_weight':sp_uniform(loc=1,scale=0), 
+                  'max_delta_step':sp_uniform(loc=0,scale=0)
+                  } ,method='h_random'           
+            ).fit(dt_woe_bm,y)   
+        
+        
+        hgirdTuner(LGBMClassifier,para_space={
+                     'boosting_type':['gbdt','goss'], 
+                     'n_estimators':[100],
+                     'learning_rate':[0.1], 
+                    
+                     'max_depth':[3],#[0,∞],
+                     'min_split_gain': [0],
+                     'min_child_weight':[0],
+                     
+                     'scale_pos_weight':[1],
+                     'subsample':[0.6,0.8],
+                     'colsample_bytree' :[0.6,0.8],
+                     'reg_lambda':[0,10], 
+                             },method='h_gird'           
+            ).fit(dt_woe_bm,y)
+
+        
+        hgirdTuner(LGBMClassifier,para_space={
+                     'boosting_type':['gbdt','goss'], #'goss','gbdt'
+                     'n_estimators':sp_randint(low=100,high=110),
+                     'learning_rate':sp_uniform(loc=0.1,scale=0), 
+                    
+                     'max_depth':sp_randint(low=2,high=4),#[0,∞],
+                     'min_split_gain': sp_uniform(loc=0,scale=0),
+                     'min_child_weight': sp_uniform(loc=0,scale=0),
+                     
+                     'scale_pos_weight':[1,11],
+                     'subsample':sp_uniform(loc=0.5,scale=0.5),
+                     'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),
+                     'reg_lambda':sp_uniform(loc=0,scale=20),
+
+                  } ,method='h_random'           
+            ).fit(dt_woe_bm,y)                
+        
+        
         print("tunner test successfully")
+
         
         
     def test_perfEval(self):

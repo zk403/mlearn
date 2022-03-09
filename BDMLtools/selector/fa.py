@@ -17,8 +17,8 @@ from scipy.stats import pearsonr,spearmanr
 from sklearn.base import BaseEstimator,TransformerMixin
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from toad import selection
 import warnings
-from BDMLtools.selector.simple import corrSelector
 from BDMLtools.base import Base
 
 
@@ -120,7 +120,8 @@ class faSelector(Base,BaseEstimator,TransformerMixin):
             
         elif self.n_clusters=='auto':
             
-            self.n_clusters=len(corrSelector(corr_limit=self.corr_limit).fit(X,y).keep_col)
+            self.n_clusters=selection.drop_corr(X.join(y),target=y.name,threshold=self.corr_limit,by=self.by).drop(y.name,axis=1).columns.size
+
             print('n_clusters set to '+str(self.n_clusters))
             
             self.model=self._featurecluster(X,self._distance(),self.linkage,self.n_clusters,self.distance_threshold)

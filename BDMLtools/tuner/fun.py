@@ -10,22 +10,6 @@ from sklearn.base import BaseEstimator
 import pandas as pd
 import shap
 from scipy.stats import pearsonr
-from lightgbm import LGBMClassifier
-import warnings
-
-class sLGBMClassifier(LGBMClassifier):
-    
-    """ 
-    过滤掉LGBM的warning信息
-    """    
-    
-    def fit(self, *args, **kwargs):        
-        
-        with warnings.catch_warnings():   
-            
-            warnings.filterwarnings("ignore", category=UserWarning)
-            
-            return super().fit(*args, verbose=False, **kwargs)
 
 
 class shapCheck(BaseEstimator):

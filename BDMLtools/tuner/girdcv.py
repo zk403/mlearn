@@ -7,16 +7,15 @@ Created on Fri Oct 15 09:32:09 2021
 """
 
 from sklearn.base import BaseEstimator
-from sklearn import metrics
 from sklearn.model_selection import GridSearchCV,RandomizedSearchCV
 from sklearn.model_selection import RepeatedStratifiedKFold
 from sklearn.calibration import CalibratedClassifierCV
 from BDMLtools.base import Base
-import numpy as np
+from BDMLtools.tuner.base import BaseTunner
 import pandas as pd
 from joblib import effective_n_jobs
 
-class girdTuner(Base,BaseEstimator):
+class girdTuner(Base,BaseTunner,BaseEstimator):
     
     '''
     Xgb与Lgbm的网格搜索与随机搜索
@@ -26,7 +25,7 @@ class girdTuner(Base,BaseEstimator):
         method:str,可选"gird"或"random_gird"
         para_space:dict,参数空间,注意随机搜索与网格搜索对应不同的dict结构,参数空间写法见后                        
         n_iter:随机网格搜索迭代次数,当method="gird"时该参数会被忽略
-        scoring:str,寻优准则,可选'auc','ks','lift'
+        scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
         cv:int,交叉验证的折数
         n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
@@ -231,20 +230,13 @@ class girdTuner(Base,BaseEstimator):
         '''
         网格搜索
         '''  
-        if self.scoring=='ks':
+        if self.scoring in ['ks','auc','lift','neglogloss']:
             
-            scorer=metrics.make_scorer(self._custom_score_KS,greater_is_better=True,needs_proba=True)
+            scorer=self._get_scorer[self.scoring]
             
-        elif self.scoring=='auc':
-            
-            scorer=metrics.make_scorer(self._custom_score_AUC,greater_is_better=True,needs_proba=True)
-            
-        elif self.scoring=='lift':
-            
-            scorer=metrics.make_scorer(self._custom_score_Lift,greater_is_better=True,needs_proba=True)
         else:
             
-            raise ValueError('scoring not understood,should be "ks","auc","lift")')
+            raise ValueError('scoring not understood,should be "ks","auc","lift","neglogloss")')
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state) 
         
@@ -261,19 +253,18 @@ class girdTuner(Base,BaseEstimator):
         return self
         
         
-    def _random_search(self):  
+    def _random_search(self):          
         '''
         随机网格搜索
         '''         
         
-        if self.scoring=='ks':
-            scorer=metrics.make_scorer(self.custom_score_KS,greater_is_better=True,needs_proba=True)
-        elif self.scoring=='auc':
-            scorer=metrics.make_scorer(self.custom_score_AUC,greater_is_better=True,needs_proba=True)
-        elif self.scoring=='lift':
-            scorer=metrics.make_scorer(self.custom_score_Lift,greater_is_better=True,needs_proba=True)
+        if self.scoring in ['ks','auc','lift','neglogloss']:
+            
+            scorer=self._get_scorer[self.scoring]
+            
         else:
-            raise ValueError('scoring not understood,should be "ks","auc","lift")')
+            
+            raise ValueError('scoring not understood,should be "ks","auc","lift","neglogloss")')
         
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state) 
         
@@ -287,51 +278,7 @@ class girdTuner(Base,BaseEstimator):
         self.r_gird_res=r_gird.fit(self.X,self.y,sample_weight=self.sample_weight)
         
         return self
-    
-    
-    def _custom_score_AUC(self,y_true, y_pred):        
-        '''
-        自定义验证评估指标AUC
-        '''           
-        return metrics.roc_auc_score(y_true,y_pred)
-    
-    def _custom_score_KS(self,y_true, y_pred):
-        '''
-        自定义验证评估指标KS
-        '''   
-        fpr,tpr,thresholds= metrics.roc_curve(y_true,y_pred)
-        ks = max(tpr-fpr)
-        return ks             
-        
-        
-    def _custom_score_Lift(self,y_true,y_pred):
-        '''
-        自定义验证评估指标Lift
-        '''   
-        thrs = np.linspace(y_pred.min(), y_pred.max(),100)
-        lift=[]
-        
-        for thr in thrs:
-            tn, fp, fn, tp = metrics.confusion_matrix(y_true,y_pred>thr).ravel()
-            #depth = (tp + fp)/(tn+fp+fn+tp)
-            ppv = tp/(tp + fp)
-            lift.append(ppv/((tp + fn)/(tn+fp+fn+tp)))
-            
-        return(np.nanmean(lift)) 
-    
-    def _cvresult_to_df(self,cv_results_):
-        '''
-        输出交叉验证结果
-        '''          
-        return pd.DataFrame(cv_results_)    
-    
-    def _p_to_score(self,pred,PDO=75,base=660,ratio=1/15):
-        
-        B=1*PDO/np.log(2)
-        A=base + B*np.log(ratio)
-        score=A-B*np.log(pred/(1-pred))
-        
-        return np.round(score,0)
+
         
         
         

@@ -19,10 +19,9 @@ from sklearn.preprocessing import StandardScaler
 from pandas.api.types import is_numeric_dtype,is_string_dtype
 import numpy as np
 import pandas as pd
-import toad
 import os
 from glob import glob
-from BDMLtools.tuner.fun import sLGBMClassifier
+from BDMLtools.tuner.base import sLGBMClassifier
 from BDMLtools.base import Base
 
 
@@ -315,94 +314,6 @@ class fliterByShuffle(Base,BaseEstimator):
             raise ValueError('dtype only in ("number" or "object")')
 
         return name,np.nanmean(diff_auc)
-
-        
-
-class corrSelector(Base,TransformerMixin):
-    
-    """ 
-    相关系数筛选
-    Parameters:
-    ----------
-        corr_limit:float,相关系数阈值
-        by:str or pd.Series,
-            + ’IV‘:按照iv筛选
-            + pd.Series:用户自定义权重,要求index为列名，value为权重值
-        keep:需保留的列名list
-        
-    Attribute:
-    ----------
-        keep_col:list,保留的列名list
-    """    
-    
-    def __init__(self,corr_limit=0.8,by='IV',keep=None):
-
-        self.corr_limit=corr_limit
-        self.by=by
-        self.keep=keep
-        
-        self._is_fitted=False
-        
-    def transform(self,X,y=None):
-        
-        self._check_is_fitted()
-        
-        if self.keep and isinstance(self.keep,list):
-            
-            self.keep_col=list(set(self.keep_col+self.keep))
-        
-        return X[self.keep_col]
-          
-    def fit(self,X,y):
-        """ 
-        变量筛选
-        Parameters:
-        ----------
-            varbin:分箱结果,计算特征IV使用,由sc.woebin产生      
-        """          
-        self.keep_col=self._filterByCorr(X,y)
-        
-        self._is_fitted=True
-        
-        return self
-    
-    def _filterByCorr(self,X,y):
-        """
-        特征共线性检查,将剔除共线性较强但iv较低的特征,保留共线性较强但iv较高的特征 
-        Parameters:
-        ----------      
-        X:训练数据
-        """        
-#         #递归式剔除,速度较慢        
-#         iv_t=toad.quality(X.join(y),target=self.y,iv_only=True)[['iv']]
-
-#         self.var_keep=[]
-#         count=0
-#         while (X.corr().abs()>corr_limit).sum().sum()>X.columns.size or count==0: #相关系数矩阵中所有特征的相关系数需小于阈值时才停止迭代(非自身)
-#             print(X.columns.size)
-#             count=count+1
-            
-#             #相关性系数
-#             corrtable=X.corr()
-#             var_corr_max=corrtable.apply(lambda x:x[x.index!=x.name].abs().max())
-#             var_highcorr=var_corr_max[var_corr_max>corr_limit].index.tolist()
-#             #var_lowcorr=var_corr_max[var_corr_max<=corr_limit].index.tolist()
-
-#             self.var_del=[]
-            
-#             for i in var_highcorr:                
-#                 pairs=iv_t.join(corrtable[i][corrtable[i]>corr_limit],how='right').sort_values(i) #变量与其corr最高的变量
-#                 #self.var_del.append(pairs[0:1].index[0]) #剔除IV较小的那个
-#                 var_del=pairs[0:1].index[0]
-            
-#             X=X.drop(var_del,axis=1)
-        
-        #使用toad
-        X_drop=toad.selection.drop_corr(X.join(y),target=y.name,threshold=self.corr_limit,by=self.by).drop(y.name,axis=1)
-    
-        keep_col=X_drop.columns.tolist()
-        
-        return keep_col
 
     
 class preSelector(Base,Specials,TransformerMixin):

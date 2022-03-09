@@ -7,20 +7,18 @@ Created on Thu Oct 14 17:26:03 2021
 """
 from sklearn.base import BaseEstimator
 from BDMLtools.base import Base
-from sklearn import metrics
+from BDMLtools.tuner.base import BaseTunner,sLGBMClassifier
 from sklearn.model_selection import GridSearchCV
 from xgboost.sklearn import XGBClassifier
-from BDMLtools.tuner.fun import sLGBMClassifier
 from bayes_opt import BayesianOptimization
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import RepeatedStratifiedKFold
 #from time import time
-import numpy as np
 import pandas as pd
 from joblib import effective_n_jobs
 
 
-class BayesianXGBTuner(Base,BaseEstimator):
+class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
     
     '''
     使用贝叶斯优化参数的Xgboost
@@ -29,7 +27,7 @@ class BayesianXGBTuner(Base,BaseEstimator):
         para_space:dict,xgboost的参数空间
         n_iter:贝叶斯优化搜索迭代次数
         init_points:int,贝叶斯优化起始搜索点的个数
-        scoring:str,寻优准则,可选'auc','ks','lift'
+        scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
         cv:int,RepeatedStratifiedKFold交叉验证的折数
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
         refit:bool,最优参数下是否重新在全量数据上拟合模型，默认True
@@ -188,21 +186,13 @@ class BayesianXGBTuner(Base,BaseEstimator):
                       'reg_lambda':[reg_lambda],
                       }               
         
-        if self.scoring=='ks':
+        if self.scoring in ['ks','auc','lift','neglogloss']:
             
-            scorer=metrics.make_scorer(self._custom_score_KS,greater_is_better=True,needs_proba=True)
-            
-        elif self.scoring=='auc':
-            
-            scorer=metrics.make_scorer(self._custom_score_AUC,greater_is_better=True,needs_proba=True)
-            
-        elif self.scoring=='lift':
-            
-            scorer=metrics.make_scorer(self._custom_score_Lift,greater_is_better=True,needs_proba=True)
+            scorer=self._get_scorer[self.scoring]
             
         else:
             
-            raise ValueError('scoring not understood,should be "ks","auc","lift")')
+            raise ValueError('scoring not understood,should be "ks","auc","lift","neglogloss")')
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)        
         
@@ -220,34 +210,6 @@ class BayesianXGBTuner(Base,BaseEstimator):
         
         return(val_score)    
     
-    def _custom_score_AUC(self,y_true, y_pred):        
-        '''
-        自定义验证评估指标AUC
-        '''           
-        return metrics.roc_auc_score(y_true,y_pred)
-    
-    def _custom_score_KS(self,y_true, y_pred):
-        '''
-        自定义验证评估指标KS
-        '''   
-        fpr,tpr,thresholds= metrics.roc_curve(y_true,y_pred)
-        ks = max(tpr-fpr)
-        return ks             
-        
-        
-    def _custom_score_Lift(self,y_true,y_pred):
-        '''
-        自定义验证评估指标Lift
-        '''   
-        thrs = np.linspace(y_pred.min(), y_pred.max(),100)
-        lift=[]
-        for thr in thrs:
-            tn, fp, fn, tp = metrics.confusion_matrix(y_true,y_pred>thr).ravel()
-            #depth = (tp + fp)/(tn+fp+fn+tp)
-            ppv = tp/(tp + fp)
-            lift.append(ppv/((tp + fn)/(tn+fp+fn+tp)))
-        return(np.nanmean(lift))
-    
     def _cvresult_to_df(self):
         '''
         输出交叉验证结果
@@ -264,16 +226,8 @@ class BayesianXGBTuner(Base,BaseEstimator):
         
         return ParaDf_all
     
-    def _p_to_score(self,pred,PDO=75,base=660,ratio=1/15):
-        
-        B=1*PDO/np.log(2)
-        A=base + B*np.log(ratio)
-        score=A-B*np.log(pred/(1-pred))
-        
-        return np.round(score,0)
-    
 
-class BayesianLgbmTuner(Base,BaseEstimator):
+class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
     
     '''
     使用贝叶斯优化参数的LightGBM
@@ -282,7 +236,7 @@ class BayesianLgbmTuner(Base,BaseEstimator):
         para_space:dict,lgb的参数空间
         n_iter:贝叶斯优化搜索迭代次数
         init_points:int,贝叶斯优化起始搜索点的个数
-        scoring:str,寻优准则,可选'auc','ks','lift'
+        scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
         cv:int,RepeatedStratifiedKFold交叉验证的折数
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
         refit:bool,最优参数下是否重新在全量数据上拟合模型，默认True  
@@ -442,21 +396,13 @@ class BayesianLgbmTuner(Base,BaseEstimator):
                       'reg_lambda':[reg_lambda]
                       }               
         
-        if self.scoring=='ks':
+        if self.scoring in ['ks','auc','lift','neglogloss']:
             
-            scorer=metrics.make_scorer(self._custom_score_KS,greater_is_better=True,needs_proba=True)
-            
-        elif self.scoring=='auc':
-            
-            scorer=metrics.make_scorer(self._custom_score_AUC,greater_is_better=True,needs_proba=True)
-            
-        elif self.scoring=='lift':
-            
-            scorer=metrics.make_scorer(self._custom_score_Lift,greater_is_better=True,needs_proba=True)
+            scorer=self._get_scorer[self.scoring]
             
         else:
             
-            raise ValueError('scoring not understood,should be "ks","auc","lift")')
+            raise ValueError('scoring not understood,should be "ks","auc","lift","neglogloss")')
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)
         
@@ -474,34 +420,6 @@ class BayesianLgbmTuner(Base,BaseEstimator):
         
         return(val_score)    
     
-    def _custom_score_AUC(self,y_true, y_pred):        
-        '''
-        自定义验证评估指标AUC
-        '''           
-        return metrics.roc_auc_score(y_true,y_pred)
-    
-    def _custom_score_KS(self,y_true, y_pred):
-        '''
-        自定义验证评估指标KS
-        '''   
-        fpr,tpr,thresholds= metrics.roc_curve(y_true,y_pred)
-        ks = max(tpr-fpr)
-        return ks             
-        
-        
-    def _custom_score_Lift(self,y_true,y_pred):
-        '''
-        自定义验证评估指标Lift
-        '''   
-        thrs = np.linspace(y_pred.min(), y_pred.max(),100)
-        lift=[]
-        for thr in thrs:
-            tn, fp, fn, tp = metrics.confusion_matrix(y_true,y_pred>thr).ravel()
-            #depth = (tp + fp)/(tn+fp+fn+tp)
-            ppv = tp/(tp + fp)
-            lift.append(ppv/((tp + fn)/(tn+fp+fn+tp)))
-        return(np.nanmean(lift))
-    
     def _cvresult_to_df(self):
         '''
         输出交叉验证结果
@@ -517,14 +435,6 @@ class BayesianLgbmTuner(Base,BaseEstimator):
         ParaDf_all['boosting_type']=self.para_space['boosting_type']    
         
         return ParaDf_all    
-    
-    def _p_to_score(self,pred,PDO=75,base=660,ratio=1/15):
-        
-        B=1*PDO/np.log(2)
-        A=base + B*np.log(ratio)
-        score=A-B*np.log(pred/(1-pred))
-        
-        return np.round(score,0)
     
     
     
