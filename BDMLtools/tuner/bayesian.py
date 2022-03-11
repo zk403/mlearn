@@ -16,6 +16,7 @@ from sklearn.model_selection import RepeatedStratifiedKFold
 #from time import time
 import pandas as pd
 from joblib import effective_n_jobs
+import numpy as np
 
 
 class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
@@ -124,6 +125,8 @@ class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
         X:pd.DataFrame对象
         y:目标变量,pd.Series对象
         '''   
+        np.seterr('ignore')
+        
         self._check_data(X, y)        
         
         self.X=X.copy()
@@ -335,6 +338,9 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
         X: pd.DataFrame对象
         y:目标变量,pd.Series对象
         '''   
+        
+        np.seterr('ignore')
+        
         self._check_data(X, y)
         
         self.X=X.copy()
