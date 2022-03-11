@@ -6,6 +6,7 @@ from BDMLtools.selector import binSelector,binAdjuster,binFreq,binPretty,binTree
 from BDMLtools.selector import faSelector
 from BDMLtools.selector import stepLogit,cardScorer
 from BDMLtools.selector import preSelector,prefitModel
+from BDMLtools.selector import LgbmRFECVSelector,LgbmSeqSelector
 #from BDMLtools.selector import RFECVSelector
 from BDMLtools.selector import lassoSelector
 from BDMLtools.plotter import BaseWoePlotter
@@ -42,6 +43,8 @@ __all__ = (
     cardScorer,
     preSelector,
     lassoSelector,
+    LgbmRFECVSelector,
+    LgbmSeqSelector,
     woeTransformer,
     girdTuner,
     hgirdTuner,

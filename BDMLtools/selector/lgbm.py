@@ -15,7 +15,7 @@ from BDMLtools.tuner.base import BaseTunner
 from sklearn.model_selection import RepeatedStratifiedKFold
 
 
-class LgbmRFESelector(Base,BaseTunner):
+class LgbmRFECVSelector(Base,BaseTunner):
     
     '''
     使用LightGBM进行基于交叉验证的递归式特征消除(Recursive feature elimination with CV)

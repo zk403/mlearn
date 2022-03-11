@@ -12,7 +12,7 @@ from BDMLtools.selector.fa import faSelector
 from BDMLtools.selector.embeded import lassoSelector
 from BDMLtools.selector.logtit import stepLogit,cardScorer
 from BDMLtools.selector.simple import prefitModel,preSelector
-from BDMLtools.selector.lgbm import LgbmRFESelector,LgbmSeqSelector
+from BDMLtools.selector.lgbm import LgbmRFECVSelector,LgbmSeqSelector
 #from BDMLtools.selector.wrapper import RFECVSelector
 
 
@@ -24,7 +24,7 @@ __all__ = (
     binTree,
     binChi2,
     binKmeans,
-    LgbmRFESelector,
+    LgbmRFECVSelector,
     LgbmSeqSelector,
     faSelector,
     lassoSelector,
