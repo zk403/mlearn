@@ -13,7 +13,7 @@ from BDMLtools.selector import faSelector
 from BDMLtools.selector import stepLogit,cardScorer
 from BDMLtools.selector import preSelector,prefitModel
 #from BDMLtools.selector import RFECVSelector
-from BDMLtools.selector import lassoSelector,LgbmRFESelector,LgbmSeqSelector
+from BDMLtools.selector import lassoSelector,LgbmRFECVSelector,LgbmSeqSelector
 from BDMLtools.plotter import  perfEval
 from BDMLtools.encoder import woeTransformer
 from BDMLtools.tuner import girdTuner,hgirdTuner
@@ -24,6 +24,7 @@ import pandas as pd
 import numpy as np
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
+from catboost import CatBoostClassifier
 
 
 class test:
@@ -40,8 +41,7 @@ class test:
         self.test_scorecard()
         self.test_perfEval()
         self.test_tab()
-        self.test_tunner()
-        
+        self.test_tunner()       
 
     def test_dtStandardization(self):
     
@@ -612,7 +612,7 @@ class test:
         
         lassoSelector().fit(dt_woe_bm,y)
         
-        LgbmRFESelector().fit(dt_woe_bm,y)
+        LgbmRFECVSelector().fit(dt_woe_bm,y)
         
         LgbmSeqSelector().fit(dt_woe_bm,y)
         
@@ -631,8 +631,7 @@ class test:
                      'reg_lambda': (0, 10)
                                }).fit(dt_woe_bm,y)
         
-        BayesianLgbmTuner(para_space={
-                         'boosting_type':'gbdt', 
+        BayesianLgbmTuner(para_space={ 
                          'n_estimators':(30,120),
                          'learning_rate':(0.05,0.2), 
                         
@@ -666,6 +665,7 @@ class test:
         
         from scipy.stats import randint as sp_randint
         from scipy.stats import uniform as sp_uniform 
+        from BDMLtools.tuner.base import sLGBMClassifier
         
         girdTuner(XGBClassifier,para_space={
                   'n_estimators':sp_randint(low=60,high=120),#迭代次数
@@ -685,7 +685,7 @@ class test:
             ).fit(dt_woe_bm,y)        
         
         
-        girdTuner(LGBMClassifier,para_space={
+        girdTuner(sLGBMClassifier,para_space={
                      'boosting_type':['gbdt','goss'], 
                      'n_estimators':[100],
                      'learning_rate':[0.1], 
@@ -702,7 +702,7 @@ class test:
             ).fit(dt_woe_bm,y)
 
         
-        girdTuner(LGBMClassifier,para_space={
+        girdTuner(sLGBMClassifier,para_space={
                      'boosting_type':['gbdt','goss'], #'goss','gbdt'
                      'n_estimators':sp_randint(low=100,high=110),
                      'learning_rate':sp_uniform(loc=0.1,scale=0), 
@@ -755,7 +755,7 @@ class test:
             ).fit(dt_woe_bm,y)   
         
         
-        hgirdTuner(LGBMClassifier,para_space={
+        hgirdTuner(sLGBMClassifier,para_space={
                      'boosting_type':['gbdt','goss'], 
                      'n_estimators':[100],
                      'learning_rate':[0.1], 
@@ -772,7 +772,7 @@ class test:
             ).fit(dt_woe_bm,y)
 
         
-        hgirdTuner(LGBMClassifier,para_space={
+        hgirdTuner(sLGBMClassifier,para_space={
                      'boosting_type':['gbdt','goss'], #'goss','gbdt'
                      'n_estimators':sp_randint(low=100,high=110),
                      'learning_rate':sp_uniform(loc=0.1,scale=0), 
@@ -787,8 +787,35 @@ class test:
                      'reg_lambda':sp_uniform(loc=0,scale=20),
 
                   } ,method='h_random'           
+            ).fit(dt_woe_bm,y)        
+
+        
+        hgirdTuner(CatBoostClassifier,
+                         para_space={
+                             'nan_mode':['Min'],
+                             'n_estimators': [80, 100],
+                             'learning_rate': [0.03,0.05, 0.1],
+                             'max_depth': [2,3],
+                             'scale_pos_weight': [1],
+                             'subsample': [1],
+                             'colsample_bylevel': [1],
+                             'reg_lambda': [0]
+                         } ,method='h_gird'           
             ).fit(dt_woe_bm,y)                
         
+        
+        hgirdTuner(CatBoostClassifier,para_space={         
+                             'nan_mode':['Min'],
+                             'n_estimators':sp_randint(low=100,high=110),
+                             'learning_rate':sp_uniform(loc=0.1,scale=0),                     
+                             'max_depth':sp_randint(low=2,high=4),#[0,∞],                     
+                             'scale_pos_weight':[1],
+                             'subsample':sp_uniform(loc=0.5,scale=0.5),
+                             'colsample_bylevel' :sp_uniform(loc=0.5,scale=0.5),
+                             'reg_lambda':sp_uniform(loc=0,scale=20),
+                             },
+                    method='h_random'           
+            ).fit(dt_woe_bm,y)        
         
         print("tunner test successfully")
 

@@ -12,6 +12,7 @@ from sklearn.model_selection import GridSearchCV
 from xgboost.sklearn import XGBClassifier
 from bayes_opt import BayesianOptimization
 from sklearn.calibration import CalibratedClassifierCV
+from catboost import CatBoostClassifier
 from sklearn.model_selection import RepeatedStratifiedKFold
 #from time import time
 import pandas as pd
@@ -26,10 +27,11 @@ class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
     Parameters:
     --
         para_space:dict,xgboost的参数空间
+        fixed_params:dict,固定超参数,其不参加数优化过程,注意不能与para_space的超参数重复
         n_iter:贝叶斯优化搜索迭代次数
         init_points:int,贝叶斯优化起始搜索点的个数
         scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
-        cv:int,RepeatedStratifiedKFold交叉验证的折数
+        cv:int,R epeatedStratifiedKFold交叉验证的折数
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
         refit:bool,最优参数下是否重新在全量数据上拟合模型，默认True
         n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
@@ -65,10 +67,11 @@ class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
     '''     
     
     
-    def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,
+    def __init__(self,para_space,fixed_params={'booster':'gbtree','sampling_method':'uniform','tree_method':'auto','use_label_encoder':False,'verbosity':0},n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,
                  n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
        
         self.para_space=para_space
+        self.fixed_params=fixed_params
         self.n_iter=n_iter
         self.init_points=init_points
         self.scoring=scoring
@@ -82,7 +85,8 @@ class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
         self.calibration=calibration
         self.cv_calibration=cv_calibration
         
-        self._is_fitted=False
+        self._is_fitted=False       
+        self.int_params=['n_estimators','max_depth']
         
     def predict_proba(self,X,y=None):
         '''
@@ -113,7 +117,7 @@ class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
         return pred
         
     
-    def transform(self,X,y=None):    
+    def transform(self,X,y=None):  
         
         return X
           
@@ -128,17 +132,18 @@ class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
         np.seterr('ignore')
         
         self._check_data(X, y)        
+        self._check_params_dup(self.para_space,self.fixed_params)
         
-        self.X=X.copy()
-        self.y=y.copy()
+        self.X=X
+        self.y=y
         
-        self.Optimize = BayesianOptimization(self._XGB_CV,self.para_space)
+        self.Optimize = BayesianOptimization(self._XGB_CV,self.para_space,random_state=self.random_state)
         self.Optimize.maximize(n_iter=self.n_iter,init_points=self.init_points)
         
         #输出最优参数组合
-        self.params_best=self.Optimize.max['params']
-        self.params_best['max_depth']=int(self.params_best['max_depth'])
-        self.params_best['n_estimators']=int(self.params_best['n_estimators'])   
+        params_best=self.Optimize.max['params'].copy()
+        self.params_best=dict({para:int(params_best[para]) for para in params_best if para in self.int_params},
+                              **{para:params_best[para] for para in params_best if para not in self.int_params})  
         
         #交叉验证结果保存
         self.cv_result=self._cvresult_to_df()
@@ -146,48 +151,24 @@ class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
         #refit
         if self.refit:
             
-            self.model_refit = XGBClassifier(
-                colsample_bytree=self.params_best['colsample_bytree'],
-                gamma=self.params_best['gamma'],
-                scale_pos_weight=self.params_best['scale_pos_weight'],
-                learning_rate=self.params_best['learning_rate'],          
-                max_delta_step=self.params_best['max_delta_step'],
-                max_depth=self.params_best['max_depth'],
-                min_child_weight=self.params_best['min_child_weight'],
-                n_estimators=self.params_best['n_estimators'],
-                reg_lambda=self.params_best['reg_lambda'],
-                subsample=self.params_best['subsample']
-                ).fit(X,y,sample_weight=self.sample_weight)      
+            self.model_refit = XGBClassifier(seed=self.random_state,**self.fixed_params,**self.params_best).fit(X,y,sample_weight=self.sample_weight)      
+            
+            self.model_refit1=self.model_refit
             
             if self.calibration:
                 
                 self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
                                                       n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
-                
-        del self.X,self.y
         
         self._is_fitted=True
         
         return self
     
     
-    def _XGB_CV(self,n_estimators,max_depth,gamma,learning_rate,min_child_weight,
-               max_delta_step,subsample,colsample_bytree,reg_lambda,scale_pos_weight):
+    def _XGB_CV(self,**params):
             
-        para_space = {
-                      'booster' : ['gbtree'],
-                      'max_depth' : [int(max_depth)],
-                      'gamma' : [gamma],
-                      'scale_pos_weight':[scale_pos_weight],
-                      'n_estimators':[int(n_estimators)],
-                      'learning_rate' : [learning_rate],
-                      #'n_jobs' : [4],
-                      'subsample' : [max(min(subsample, 1), 0)],
-                      'colsample_bytree' : [max(min(colsample_bytree, 1), 0)],
-                      'min_child_weight' : [min_child_weight],
-                      'max_delta_step' : [int(max_delta_step)],
-                      'reg_lambda':[reg_lambda],
-                      }               
+        para_space=dict({para:[int(params[para])] for para in params if para in self.int_params},
+                        **{para:[params[para]] for para in params if para not in self.int_params})             
         
         if self.scoring in ['ks','auc','lift','neglogloss']:
             
@@ -202,14 +183,13 @@ class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
         n_jobs=effective_n_jobs(self.n_jobs)
                         
         cv_res=GridSearchCV(
-            XGBClassifier(seed=self.random_state,use_label_encoder=False,verbosity=0),para_space,cv=cv,
+            XGBClassifier(seed=self.random_state,**self.fixed_params),para_space,cv=cv,
             n_jobs=n_jobs,verbose=self.verbose,
             scoring=scorer,error_score=0).fit(self.X,self.y,sample_weight=self.sample_weight)
-        
-        #print(cv_res.cv_results_['mean_test_score'])
+  
         val_score = cv_res.cv_results_['mean_test_score'][0]
         
-        print(' Stopped after %d iterations with val-%s = %f' % (n_estimators,self.scoring,val_score))
+        print(' Stopped after %d iterations with val-%s = %f' % (int(params['n_estimators']),self.scoring,val_score))
         
         return(val_score)    
     
@@ -224,9 +204,11 @@ class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
             ParaDf=pd.DataFrame([self.Optimize.res[i]['params']])
             ParaDf['val_'+self.scoring]=self.Optimize.res[i]['target']    
             ParaDf_all=pd.concat([ParaDf,ParaDf_all],ignore_index=True)
-        
-        ParaDf_all['booster']='gbtree'
-        
+            
+        for para in self.fixed_params:
+            
+            ParaDf_all[para]=self.fixed_params[para]           
+
         return ParaDf_all
     
 
@@ -237,6 +219,8 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
     Parameters:
     --
         para_space:dict,lgb的参数空间
+        fixed_params:dict,固定超参数,其不参加数优化过程,注意不能与para_space的超参数重复
+        cat_features:list or None,分类特征名称list,其将被转换为模型可处理的格式
         n_iter:贝叶斯优化搜索迭代次数
         init_points:int,贝叶斯优化起始搜索点的个数
         scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
@@ -280,10 +264,12 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
 
     '''    
     
-    def __init__(self,para_space,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,
+    def __init__(self,para_space,fixed_params={'boosting_type':'gbdt','objective':'binary'},cat_features=None,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,
                  n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
         
         self.para_space=para_space
+        self.fixed_params=fixed_params
+        self.cat_features=cat_features
         self.n_iter=n_iter
         self.init_points=init_points
         self.scoring=scoring
@@ -298,6 +284,9 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
         self.cv_calibration=cv_calibration
         
         self._is_fitted=False
+        self.int_params=['n_estimators','max_depth',
+                         'num_leaves','subsample_for_bin',
+                         'min_child_samples','subsample_freq']
         
     def predict_proba(self,X,y=None):
         '''
@@ -309,7 +298,7 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
         self._check_is_fitted()
         self._check_X(X)        
         
-        pred = self.model_refit.predict_proba(X)[:,1]        
+        pred = self.model_refit.predict_proba(self.transform(X))[:,1]        
         return pred
     
     def predict_score(self,X,y=None,PDO=75,base=660,ratio=1/15):
@@ -322,13 +311,18 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
         self._check_is_fitted()
         self._check_X(X)
         
-        pred = self.model_refit.predict_proba(X)[:,1]  
+        pred = self.model_refit.predict_proba(self.transform(X))[:,1]  
         pred = self._p_to_score(pred,PDO,base,ratio)
         return pred
     
-    def transform(self,X,y=None):     
+    def transform(self,X,y=None):   
         
-        return self
+        self._check_is_fitted()
+        self._check_X(X)
+        
+        out=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
+        
+        return out
           
     def fit(self,X,y):
         '''
@@ -342,65 +336,40 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
         np.seterr('ignore')
         
         self._check_data(X, y)
+        self._check_params_dup(self.para_space,self.fixed_params)
         
-        self.X=X.copy()
-        self.y=y.copy()
-        
-        para_space_num={key:self.para_space[key] for key in self.para_space if key not in ('boosting_type','class_weight')}  
-        
-        self.Optimize = BayesianOptimization(self._LGBM_CV,para_space_num)
+        self.X=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X 
+        self.y=y                  
+ 
+        self.Optimize = BayesianOptimization(self._LGBM_CV,self.para_space,random_state=self.random_state)
         self.Optimize.maximize(n_iter=self.n_iter,init_points=self.init_points)
         
         #输出最优参数组合
-        self.params_best=self.Optimize.max['params']
-        self.params_best['max_depth']=int(self.params_best['max_depth'])
-        self.params_best['n_estimators']=int(self.params_best['n_estimators'])   
+        params_best=self.Optimize.max['params'].copy()
+        self.params_best=dict({para:int(params_best[para]) for para in params_best if para in self.int_params},
+                              **{para:params_best[para] for para in params_best if para not in self.int_params})    
         
         #交叉验证结果保存
         self.cv_result=self._cvresult_to_df()
         
         if self.refit:
-            #print (self.para_space)
-            self.model_refit = sLGBMClassifier(
-                boosting_type=self.para_space['boosting_type'],
-                n_estimators=self.params_best['n_estimators'],
-                learning_rate=self.params_best['learning_rate'],
-                max_depth=self.params_best['max_depth'],          
-                min_split_gain=self.params_best['min_split_gain'],
-                min_sum_hessian_in_leaf=self.params_best['min_sum_hessian_in_leaf'],
-                subsample=self.params_best['subsample'],
-                colsample_bytree=self.params_best['colsample_bytree'],
-                #class_weight=self.para_space['class_weight'],
-                scale_pos_weight=self.params_best['scale_pos_weight'],
-                reg_lambda=self.params_best['reg_lambda']
-                ).fit(X,y,self.sample_weight)      
-            
+
+            self.model_refit = sLGBMClassifier(**self.fixed_params,**self.params_best).fit(self.X,self.y,self.sample_weight)      
+
             if self.calibration:
                 
                 self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
-                                                      n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
+                                                      n_jobs=self.n_jobs).fit(self.X,self.y,sample_weight=self.sample_weight)
                 
         self._is_fitted=True
         
         return self
     
     
-    def _LGBM_CV(self,n_estimators,learning_rate,max_depth,
-               min_split_gain,min_sum_hessian_in_leaf,subsample,colsample_bytree,scale_pos_weight,
-               reg_lambda
-              ):
+    def _LGBM_CV(self,**params):
                
-        para_space = {                   
-                      'n_estimators' : [int(n_estimators)],
-                      'learning_rate' : [learning_rate],   
-                      'max_depth':  [int(max_depth)], 
-                      'min_split_gain':[min_split_gain],  
-                      'min_sum_hessian_in_leaf':[min_sum_hessian_in_leaf],        
-                      'subsample' : [subsample],
-                      'colsample_bytree' : [colsample_bytree],
-                      'scale_pos_weight' : [scale_pos_weight],
-                      'reg_lambda':[reg_lambda]
-                      }               
+        para_space=dict({para:[int(params[para])] for para in params if para in self.int_params},
+                        **{para:[params[para]] for para in params if para not in self.int_params})             
         
         if self.scoring in ['ks','auc','lift','neglogloss']:
             
@@ -415,14 +384,14 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
         n_jobs=effective_n_jobs(self.n_jobs)
                         
         cv_res=GridSearchCV(
-            sLGBMClassifier(seed=self.random_state,min_child_weight=None),para_space,cv=cv,
+            sLGBMClassifier(seed=self.random_state,**self.fixed_params),para_space,cv=cv,
             n_jobs=n_jobs,verbose=self.verbose,
             scoring=scorer,error_score=0).fit(self.X,self.y,sample_weight=self.sample_weight)
         
         #print(cv_res.cv_results_['mean_test_score'])
         val_score = cv_res.cv_results_['mean_test_score'][0]
         
-        print(' Stopped after %d iterations with val-%s = %f' % (n_estimators,self.scoring,val_score))
+        print(' Stopped after %d iterations with val-%s = %f' % (int(params['n_estimators']),self.scoring,val_score))
         
         return(val_score)    
     
@@ -438,10 +407,204 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
             ParaDf['val_'+self.scoring]=self.Optimize.res[i]['target']    
             ParaDf_all=pd.concat([ParaDf,ParaDf_all],ignore_index=True)
         
-        ParaDf_all['boosting_type']=self.para_space['boosting_type']    
+        for para in self.fixed_params:
+            
+            ParaDf_all[para]=self.fixed_params[para]            
         
         return ParaDf_all    
     
     
     
+class BayesianCBTuner(Base,BaseTunner,BaseEstimator):
     
+    '''
+    使用贝叶斯优化参数的CatBoost
+    Parameters:
+    --
+        para_space:dict,lgb的参数空间
+        fixed_params:dict,固定超参数,其不参加数优化过程,注意不能与para_space的超参数重复
+        cat_features:list or None,分类特征名称list,其将被转换为模型可处理的格式
+        n_iter:贝叶斯优化搜索迭代次数
+        init_points:int,贝叶斯优化起始搜索点的个数
+        scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
+        cv:int,RepeatedStratifiedKFold交叉验证的折数
+        repeats:int,RepeatedStratifiedKFold交叉验证重复次数
+        refit:bool,最优参数下是否重新在全量数据上拟合模型，默认True  
+        n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
+        verbose,int,并行信息输出等级
+        random_state,随机种子
+        sample_weight:样本权重
+        calibration:使用sklearn的CalibratedClassifierCV对refit=True下的模型进行概率校准
+        cv_calibration:CalibratedClassifierCV的交叉验证数
+        
+        """参数空间写法        
+    
+        para_space={'n_estimators': (80, 150),
+                     'learning_rate': (0.1,0.1),
+                     'max_depth': (3, 10),
+                     'scale_pos_weight': (1,1),
+                     'subsample': (0.5, 1),
+                     'colsample_bytree': (0.5, 1),
+                     'reg_lambda': (0, 10)}
+        
+         """   
+          
+    Attribute:    
+    --
+        Optimize:贝叶斯优化迭代器,需先使用fit
+        params_best:最优参数组合,需先使用fit
+        model_refit:最优参数下的lgbm模型,需先使用fit
+    
+    Examples
+    --
+
+    '''    
+    
+
+    def __init__(self,para_space,fixed_params={'verbose':0,'nan_mode':'Min','loss_function':'Logloss'},
+                 cat_features=None,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,
+                 n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
+        
+        self.para_space=para_space
+        self.fixed_params=fixed_params
+        self.cat_features=cat_features
+        self.n_iter=n_iter
+        self.init_points=init_points
+        self.scoring=scoring
+        self.cv=cv
+        self.repeats=repeats
+        self.refit=refit
+        self.n_jobs=n_jobs
+        self.verbose=verbose
+        self.random_state=random_state
+        self.sample_weight=sample_weight
+        self.calibration=calibration
+        self.cv_calibration=cv_calibration
+        
+        self._is_fitted=False
+        self.int_params=['n_estimators','iterations','max_depth','depth','min_data_in_leaf','max_leaves','border_count','min_child_samples']
+        
+    def predict_proba(self,X,y=None):
+        '''
+        最优参数下的lgbm模型的预测
+        Parameters:
+        --
+        X:pd.DataFrame对象
+        '''             
+        self._check_is_fitted()
+        self._check_X(X)        
+        
+        pred = self.model_refit.predict_proba(self.transform(X))[:,1]        
+        return pred
+    
+    def predict_score(self,X,y=None,PDO=75,base=660,ratio=1/15):
+        '''
+        最优参数下的模型的预测
+        Parameters:
+        --
+        X:pd.DataFrame对象
+        '''      
+        self._check_is_fitted()
+        self._check_X(X)
+        
+        pred = self.model_refit.predict_proba(self.transform(X))[:,1]  
+        pred = self._p_to_score(pred,PDO,base,ratio)
+        return pred
+    
+    def transform(self,X,y=None):  
+        
+        self._check_is_fitted()
+        self._check_X(X)
+        
+        out=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X
+ 
+        return out
+          
+    def fit(self,X,y):
+        '''
+        进行贝叶斯优化
+        Parameters:
+        --
+        X: pd.DataFrame对象
+        y:目标变量,pd.Series对象
+        '''   
+        
+        np.seterr('ignore')
+        
+        self._check_data(X, y)
+        self._check_params_dup(self.para_space,self.fixed_params)
+
+        self.X=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X 
+        self.y=y                  
+          
+        self.Optimize = BayesianOptimization(self._CB_CV,self.para_space,random_state=self.random_state)
+        self.Optimize.maximize(n_iter=self.n_iter,init_points=self.init_points)
+        
+        #输出最优参数组合        
+        params_best=self.Optimize.max['params'].copy()
+        self.params_best=dict({para:int(params_best[para]) for para in params_best if para in self.int_params},
+                              **{para:params_best[para] for para in params_best if para not in self.int_params})       
+        
+        #交叉验证结果保存
+        self.cv_result=self._cvresult_to_df()
+        
+        if self.refit:
+
+            self.model_refit = CatBoostClassifier(**self.fixed_params,**self.params_best).fit(self.X,self.y,sample_weight=self.sample_weight,cat_features=self.cat_features)
+            
+            if self.calibration:
+                
+                self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
+                                                      n_jobs=self.n_jobs).fit(self.X,self.y,sample_weight=self.sample_weight)
+                
+        self._is_fitted=True
+        
+        return self
+    
+    
+    def _CB_CV(self,**params):
+                
+        para_space=dict({para:[int(params[para])] for para in params if para in self.int_params},
+                        **{para:[params[para]] for para in params if para not in self.int_params})
+                  
+        if self.scoring in ['ks','auc','lift','neglogloss']:
+            
+            scorer=self._get_scorer[self.scoring]
+            
+        else:
+            
+            raise ValueError('scoring not understood,should be "ks","auc","lift","neglogloss")')
+            
+        cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)
+        
+        n_jobs=effective_n_jobs(self.n_jobs)
+                        
+        cv_res=GridSearchCV(
+            CatBoostClassifier(random_state=self.random_state,**self.fixed_params),para_space,cv=cv,
+            n_jobs=n_jobs,verbose=self.verbose,
+            scoring=scorer,error_score=0).fit(self.X,self.y,sample_weight=self.sample_weight,cat_features=self.cat_features)
+
+        val_score = cv_res.cv_results_['mean_test_score'][0]
+        
+        print('Stopped after %d iterations with val-%s = %f' % (int(params['n_estimators']),self.scoring,val_score))
+        
+        return(val_score)    
+    
+    def _cvresult_to_df(self):
+        '''
+        输出交叉验证结果
+        '''   
+
+        ParaDf_all=pd.DataFrame()
+    
+        for i in range(len(self.Optimize.res)):
+            
+            ParaDf=pd.DataFrame([self.Optimize.res[i]['params']])
+            ParaDf['val_'+self.scoring]=self.Optimize.res[i]['target']    
+            ParaDf_all=pd.concat([ParaDf,ParaDf_all],ignore_index=True)
+        
+        for para in self.fixed_params:
+            
+            ParaDf_all[para]=self.fixed_params[para]
+        
+        return ParaDf_all       

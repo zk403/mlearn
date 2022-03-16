@@ -13,6 +13,8 @@ from BDMLtools.tuner.base import BaseTunner
 from sklearn.model_selection import HalvingGridSearchCV,HalvingRandomSearchCV,RepeatedStratifiedKFold
 from sklearn.calibration import CalibratedClassifierCV
 from joblib import effective_n_jobs
+from lightgbm.sklearn import LGBMClassifier
+from catboost.core import CatBoostClassifier
 
 class hgirdTuner(Base,BaseTunner,BaseEstimator):
     
@@ -20,8 +22,9 @@ class hgirdTuner(Base,BaseTunner,BaseEstimator):
     Xgb与Lgbm的sucessive halving搜索与sucessive halving搜索
     Parameters:
     --
-        Estimator:拟合器,XGBClassifier或LGBMClassifier
+        Estimator:拟合器,XGBClassifier、LGBMClassifier或CatBoostClassifier
         method:str,可选"h_gird"或"h_random"
+        cat_features:list or None,分类特征名,仅当Estimator为LGBMClassifier或CatBoostClassifier时启用
         para_space:dict,参数空间,注意随机搜索与网格搜索对应不同的dict结构,参数空间写法见后                       
         n_candidates:int or 'exhaust',halving random_search的抽样候选参数个数,当method="h_gird"时该参数会被忽略
         factor:int,halving search中，1/factor的候选参数将被用于下一次迭代
@@ -36,6 +39,7 @@ class hgirdTuner(Base,BaseTunner,BaseEstimator):
         cv_calibration:CalibratedClassifierCV的交叉验证数
         
         """参数空间写法
+        
             当Estimator=XGBClassifier,method="h_gird":
                 
                 param_space={
@@ -72,7 +76,8 @@ class hgirdTuner(Base,BaseTunner,BaseEstimator):
                      'reg_lambda':sp_randint(low=0,high=1), 
                      'scale_pos_weight':sp_uniform(loc=1,scale=0), 
                      'max_delta_step':sp_uniform(loc=0,scale=0)
-                     } 
+                     }                     
+                     
               
              当Estimator=LGBMClassifier,method="h_gird": 
                  
@@ -110,7 +115,39 @@ class hgirdTuner(Base,BaseTunner,BaseEstimator):
                      'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),
                      'reg_lambda':sp_uniform(loc=0,scale=20),
                      }
-                
+                     
+             
+             当Estimator=CatBoostClassifier,method="gird": 
+            
+                 para_space={
+                     'nan_mode':['Min'],
+                     'n_estimators': [80, 100],
+                     'learning_rate': [0.03,0.05, 0.1],
+                     'max_depth': [2,3],
+                     'scale_pos_weight': [1],
+                     'subsample': [1],
+                     'colsample_bylevel': [1],
+                     'reg_lambda': [0]
+                 }
+            
+            
+             当Estimator=CatBoostClassifier,method="random_gird": 
+
+
+                 from scipy.stats import randint as sp_randint
+                 from scipy.stats import uniform as sp_uniform 
+                 
+                 para_space={         
+                     'nan_mode':['Min'],
+                     'n_estimators':sp_randint(low=100,high=110),
+                     'learning_rate':sp_uniform(loc=0.1,scale=0),                     
+                     'max_depth':sp_randint(low=2,high=4),#[0,∞],                     
+                     'scale_pos_weight':[1],
+                     'subsample':sp_uniform(loc=0.5,scale=0.5),
+                     'colsample_bylevel' :sp_uniform(loc=0.5,scale=0.5),
+                     'reg_lambda':sp_uniform(loc=0,scale=20),
+                     }
+                     
         """   
     
     Attribute:    
@@ -127,12 +164,13 @@ class hgirdTuner(Base,BaseTunner,BaseEstimator):
     '''     
     
     
-    def __init__(self,Estimator,para_space,method='h_random',scoring='auc',repeats=1,cv=5,
+    def __init__(self,Estimator,para_space,cat_features=None,method='h_random',scoring='auc',repeats=1,cv=5,
                  factor=3,n_candidates='exhaust',
                  n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
       
         self.Estimator=Estimator
         self.para_space=para_space
+        self.cat_features=cat_features
         self.method=method
         self.factor=factor
         self.n_candidates=n_candidates
@@ -159,7 +197,7 @@ class hgirdTuner(Base,BaseTunner,BaseEstimator):
         self._check_is_fitted()
         self._check_X(X)
         
-        pred = self.model_refit.predict_proba(X)[:,1]    
+        pred = self.model_refit.predict_proba(self.transform(X))[:,1]    
         
         return pred
     
@@ -173,15 +211,30 @@ class hgirdTuner(Base,BaseTunner,BaseEstimator):
         self._check_is_fitted()
         self._check_X(X)
         
-        pred = self.model_refit.predict_proba(X)[:,1]  
+        pred = self.model_refit.predict_proba(self.transform(X))[:,1]  
         pred = self._p_to_score(pred,PDO,base,ratio)
         
         return pred
     
     
     def transform(self,X,y=None):   
+
+        self._check_is_fitted()
+        self._check_X(X)
+        
+        if self.Estimator is CatBoostClassifier:
+            
+            out=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X
+            
+        elif self.Estimator is LGBMClassifier:
+        
+            out=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
+            
+        else:
+            
+            out=X        
          
-        return self
+        return out
           
     def fit(self,X,y):
         '''
@@ -193,6 +246,18 @@ class hgirdTuner(Base,BaseTunner,BaseEstimator):
         '''   
         
         self._check_data(X, y)
+        
+        if self.Estimator is CatBoostClassifier:
+            
+            X=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X
+            
+        elif self.Estimator is LGBMClassifier:
+        
+            X=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
+            
+        else:
+            
+            X=X   
 
         if self.method=='h_gird':
             
@@ -221,9 +286,10 @@ class hgirdTuner(Base,BaseTunner,BaseEstimator):
                                                       n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
             
         else:
-            raise ValueError('method should be "h_random" or "h_gird".')
             
-        #交叉验证结果保存             
+            raise ValueError('method should be "h_random" or "h_gird".')
+                       
+        self._is_fitted=True
         
         return self    
     
@@ -243,17 +309,24 @@ class hgirdTuner(Base,BaseTunner,BaseEstimator):
         
         n_jobs=effective_n_jobs(self.n_jobs) 
         
-        hgird=HalvingGridSearchCV(self.Estimator(random_state=self.random_state),
+        hgird=HalvingGridSearchCV(self.Estimator(random_state=self.random_state,verbose=0),
                                   param_grid=self.para_space,
                                   cv=cv,
                                   refit=True,
                                   factor=self.factor,
                                   scoring=scorer,
+                                  random_state=self.random_state,
                                   verbose=self.verbose,
                                   n_jobs=n_jobs)
         
-        self.h_gird_res=hgird.fit(X,y,sample_weight=self.sample_weight)
+        if self.Estimator is CatBoostClassifier:
         
+            self.h_gird_res=hgird.fit(X,y,sample_weight=self.sample_weight,cat_features=self.cat_features)
+            
+        else:
+            
+            self.h_gird_res=hgird.fit(X,y,sample_weight=self.sample_weight)
+           
         return self
         
         
@@ -274,7 +347,7 @@ class hgirdTuner(Base,BaseTunner,BaseEstimator):
         
         n_jobs=effective_n_jobs(self.n_jobs) 
         
-        h_r_gird=HalvingRandomSearchCV(self.Estimator(random_state=self.random_state),
+        h_r_gird=HalvingRandomSearchCV(self.Estimator(random_state=self.random_state,verbose=0),
                                      param_distributions=self.para_space,
                                      n_candidates=self.n_candidates,
                                      factor=self.factor,
@@ -286,7 +359,13 @@ class hgirdTuner(Base,BaseTunner,BaseEstimator):
                                      scoring=scorer,
                                      error_score=0)
         
-        self.h_random_res=h_r_gird.fit(X,y,sample_weight=self.sample_weight)
+        if self.Estimator is CatBoostClassifier:
+        
+            self.h_random_res=h_r_gird.fit(X,y,sample_weight=self.sample_weight,cat_features=self.cat_features)
+            
+        else:
+            
+            self.h_random_res=h_r_gird.fit(X,y,sample_weight=self.sample_weight)       
         
         return self
     

@@ -65,6 +65,7 @@ setup(
                       'plotnine>=0.8.0',
                       'scikit-learn>=1.0',
                       'xgboost>=1.4.2',
+                      'catboost>=1.0.4'
                       'scipy>=1.5.0',
                       'category_encoders>=2.3.0',
                       'lightgbm>=3.3.0', 

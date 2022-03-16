@@ -9,6 +9,12 @@ import warnings
 
 class BaseTunner:
     
+    def _check_params_dup(self,para_space,fixed_params):
+        
+        if len(set(para_space.keys()) & set(fixed_params.keys())) > 0:
+            
+            raise ValueError('duplicated params found in fixed_params and para_space')
+    
     
     @property
     def _get_scorer(self):

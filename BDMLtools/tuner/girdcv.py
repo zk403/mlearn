@@ -12,8 +12,9 @@ from sklearn.model_selection import RepeatedStratifiedKFold
 from sklearn.calibration import CalibratedClassifierCV
 from BDMLtools.base import Base
 from BDMLtools.tuner.base import BaseTunner
-import pandas as pd
 from joblib import effective_n_jobs
+from lightgbm.sklearn import LGBMClassifier
+from catboost.core import CatBoostClassifier
 
 class girdTuner(Base,BaseTunner,BaseEstimator):
     
@@ -21,8 +22,9 @@ class girdTuner(Base,BaseTunner,BaseEstimator):
     Xgb与Lgbm的网格搜索与随机搜索
     Parameters:
     --
-        Estimator:拟合器,XGBClassifier或LGBMClassifier
+        Estimator:拟合器,XGBClassifier、LGBMClassifier或CatBoostClassifier
         method:str,可选"gird"或"random_gird"
+        cat_features:list or None,分类特征名,仅当Estimator为LGBMClassifier或CatBoostClassifier时启用
         para_space:dict,参数空间,注意随机搜索与网格搜索对应不同的dict结构,参数空间写法见后                        
         n_iter:随机网格搜索迭代次数,当method="gird"时该参数会被忽略
         scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
@@ -110,6 +112,36 @@ class girdTuner(Base,BaseTunner,BaseEstimator):
                      'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),
                      'reg_lambda':sp_uniform(loc=0,scale=20),
                      }
+                     
+            当Estimator=CatBoostClassifier,method="gird": 
+            
+                    para_space={
+                     'nan_mode':['Min'],
+                     'n_estimators': [80, 100],
+                     'learning_rate': [0.03,0.05, 0.1],
+                     'max_depth': [2,3],
+                     'scale_pos_weight': [1],
+                     'subsample': [1],
+                     'colsample_bylevel': [1],
+                     'reg_lambda': [0]}
+            
+            
+            当Estimator=CatBoostClassifier,method="random_gird": 
+
+
+                 from scipy.stats import randint as sp_randint
+                 from scipy.stats import uniform as sp_uniform 
+                 
+                 para_space={         
+                     'nan_mode':['Min'],
+                     'n_estimators':sp_randint(low=100,high=110),
+                     'learning_rate':sp_uniform(loc=0.1,scale=0),                     
+                     'max_depth':sp_randint(low=2,high=4),#[0,∞],                     
+                     'scale_pos_weight':[1],
+                     'subsample':sp_uniform(loc=0.5,scale=0.5),
+                     'colsample_bylevel' :sp_uniform(loc=0.5,scale=0.5),
+                     'reg_lambda':sp_uniform(loc=0,scale=20),
+                     }
                 
         """   
     
@@ -127,11 +159,12 @@ class girdTuner(Base,BaseTunner,BaseEstimator):
     '''    
     
     
-    def __init__(self,Estimator,para_space,method='random_gird',n_iter=10,scoring='auc',repeats=1,cv=5,
+    def __init__(self,Estimator,para_space,cat_features=None,method='random_gird',n_iter=10,scoring='auc',repeats=1,cv=5,
                  n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
        
         self.Estimator=Estimator
         self.para_space=para_space
+        self.cat_features=cat_features
         self.method=method
         self.n_iter=n_iter
         self.scoring=scoring
@@ -157,7 +190,7 @@ class girdTuner(Base,BaseTunner,BaseEstimator):
         self._check_is_fitted()
         self._check_X(X)
         
-        pred = self.model_refit.predict_proba(X)[:,1]        
+        pred = self.model_refit.predict_proba(self.transform(X))[:,1]        
         return pred
     
     def predict_score(self,X,y=None,PDO=75,base=660,ratio=1/15):
@@ -170,14 +203,29 @@ class girdTuner(Base,BaseTunner,BaseEstimator):
         self._check_is_fitted()
         self._check_X(X)
         
-        pred = self.model_refit.predict_proba(X)[:,1]  
+        pred = self.model_refit.predict_proba(self.transform(X))[:,1]  
         pred = self._p_to_score(pred,PDO,base,ratio)
         
         return pred
     
-    def transform(self,X,y=None):   
-         
-        return self
+    def transform(self,X,y=None):  
+        
+        self._check_is_fitted()
+        self._check_X(X)
+        
+        if self.Estimator is CatBoostClassifier:
+            
+            out=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X
+            
+        elif self.Estimator is LGBMClassifier:
+        
+            out=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
+            
+        else:
+            
+            out=X
+
+        return out
           
     def fit(self,X,y):
         '''
@@ -188,14 +236,24 @@ class girdTuner(Base,BaseTunner,BaseEstimator):
         y:目标变量,pd.Series对象
         '''   
         
-        self._check_data(X, y)        
+        self._check_data(X, y)     
+
+        if self.Estimator is CatBoostClassifier:
+            
+            X=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X
+            
+        elif self.Estimator is LGBMClassifier:
         
-        self.X=X
-        self.y=y
+            X=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
+            
+        else:
+            
+            X=X   
+
         
         if self.method=='gird':
             
-            self._gird_search()
+            self._gird_search(X,y,self.sample_weight)
             #输出最优参数组合
             self.params_best=self.gird_res.best_params_
             self.cv_result=self._cvresult_to_df(self.gird_res.cv_results_)
@@ -208,7 +266,7 @@ class girdTuner(Base,BaseTunner,BaseEstimator):
         
         elif self.method=='random_gird':
             
-            self._random_search()
+            self._random_search(X,y,self.sample_weight)
             #输出最优参数组合
             self.params_best=self.r_gird_res.best_params_
             self.cv_result=self._cvresult_to_df(self.r_gird_res.cv_results_)
@@ -220,13 +278,16 @@ class girdTuner(Base,BaseTunner,BaseEstimator):
                                                      n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
             
         else:
+            
             raise ValueError('method should be "gird" or "random_gird".')
+            
+        self._is_fitted=True
             
         #交叉验证结果保存             
         
         return self    
     
-    def _gird_search(self):          
+    def _gird_search(self,X,y,sample_weight):          
         '''
         网格搜索
         '''  
@@ -242,18 +303,24 @@ class girdTuner(Base,BaseTunner,BaseEstimator):
         
         n_jobs=effective_n_jobs(self.n_jobs)              
         
-        gird=GridSearchCV(self.Estimator(random_state=self.random_state),self.para_space,cv=cv,
+        gird=GridSearchCV(self.Estimator(random_state=self.random_state,verbose=0),self.para_space,cv=cv,
                           n_jobs=n_jobs,
                           refit=True,
                           verbose=self.verbose,
                           scoring=scorer,error_score=0)    
         
-        self.gird_res=gird.fit(self.X,self.y,sample_weight=self.sample_weight)
+        if self.Estimator is CatBoostClassifier:
+        
+            self.gird_res=gird.fit(X,y,sample_weight=sample_weight,cat_features=self.cat_features)
+            
+        else:
+            
+            self.gird_res=gird.fit(X,y,sample_weight=sample_weight)
         
         return self
         
         
-    def _random_search(self):          
+    def _random_search(self,X,y,sample_weight):          
         '''
         随机网格搜索
         '''         
@@ -270,18 +337,17 @@ class girdTuner(Base,BaseTunner,BaseEstimator):
         
         n_jobs=effective_n_jobs(self.n_jobs) 
         
-        r_gird=RandomizedSearchCV(self.Estimator(random_state=self.random_state),self.para_space,cv=cv,
+        r_gird=RandomizedSearchCV(self.Estimator(random_state=self.random_state,verbose=0),self.para_space,cv=cv,
                                   n_jobs=n_jobs,verbose=self.verbose,refit=True,
                                   random_state=self.random_state,
                                   scoring=scorer,error_score=0,n_iter=self.n_iter)
         
-        self.r_gird_res=r_gird.fit(self.X,self.y,sample_weight=self.sample_weight)
+        if self.Estimator is CatBoostClassifier:
         
-        return self
-
+            self.r_gird_res=r_gird.fit(X,y,sample_weight=sample_weight,cat_features=self.cat_features)
+            
+        else:
+            
+            self.r_gird_res=r_gird.fit(X,y,sample_weight=sample_weight)
         
-        
-        
-        
-    
-    
+        return self   
