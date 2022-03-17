@@ -46,6 +46,7 @@ BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数�
 
 
 + 机器学习-分类算法
+
     - BDMLtools.girdTuner:网格优化与随机优化的xgb或lgbm
     - BDMLtools.BayesianXGBTuner:贝叶斯优化的xgboost
     - BDMLtools.BayesianLgbmTuner:贝叶斯优化的lightgbm
