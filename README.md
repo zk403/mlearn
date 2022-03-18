@@ -47,10 +47,10 @@ BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数�
 
 + 机器学习-分类算法
 
-    - BDMLtools.girdTuner:网格优化与随机优化的xgb或lgbm
+    - BDMLtools.gridTuner:网格优化与随机优化的xgb或lgbm
     - BDMLtools.BayesianXGBTuner:贝叶斯优化的xgboost
     - BDMLtools.BayesianLgbmTuner:贝叶斯优化的lightgbm
-    - BDMLtools.hgirdTuner:scucessive halving优化的xgb或lgbm
+    - BDMLtools.hgridTuner:scucessive halving优化的xgb或lgbm
 
 + 机器学习-异常发现算法
     - 待补充
@@ -92,11 +92,12 @@ pip uninstall BDMLtools
 ```
 v0.2.1
 1.在网格参数优化、减半参数优化、贝叶斯优化中加入对Catboost的支持
-2.优化贝叶斯优化代码使之能够支持设定随机数实现模型复现
-3.优化贝叶斯优化代码使之能够支持更多参数选择，并加入固定参数
-4.LgbmRFESelector更名为LgbmRFECVSelector
-5.修复了减半参数优化中模型无法通过随机数复现的bug
-6.相关文档维护
+2.在网格参数优化、减半参数优化、贝叶斯优化中加入early_stopping参数
+3.优化贝叶斯优化代码使之能够支持设定随机数实现模型复现
+4.优化贝叶斯优化代码使之能够支持更多参数选择，并加入固定参数
+5.LgbmRFESelector更名为LgbmRFECVSelector
+6.修复了减半参数优化中模型无法通过随机数复现的bug
+7.相关文档维护
 ```
 
 ```

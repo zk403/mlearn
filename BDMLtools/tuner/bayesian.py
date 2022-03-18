@@ -13,11 +13,13 @@ from xgboost.sklearn import XGBClassifier
 from bayes_opt import BayesianOptimization
 from sklearn.calibration import CalibratedClassifierCV
 from catboost import CatBoostClassifier
-from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.model_selection import RepeatedStratifiedKFold,train_test_split
+from lightgbm import early_stopping as lgbm_early_stopping
 #from time import time
 import pandas as pd
 from joblib import effective_n_jobs
 import numpy as np
+
 
 
 class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
@@ -33,7 +35,8 @@ class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
         scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
         cv:int,R epeatedStratifiedKFold交叉验证的折数
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
-        refit:bool,最优参数下是否重新在全量数据上拟合模型，默认True
+        early_stopping_rounds:None or int,若early_stopping_rounds非None时,将通过early_stopping最终控制迭代次数
+        validation_fraction:float,[0-1],若refit=True且early_stopping_rounds非None时,训练数据中相应比例的数据会被单独作为验证数据作为early_stopping依据,其不参与训练。默认0.1
         n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
         verbose,int,并行信息输出等级
         random_state,随机种子
@@ -67,8 +70,8 @@ class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
     '''     
     
     
-    def __init__(self,para_space,fixed_params={'booster':'gbtree','sampling_method':'uniform','tree_method':'auto','use_label_encoder':False,'verbosity':0},n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,
-                 n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
+    def __init__(self,para_space,fixed_params={'booster':'gbtree','sampling_method':'uniform','tree_method':'auto','use_label_encoder':False,'verbosity':0},n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,
+                early_stopping_rounds=None,validation_fraction=0.1,n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
        
         self.para_space=para_space
         self.fixed_params=fixed_params
@@ -77,7 +80,8 @@ class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
         self.scoring=scoring
         self.cv=cv
         self.repeats=repeats
-        self.refit=refit
+        self.early_stopping_rounds=early_stopping_rounds
+        self.validation_fraction=validation_fraction
         self.n_jobs=n_jobs
         self.verbose=verbose 
         self.random_state=random_state
@@ -134,32 +138,44 @@ class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
         self._check_data(X, y)        
         self._check_params_dup(self.para_space,self.fixed_params)
         
-        self.X=X
-        self.y=y
+        if self.early_stopping_rounds:
+            
+            self.X, X_val, self.y, y_val = train_test_split(X,y,test_size=self.validation_fraction,random_state=self.random_state,stratify=y)
+            
+        else:
+
+            self.X=X
+            self.y=y
         
         self.Optimize = BayesianOptimization(self._XGB_CV,self.para_space,random_state=self.random_state)
         self.Optimize.maximize(n_iter=self.n_iter,init_points=self.init_points)
         
         #输出最优参数组合
-        params_best=self.Optimize.max['params'].copy()
+        params_best=self.Optimize.max['params']
         self.params_best=dict({para:int(params_best[para]) for para in params_best if para in self.int_params},
                               **{para:params_best[para] for para in params_best if para not in self.int_params})  
         
         #交叉验证结果保存
-        self.cv_result=self._cvresult_to_df()
+        self.cv_result=self._cvresult_to_df()        
         
-        #refit
-        if self.refit:
+
+        #refit            
+        if self.early_stopping_rounds:
+
+            self.model_refit = XGBClassifier(seed=self.random_state,**self.fixed_params,**self.params_best).fit(X,y,sample_weight=self.sample_weight,eval_set=[(X_val,y_val)],early_stopping_rounds=self.early_stopping_rounds)    
             
-            self.model_refit = XGBClassifier(seed=self.random_state,**self.fixed_params,**self.params_best).fit(X,y,sample_weight=self.sample_weight)      
-            
-            self.model_refit1=self.model_refit
-            
-            if self.calibration:
-                
-                self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
-                                                      n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
+            self.params_best['best_iteration']=self.model_refit.best_iteration
+
+        else:
+
+            self.model_refit = XGBClassifier(seed=self.random_state,**self.fixed_params,**self.params_best).fit(X,y,sample_weight=self.sample_weight)
+
         
+        if self.calibration:
+            
+            self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
+                                                  n_jobs=self.n_jobs).fit(X,y,sample_weight=self.sample_weight)
+    
         self._is_fitted=True
         
         return self
@@ -210,8 +226,8 @@ class BayesianXGBTuner(Base,BaseTunner,BaseEstimator):
             ParaDf_all[para]=self.fixed_params[para]           
 
         return ParaDf_all
-    
 
+    
 class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
     
     '''
@@ -226,7 +242,6 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
         scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
         cv:int,RepeatedStratifiedKFold交叉验证的折数
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
-        refit:bool,最优参数下是否重新在全量数据上拟合模型，默认True  
         n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
         verbose,int,并行信息输出等级
         random_state,随机种子
@@ -237,7 +252,6 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
         """参数空间写法        
     
         para_space={
-                 'boosting_type':'gbdt', 
                  'n_estimators':(30,120),
                  'learning_rate':(0.05,0.2), 
                 
@@ -264,8 +278,8 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
 
     '''    
     
-    def __init__(self,para_space,fixed_params={'boosting_type':'gbdt','objective':'binary'},cat_features=None,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,
-                 n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
+    def __init__(self,para_space,fixed_params={'boosting_type':'gbdt','objective':'binary'},cat_features=None,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,
+                 n_jobs=-1,verbose=0,early_stopping_rounds=0.1,validation_fraction=0.1,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
         
         self.para_space=para_space
         self.fixed_params=fixed_params
@@ -275,7 +289,8 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
         self.scoring=scoring
         self.cv=cv
         self.repeats=repeats
-        self.refit=refit
+        self.early_stopping_rounds=early_stopping_rounds
+        self.validation_fraction=validation_fraction
         self.n_jobs=n_jobs
         self.verbose=verbose
         self.random_state=random_state
@@ -336,31 +351,47 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
         np.seterr('ignore')
         
         self._check_data(X, y)
-        self._check_params_dup(self.para_space,self.fixed_params)
+        #self._check_params_dup(self.para_space,self.fixed_params)
         
-        self.X=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X 
-        self.y=y                  
- 
+        X_1=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X   
+        
+        if self.early_stopping_rounds:
+            
+            self.X, X_val, self.y, y_val = train_test_split(X_1,y,test_size=self.validation_fraction,random_state=self.random_state,stratify=y)
+            
+        else:
+
+            self.X=X
+            self.y=y
+
         self.Optimize = BayesianOptimization(self._LGBM_CV,self.para_space,random_state=self.random_state)
         self.Optimize.maximize(n_iter=self.n_iter,init_points=self.init_points)
         
         #输出最优参数组合
-        params_best=self.Optimize.max['params'].copy()
+        params_best=self.Optimize.max['params']
         self.params_best=dict({para:int(params_best[para]) for para in params_best if para in self.int_params},
                               **{para:params_best[para] for para in params_best if para not in self.int_params})    
         
         #交叉验证结果保存
         self.cv_result=self._cvresult_to_df()
         
-        if self.refit:
+        #refit  
+        if self.early_stopping_rounds:
 
-            self.model_refit = sLGBMClassifier(**self.fixed_params,**self.params_best).fit(self.X,self.y,self.sample_weight)      
+            self.model_refit = sLGBMClassifier(seed=self.random_state,**self.fixed_params,**self.params_best).fit(self.X,self.y,sample_weight=self.sample_weight,eval_set=[(X_val,y_val)],
+                                                                                                                  callbacks=[lgbm_early_stopping(self.early_stopping_rounds)])                                  
+            self.params_best['best_iteration_']=self.model_refit.best_iteration_
+            
+        else:
+            
+            self.model_refit = sLGBMClassifier(seed=self.random_state,**self.fixed_params,**self.params_best).fit(self.X,self.y,sample_weight=self.sample_weight)
+            
 
-            if self.calibration:
-                
-                self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
-                                                      n_jobs=self.n_jobs).fit(self.X,self.y,sample_weight=self.sample_weight)
-                
+        if self.calibration:
+
+            self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
+                                                  n_jobs=self.n_jobs).fit(self.X,self.y,sample_weight=self.sample_weight)
+
         self._is_fitted=True
         
         return self
@@ -387,8 +418,7 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
             sLGBMClassifier(seed=self.random_state,**self.fixed_params),para_space,cv=cv,
             n_jobs=n_jobs,verbose=self.verbose,
             scoring=scorer,error_score=0).fit(self.X,self.y,sample_weight=self.sample_weight)
-        
-        #print(cv_res.cv_results_['mean_test_score'])
+
         val_score = cv_res.cv_results_['mean_test_score'][0]
         
         print(' Stopped after %d iterations with val-%s = %f' % (int(params['n_estimators']),self.scoring,val_score))
@@ -412,7 +442,7 @@ class BayesianLgbmTuner(Base,BaseTunner,BaseEstimator):
             ParaDf_all[para]=self.fixed_params[para]            
         
         return ParaDf_all    
-    
+
     
     
 class BayesianCBTuner(Base,BaseTunner,BaseEstimator):
@@ -428,8 +458,7 @@ class BayesianCBTuner(Base,BaseTunner,BaseEstimator):
         init_points:int,贝叶斯优化起始搜索点的个数
         scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
         cv:int,RepeatedStratifiedKFold交叉验证的折数
-        repeats:int,RepeatedStratifiedKFold交叉验证重复次数
-        refit:bool,最优参数下是否重新在全量数据上拟合模型，默认True  
+        repeats:int,RepeatedStratifiedKFold交叉验证重复次数 
         n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
         verbose,int,并行信息输出等级
         random_state,随机种子
@@ -444,7 +473,7 @@ class BayesianCBTuner(Base,BaseTunner,BaseEstimator):
                      'max_depth': (3, 10),
                      'scale_pos_weight': (1,1),
                      'subsample': (0.5, 1),
-                     'colsample_bytree': (0.5, 1),
+                     'colsample_bylevel': (0.5, 1),
                      'reg_lambda': (0, 10)}
         
          """   
@@ -458,11 +487,11 @@ class BayesianCBTuner(Base,BaseTunner,BaseEstimator):
     Examples
     --
 
-    '''    
-    
+    '''        
 
     def __init__(self,para_space,fixed_params={'verbose':0,'nan_mode':'Min','loss_function':'Logloss'},
-                 cat_features=None,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,refit=True,
+                 cat_features=None,n_iter=10,init_points=5,scoring='auc',cv=5,repeats=1,early_stopping_rounds=0.1,
+                 validation_fraction=0.1,
                  n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
         
         self.para_space=para_space
@@ -473,13 +502,16 @@ class BayesianCBTuner(Base,BaseTunner,BaseEstimator):
         self.scoring=scoring
         self.cv=cv
         self.repeats=repeats
-        self.refit=refit
+        self.early_stopping_rounds=early_stopping_rounds
+        self.validation_fraction=validation_fraction
         self.n_jobs=n_jobs
         self.verbose=verbose
         self.random_state=random_state
         self.sample_weight=sample_weight
         self.calibration=calibration
         self.cv_calibration=cv_calibration
+        
+        print(self.n_jobs)
         
         self._is_fitted=False
         self.int_params=['n_estimators','iterations','max_depth','depth','min_data_in_leaf','max_leaves','border_count','min_child_samples']
@@ -532,11 +564,21 @@ class BayesianCBTuner(Base,BaseTunner,BaseEstimator):
         np.seterr('ignore')
         
         self._check_data(X, y)
-        self._check_params_dup(self.para_space,self.fixed_params)
+        #self._check_params_dup(self.para_space,self.fixed_params)
 
-        self.X=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X 
-        self.y=y                  
-          
+        X_1=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X 
+        
+        if self.early_stopping_rounds:
+            
+            print(self.validation_fraction)
+            
+            self.X, X_val, self.y, y_val = train_test_split(X_1,y,test_size=self.validation_fraction,random_state=self.random_state,stratify=y)
+            
+        else:
+
+            self.X=X
+            self.y=y                                
+        
         self.Optimize = BayesianOptimization(self._CB_CV,self.para_space,random_state=self.random_state)
         self.Optimize.maximize(n_iter=self.n_iter,init_points=self.init_points)
         
@@ -548,14 +590,22 @@ class BayesianCBTuner(Base,BaseTunner,BaseEstimator):
         #交叉验证结果保存
         self.cv_result=self._cvresult_to_df()
         
-        if self.refit:
-
-            self.model_refit = CatBoostClassifier(**self.fixed_params,**self.params_best).fit(self.X,self.y,sample_weight=self.sample_weight,cat_features=self.cat_features)
+        
+        if self.early_stopping_rounds:
             
-            if self.calibration:
+            self.model_refit = CatBoostClassifier(random_state=self.random_state,**self.fixed_params,**self.params_best).fit(self.X,self.y,sample_weight=self.sample_weight,eval_set=[(X_val,y_val)],
+                                                                                                                  early_stopping_rounds=self.early_stopping_rounds)                                  
+            self.params_best['best_iteration_']=self.model_refit.best_iteration_
+           
+            
+        else:
+            
+            self.model_refit = CatBoostClassifier(random_state=self.random_state,**self.fixed_params,**self.params_best).fit(self.X,self.y,sample_weight=self.sample_weight,cat_features=self.cat_features)
+            
+        if self.calibration:
                 
-                self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
-                                                      n_jobs=self.n_jobs).fit(self.X,self.y,sample_weight=self.sample_weight)
+            self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
+                                                    n_jobs=self.n_jobs).fit(self.X,self.y,sample_weight=self.sample_weight)
                 
         self._is_fitted=True
         

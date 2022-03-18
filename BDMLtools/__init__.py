@@ -12,7 +12,7 @@ from BDMLtools.selector import lassoSelector
 from BDMLtools.plotter import BaseWoePlotter
 from BDMLtools.plotter import perfEval
 from BDMLtools.encoder import woeTransformer
-from BDMLtools.tuner import girdTuner,hgirdTuner
+from BDMLtools.tuner import gridTuner,hgridTuner
 from BDMLtools.tuner import BayesianXGBTuner,BayesianLgbmTuner,shapCheck
 
 
@@ -46,8 +46,8 @@ __all__ = (
     LgbmRFECVSelector,
     LgbmSeqSelector,
     woeTransformer,
-    girdTuner,
-    hgirdTuner,
+    gridTuner,
+    hgridTuner,
     BayesianXGBTuner,
     BayesianLgbmTuner,
     perfEval,

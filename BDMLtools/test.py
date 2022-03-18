@@ -16,7 +16,7 @@ from BDMLtools.selector import preSelector,prefitModel
 from BDMLtools.selector import lassoSelector,LgbmRFECVSelector,LgbmSeqSelector
 from BDMLtools.plotter import  perfEval
 from BDMLtools.encoder import woeTransformer
-from BDMLtools.tuner import girdTuner,hgirdTuner
+from BDMLtools.tuner import gridTuner,hgridTuner
 from BDMLtools.tuner import BayesianXGBTuner,BayesianLgbmTuner,shapCheck
 import scorecardpy as sc
 from sklearn.linear_model import LogisticRegression 
@@ -645,8 +645,8 @@ class test:
                          'reg_lambda':(0,10), 
                          }).fit(dt_woe_bm,y)
         
-        #Gird based tunner
-        girdTuner(XGBClassifier,para_space={
+        #Grid based tunner
+        gridTuner(XGBClassifier,para_space={
                              'n_estimators':[100],
                              'learning_rate':[0.1],
                             
@@ -659,7 +659,7 @@ class test:
                              'reg_lambda':[0,10], 
                              'scale_pos_weight':[1,10],
                              'max_delta_step':[0]
-                             },method='gird'           
+                             },method='grid'           
             ).fit(dt_woe_bm,y)
         
         
@@ -667,7 +667,7 @@ class test:
         from scipy.stats import uniform as sp_uniform 
         from BDMLtools.tuner.base import sLGBMClassifier
         
-        girdTuner(XGBClassifier,para_space={
+        gridTuner(XGBClassifier,para_space={
                   'n_estimators':sp_randint(low=60,high=120),#迭代次数
                   'learning_rate':sp_uniform(loc=0.05,scale=0.15), #学习率
                  
@@ -681,11 +681,11 @@ class test:
                   'reg_lambda':sp_randint(low=0,high=1), 
                   'scale_pos_weight':sp_uniform(loc=1,scale=0), 
                   'max_delta_step':sp_uniform(loc=0,scale=0)
-                  } ,method='random_gird'           
+                  } ,method='random_grid'           
             ).fit(dt_woe_bm,y)        
         
         
-        girdTuner(sLGBMClassifier,para_space={
+        gridTuner(sLGBMClassifier,para_space={
                      'boosting_type':['gbdt','goss'], 
                      'n_estimators':[100],
                      'learning_rate':[0.1], 
@@ -698,11 +698,11 @@ class test:
                      'subsample':[0.6,0.8],
                      'colsample_bytree' :[0.6,0.8],
                      'reg_lambda':[0,10], 
-                             },method='gird'           
+                             },method='grid'           
             ).fit(dt_woe_bm,y)
 
         
-        girdTuner(sLGBMClassifier,para_space={
+        gridTuner(sLGBMClassifier,para_space={
                      'boosting_type':['gbdt','goss'], #'goss','gbdt'
                      'n_estimators':sp_randint(low=100,high=110),
                      'learning_rate':sp_uniform(loc=0.1,scale=0), 
@@ -716,11 +716,11 @@ class test:
                      'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),
                      'reg_lambda':sp_uniform(loc=0,scale=20),
 
-                  } ,method='random_gird'           
+                  } ,method='random_grid'           
             ).fit(dt_woe_bm,y)        
         
         #Halving based tunner
-        hgirdTuner(XGBClassifier,para_space={
+        hgridTuner(XGBClassifier,para_space={
                              'n_estimators':[100],
                              'learning_rate':[0.1],
                             
@@ -733,11 +733,11 @@ class test:
                              'reg_lambda':[0,10], 
                              'scale_pos_weight':[1,10],
                              'max_delta_step':[0]
-                             },method='h_gird'           
+                             },method='h_grid'           
             ).fit(dt_woe_bm,y)
         
         
-        hgirdTuner(XGBClassifier,para_space={
+        hgridTuner(XGBClassifier,para_space={
                   'n_estimators':sp_randint(low=60,high=120),#迭代次数
                   'learning_rate':sp_uniform(loc=0.05,scale=0.15), #学习率
                  
@@ -755,7 +755,7 @@ class test:
             ).fit(dt_woe_bm,y)   
         
         
-        hgirdTuner(sLGBMClassifier,para_space={
+        hgridTuner(sLGBMClassifier,para_space={
                      'boosting_type':['gbdt','goss'], 
                      'n_estimators':[100],
                      'learning_rate':[0.1], 
@@ -768,11 +768,11 @@ class test:
                      'subsample':[0.6,0.8],
                      'colsample_bytree' :[0.6,0.8],
                      'reg_lambda':[0,10], 
-                             },method='h_gird'           
+                             },method='h_grid'           
             ).fit(dt_woe_bm,y)
 
         
-        hgirdTuner(sLGBMClassifier,para_space={
+        hgridTuner(sLGBMClassifier,para_space={
                      'boosting_type':['gbdt','goss'], #'goss','gbdt'
                      'n_estimators':sp_randint(low=100,high=110),
                      'learning_rate':sp_uniform(loc=0.1,scale=0), 
@@ -790,7 +790,7 @@ class test:
             ).fit(dt_woe_bm,y)        
 
         
-        hgirdTuner(CatBoostClassifier,
+        hgridTuner(CatBoostClassifier,
                          para_space={
                              'nan_mode':['Min'],
                              'n_estimators': [80, 100],
@@ -800,11 +800,11 @@ class test:
                              'subsample': [1],
                              'colsample_bylevel': [1],
                              'reg_lambda': [0]
-                         } ,method='h_gird'           
+                         } ,method='h_grid'           
             ).fit(dt_woe_bm,y)                
         
         
-        hgirdTuner(CatBoostClassifier,para_space={         
+        hgridTuner(CatBoostClassifier,para_space={         
                              'nan_mode':['Min'],
                              'n_estimators':sp_randint(low=100,high=110),
                              'learning_rate':sp_uniform(loc=0.1,scale=0),                     
