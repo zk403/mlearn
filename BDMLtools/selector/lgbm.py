@@ -228,16 +228,16 @@ class LgbmSeqSelector(Base,BaseTunner):
         
         lgbm=LGBMClassifier(**self.clf_params)
         
-        rfe_clf = SequentialFeatureSelector(lgbm,
+        seq_clf = SequentialFeatureSelector(lgbm,
                         n_features_to_select=self.n_features_to_select,
                         direction=self.direction,
                         n_jobs=n_jobs,cv=cv,scoring=scorer)
         
-        rfe_clf.fit(X, y)
+        seq_clf.fit(X, y)
         
-        self.keep_cols=rfe_clf.feature_names_in_[rfe_clf.get_support()].tolist()
+        self.keep_cols=seq_clf.feature_names_in_[seq_clf.get_support()].tolist()
         
-        self.clf=rfe_clf
+        self.clf=seq_clf
              
         self._is_fitted=True
     
