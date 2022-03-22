@@ -103,20 +103,15 @@ class test:
         
         
         dtypes_dict={
-            'num':['age.in.years',
-                 'credit.amount',
-                 'creditability',
-                 'duration.in.month',
+            'float':[                 
                  'installment.rate.in.percentage.of.disposable.income',
                  'number.of.existing.credits.at.this.bank',
                  'number.of.people.being.liable.to.provide.maintenance.for',
                  'present.residence.since',
                  'floattest',
-                 'booltest',
-                 ],
-            'str':[
-                   #'housing',
-                   #'telephone',
+                 ],            
+            'int':['age.in.years','creditability','duration.in.month','booltest'],
+            'str':['credit.amount',
                    'foreign.worker','purpose','job','personal.status.and.sex','property',
                    'credit.history','savings.account.and.bonds','present.employment.since',
                    'status.of.existing.checking.account',
@@ -125,11 +120,10 @@ class test:
             'tdiff':['datediff']
         }
         
-        da=dtypeAllocator(dtypes_dict=dtypes_dict,col_rm=['housing','telephone'],t_unit='1 D',dtype_num='float64',
+        da=dtypeAllocator(dtypes_dict=dtypes_dict,col_rm=['housing','telephone'],t_unit='1 D',dtype_num='64',
                                                           drop_date=False,precision=3).fit(dt)
         dt_1=da.transform(dt)
         
-       
 
         if not np.equal(dt_1[['housing','telephone']].dtypes,['category','category']).all():
             
@@ -145,17 +139,14 @@ class test:
             
 
         dtypes_dict={
-            'num':['age.in.years',
-                 'credit.amount',
-                 'creditability',
-                 'duration.in.month',
+            'float':[                 
                  'installment.rate.in.percentage.of.disposable.income',
                  'number.of.existing.credits.at.this.bank',
                  'number.of.people.being.liable.to.provide.maintenance.for',
                  'present.residence.since',
                  'floattest',
-                 'booltest',
-                 ],
+                 ],            
+            'int':['age.in.years','creditability','duration.in.month','booltest'],
             'str':[
                    'housing',
                    'telephone',
@@ -167,7 +158,7 @@ class test:
             'tdiff':['datediff']
         }
         
-        da=dtypeAllocator(dtypes_dict=dtypes_dict,col_rm=None,t_unit='15 D',dtype_num='float64',
+        da=dtypeAllocator(dtypes_dict=dtypes_dict,col_rm=None,t_unit='15 D',dtype_num='64',
                                                           drop_date=True,precision=3).fit(dt)
         dt_1=da.transform(dt)
 
@@ -175,32 +166,29 @@ class test:
             
             raise ValueError('param drop_date in dtypeAllocator error')
             
-        if not np.equal(dt_1.dtypes.unique(),[np.dtype('float64'),np.dtype('O')]).all():
+        if not np.equal(dt_1.dtypes.unique(),[np.dtype('int64'),np.dtype('float64'),np.dtype('O')]).all():
 
-            raise ValueError('dtypes of out contain unknown type')
+            raise ValueError('dtypes of out contain unknown type')                        
             
-            
-            
-            
-        da=dtypeAllocator(dtypes_dict={},col_rm=None,t_unit='1 D',dtype_num='float64',
+        da=dtypeAllocator(dtypes_dict={},col_rm=None,t_unit='1 D',dtype_num='64',
                                                           drop_date=True,precision=3).fit(dt)
         dt_1=da.transform(dt)  
 
-        if not np.equal(dt_1.dtypes.unique(),[np.dtype('float64'),np.dtype('O')]).all():
+        if not np.equal(dt_1.dtypes.unique(),[np.dtype('int64'),np.dtype('float64'),np.dtype('O')]).all():
 
             raise ValueError('dtypes of out contain unknown type')             
             
             
-        da=dtypeAllocator(dtypes_dict={},col_rm=None,t_unit='1 D',dtype_num='float32',
+        da=dtypeAllocator(dtypes_dict={},col_rm=None,t_unit='1 D',dtype_num='32',
                                                           drop_date=True,precision=3).fit(dt)
         dt_1=da.transform(dt)  
 
-        if not np.equal(dt_1.dtypes.unique(),[np.dtype('float32'),np.dtype('O')]).all():
+        if not np.equal(dt_1.dtypes.unique(),[np.dtype('int32'),np.dtype('float32'),np.dtype('O')]).all():
 
             raise ValueError('dtypes of out contain unknown type') 
 
 
-        da=dtypeAllocator(dtypes_dict={},col_rm=None,t_unit='1 D',dtype_num='float64',
+        da=dtypeAllocator(dtypes_dict={},col_rm=None,t_unit='1 D',dtype_num='64',
                                                           drop_date=True,precision=10).fit(dt)
         dt_1=da.transform(dt)  
 
@@ -209,10 +197,10 @@ class test:
         
             raise ValueError('param precision not work') 
 
-        print('dtypeAllocator test successfully')
-        
-        
-        
+        print('dtypeAllocator test successfully')            
+
+
+
     def test_outliersTransformer(self):
         
         dt=sc.germancredit().copy()
