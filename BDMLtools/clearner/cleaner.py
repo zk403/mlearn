@@ -394,9 +394,7 @@ class outliersTransformer(Base,TransformerMixin):
         X : pd.DataFrame,X数据，(n_smaples,n_features)            
         """
         self._check_X(X)
-        
-        X=X.copy()
-        
+
         if X.size:
                  
             if self.columns:
@@ -431,6 +429,7 @@ class outliersTransformer(Base,TransformerMixin):
         self._check_X(X)
         self._check_is_fitted()
         
+        X_oth=X.select_dtypes(exclude='number')
 
         if not self.method in ('fill','nan'):
             
@@ -440,7 +439,7 @@ class outliersTransformer(Base,TransformerMixin):
  
         X_r=X.apply(lambda col:self._remove_outlier(col,self.iq_df[col.name].values,self.method))
 
-        return X_r                   
+        return pd.concat([X_r,X_oth],axis=1)                   
 
         
     def _get_iq(self,col):

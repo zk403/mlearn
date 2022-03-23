@@ -97,8 +97,9 @@ v0.2.1
 4.优化贝叶斯优化代码使之能够支持更多参数选择，并加入固定参数
 5.LgbmRFESelector更名为LgbmRFECVSelector
 6.dtypeAllocator中的number类型以float和int进行了进一步的区分
-7.修复了减半参数优化中模型无法通过随机数复现的bug
-8.相关文档维护
+7.修复了outliersTransformer中的后列丢失问题
+8.修复了减半参数优化中模型无法通过随机数复现的bug
+9.相关文档维护
 ```
 
 ```

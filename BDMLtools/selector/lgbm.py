@@ -206,7 +206,7 @@ class LgbmSeqSelector(Base,BaseTunner):
             categorical_feature:list,分类列列名,默认None即无分类特征
 
         """
-                
+               
 
         self._check_data(X, y)
         
