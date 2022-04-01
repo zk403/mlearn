@@ -1,4 +1,4 @@
-# BDMLtools-0.2.1
+# BDMLtools-0.2.2
 
 BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数据量的二分类模型的机器学习建模工具包。
 本模组将集成商业分析场景中二分类模型中常用的机器学习模型，并使之能够兼顾模型开发效率、报告制作与建模流程标准化。
@@ -34,6 +34,8 @@ BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数�
     - BDMLtools.cardScorer:制作评分卡
     - BDMLtools.LgbmRFECVSelector:Lgbm递归式特征消除筛选器
     - BDMLtools.LgbmSeqSelector:Lgbm逐步式特征消除筛选器
+    - BDMLtools.LgbmShapRFECVSelector:LgbmShap逐步式特征消除筛选器
+    - BDMLtools.LgbmPISelector:Lgbm组合重要性除筛选器
     - BDMLtools.lassoSelector:lasso筛选器
     
 + 报告
@@ -47,10 +49,9 @@ BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数�
 
 + 机器学习-分类算法
 
-    - BDMLtools.gridTuner:网格优化与随机优化的xgb或lgbm
-    - BDMLtools.BayesianXGBTuner:贝叶斯优化的xgboost
-    - BDMLtools.BayesianLgbmTuner:贝叶斯优化的lightgbm
-    - BDMLtools.hgridTuner:scucessive halving优化的xgb或lgbm
+    - BDMLtools.gridTuner:网格优化与随机优化的xgb、lgbm、catboost
+    - BDMLtools.BayesianCVTuner:贝叶斯优化的xgb、lgbm、catboost
+    - BDMLtools.hgridTuner:scucessive halving优化的xgb、lgbm、catboost
 
 + 机器学习-异常发现算法
     - 待补充
@@ -90,6 +91,16 @@ pip uninstall BDMLtools
 更新日志:
 
 ```
+v0.2.2
+1.加入特征筛选方法LgbmShapRFESelector和LgbmPISelector
+2.优化了preSelector代码
+3.移除特征筛选方法_fliterByShuffle
+4.修复了网格参数优化、减半参数优化、贝叶斯优化中early_stopping的bug
+5.相关文档维护
+```
+
+
+```
 v0.2.1
 1.在网格参数优化、减半参数优化、贝叶斯优化中加入对Catboost的支持
 2.在网格参数优化、减半参数优化、贝叶斯优化中加入early_stopping参数
@@ -97,7 +108,7 @@ v0.2.1
 4.优化贝叶斯优化代码使之能够支持更多参数选择，并加入固定参数
 5.LgbmRFESelector更名为LgbmRFECVSelector
 6.dtypeAllocator中的number类型以float和int进行了进一步的区分
-7.修复了outliersTransformer中的后列丢失问题
+7.修复了outliersTransformer中的后非number列丢失问题
 8.修复了减半参数优化中模型无法通过随机数复现的bug
 9.相关文档维护
 ```
@@ -109,13 +120,5 @@ v0.2.0
 3.优化代码
 4.文档维护
 ```
-
-```
-v0.1.9.1
-1.更新了demo:4.经典Logistic评分卡.ipynb
-2.修复了诸多bug
-3.文档维护
-```
-
 
 

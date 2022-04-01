@@ -58,6 +58,7 @@ setup(
     packages=find_packages(),  # Required
     install_requires=[
                       'numpy>=1.20',
+                      'lofo-importance>=0.3.1',
                       'fastparquet>=0.7.1',
                       'pandas>=1.3.3',
                       'statsmodels>=0.13.0',
@@ -70,9 +71,11 @@ setup(
                       'category_encoders>=2.3.0',
                       'lightgbm>=3.3.0', 
                       'toad>=0.1.0',
+                      'probatus>=1.8.8',
+                      'lofo-importance>=0.3.1',
                       'patsy>=0.5.2',
                       'bayesian-optimization>=1.2.0',
-                      'shap>=0.40.0'
+                      'shap>=0.38.1'
                      ],  # Optional
     #package_data={'scorecardpy': ['data/*.csv']},
     # data_files=[('scorecardpy': ['data/*.csv'])],  # Optional

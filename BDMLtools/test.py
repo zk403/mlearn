@@ -25,6 +25,7 @@ import numpy as np
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 from catboost import CatBoostClassifier
+from BDMLtools.tuner.bayesian import BayesianCVTuner
 
 
 class test:
@@ -295,7 +296,7 @@ class test:
                    variance=None,
                    chif_pvalue=None,
                    tree_imps=None,
-                   auc_limit=None,
+                   pi_limit=None,
                    iv_limit=None).fit(X[['na_test']],y).keep_col
 
         if 'na_test' in keep_col:
@@ -307,7 +308,7 @@ class test:
                            variance=None,
                            chif_pvalue=None,
                            tree_imps=None,
-                           auc_limit=None,
+                           pi_limit=None,
                            iv_limit=None).fit(X[['uni_test']],y).keep_col
         
         if not 'uni_test' in keep_col:
@@ -319,7 +320,7 @@ class test:
                            variance=0,
                            chif_pvalue=None,
                            tree_imps=None,
-                           auc_limit=None,
+                           pi_limit=None,
                            iv_limit=None).fit(X[['var_test']],y).keep_col
         
         if 'var_test' in keep_col:
@@ -331,7 +332,7 @@ class test:
                            variance=None,
                            chif_pvalue=0.05,
                            tree_imps=None,
-                           auc_limit=None,
+                           pi_limit=None,
                            iv_limit=None).fit(X[['chi2_test','f_test']],y).keep_col
         
         if 'chi2_test' in keep_col or 'f_test' in keep_col:
@@ -655,6 +656,17 @@ class test:
         from scipy.stats import uniform as sp_uniform 
         from BDMLtools.tuner.base import sLGBMClassifier
         
+        
+        
+        BayesianCVTuner(XGBClassifier,scoring='roc_auc',eval_metric='auc',early_stopping_rounds=10).fit(dt_woe_bm,y)
+        
+        
+        BayesianCVTuner(LGBMClassifier,scoring='roc_auc',eval_metric='auc',early_stopping_rounds=10).fit(dt_woe_bm,y)
+        
+        
+        BayesianCVTuner(CatBoostClassifier,scoring='roc_auc',eval_metric='auc',early_stopping_rounds=10).fit(dt_woe_bm,y)
+        
+        
         gridTuner(XGBClassifier,para_space={
                   'n_estimators':sp_randint(low=60,high=120),#迭代次数
                   'learning_rate':sp_uniform(loc=0.05,scale=0.15), #学习率
@@ -669,11 +681,11 @@ class test:
                   'reg_lambda':sp_randint(low=0,high=1), 
                   'scale_pos_weight':sp_uniform(loc=1,scale=0), 
                   'max_delta_step':sp_uniform(loc=0,scale=0)
-                  } ,method='random_grid'           
+                  } ,method='random_grid',early_stopping_rounds=10           
             ).fit(dt_woe_bm,y)        
         
         
-        gridTuner(sLGBMClassifier,para_space={
+        gridTuner(LGBMClassifier,para_space={
                      'boosting_type':['gbdt','goss'], 
                      'n_estimators':[100],
                      'learning_rate':[0.1], 
@@ -686,11 +698,11 @@ class test:
                      'subsample':[0.6,0.8],
                      'colsample_bytree' :[0.6,0.8],
                      'reg_lambda':[0,10], 
-                             },method='grid'           
+                             },method='grid',early_stopping_rounds=10               
             ).fit(dt_woe_bm,y)
 
         
-        gridTuner(sLGBMClassifier,para_space={
+        gridTuner(LGBMClassifier,para_space={
                      'boosting_type':['gbdt','goss'], #'goss','gbdt'
                      'n_estimators':sp_randint(low=100,high=110),
                      'learning_rate':sp_uniform(loc=0.1,scale=0), 
@@ -704,7 +716,7 @@ class test:
                      'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),
                      'reg_lambda':sp_uniform(loc=0,scale=20),
 
-                  } ,method='random_grid'           
+                  } ,method='random_grid',early_stopping_rounds=10               
             ).fit(dt_woe_bm,y)        
         
         #Halving based tunner
@@ -721,7 +733,7 @@ class test:
                              'reg_lambda':[0,10], 
                              'scale_pos_weight':[1,10],
                              'max_delta_step':[0]
-                             },method='h_grid'           
+                             },method='h_grid',early_stopping_rounds=10               
             ).fit(dt_woe_bm,y)
         
         
@@ -739,11 +751,11 @@ class test:
                   'reg_lambda':sp_randint(low=0,high=1), 
                   'scale_pos_weight':sp_uniform(loc=1,scale=0), 
                   'max_delta_step':sp_uniform(loc=0,scale=0)
-                  } ,method='h_random'           
+                  } ,method='h_random',early_stopping_rounds=10        
             ).fit(dt_woe_bm,y)   
         
         
-        hgridTuner(sLGBMClassifier,para_space={
+        hgridTuner(LGBMClassifier,para_space={
                      'boosting_type':['gbdt','goss'], 
                      'n_estimators':[100],
                      'learning_rate':[0.1], 
@@ -756,11 +768,11 @@ class test:
                      'subsample':[0.6,0.8],
                      'colsample_bytree' :[0.6,0.8],
                      'reg_lambda':[0,10], 
-                             },method='h_grid'           
+                             },method='h_grid',early_stopping_rounds=10               
             ).fit(dt_woe_bm,y)
 
         
-        hgridTuner(sLGBMClassifier,para_space={
+        hgridTuner(LGBMClassifier,para_space={
                      'boosting_type':['gbdt','goss'], #'goss','gbdt'
                      'n_estimators':sp_randint(low=100,high=110),
                      'learning_rate':sp_uniform(loc=0.1,scale=0), 
@@ -774,7 +786,7 @@ class test:
                      'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),
                      'reg_lambda':sp_uniform(loc=0,scale=20),
 
-                  } ,method='h_random'           
+                  } ,method='h_random',early_stopping_rounds=10               
             ).fit(dt_woe_bm,y)        
 
         
@@ -788,7 +800,7 @@ class test:
                              'subsample': [1],
                              'colsample_bylevel': [1],
                              'reg_lambda': [0]
-                         } ,method='h_grid'           
+                         } ,method='h_grid',early_stopping_rounds=10               
             ).fit(dt_woe_bm,y)                
         
         
@@ -802,7 +814,7 @@ class test:
                              'colsample_bylevel' :sp_uniform(loc=0.5,scale=0.5),
                              'reg_lambda':sp_uniform(loc=0,scale=20),
                              },
-                    method='h_random'           
+                    method='h_random',early_stopping_rounds=10               
             ).fit(dt_woe_bm,y)        
         
         print("tunner test successfully")

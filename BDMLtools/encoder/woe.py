@@ -120,7 +120,7 @@ class woeTransformer(Base,Specials,TransformerMixin):
     
     def _woe_map(self,col,bin_df,check_na=True,special_values=None,dtype='float64'):
         
-        col=self._sp_replace_single(col,self._check_spvalues(col.name,special_values),fill_num=2**63,fill_str='special')
+        col=self._sp_replace_single(col,self._check_spvalues(col.name,special_values),fill_num=np.finfo(np.float32).max,fill_str='special')
             
         if is_numeric_dtype(col):
             
@@ -136,7 +136,7 @@ class woeTransformer(Base,Specials,TransformerMixin):
 
             if special_values:
                 
-                breaks_cut=breaks+[2**63] if dtype=='float64' else np.float32(breaks+[2**63]).tolist()
+                breaks_cut=breaks+[np.finfo(np.float32).max] if dtype=='float64' else np.float32(breaks+[np.finfo(np.float32).max]).tolist()
     
                 col_woe=pd.cut(col,[-np.inf]+breaks_cut+[np.inf],labels=woe+[woe_sp],right=False,ordered=False).astype(dtype)
       

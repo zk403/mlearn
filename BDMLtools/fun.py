@@ -110,7 +110,7 @@ def get_Breaklist_sc(break_list,X,y):
 
 class Specials:
 
-    def _sp_replace_df(self,X,special_values,fill_num=2**63,fill_str='special'):
+    def _sp_replace_df(self,X,special_values,fill_num=np.finfo(np.float32).max,fill_str='special'):
         
         """ 
         特殊值替换,数值特征缺失值替换为np.nan,分类特征缺失值替换为'missing'
@@ -136,7 +136,7 @@ class Specials:
 
 
 
-    def _sp_replace_col(self,col,special_values,fill_num=2**63,fill_str='special'):
+    def _sp_replace_col(self,col,special_values,fill_num=np.finfo(np.float32).max,fill_str='special'):
         
         """ 
         特殊值替换,数值特征缺失值替换为np.nan,分类特征缺失值替换为'missing'
@@ -181,7 +181,7 @@ class Specials:
             return col
        
     
-    def _sp_replace(self,X,special_values,fill_num=2**63,fill_str='special'):
+    def _sp_replace(self,X,special_values,fill_num=np.finfo(np.float32).max,fill_str='special'):
         
         """ 
         特殊值替换,数值特征缺失值替换为np.nan,分类特征缺失值替换为'missing'
@@ -217,7 +217,7 @@ class Specials:
         return X
 
 
-    def _sp_replace_single(self,col,special_values_list,fill_num=2**63,fill_str='special'):
+    def _sp_replace_single(self,col,special_values_list,fill_num=np.finfo(np.float32).max,fill_str='special'):
         
         
         if special_values_list is None:

@@ -60,7 +60,20 @@ class Base:
 
         if not np.isin(y.unique(),[0,1]).any():
         
-            raise yValueError("vals of y in [0,1] and 0(no-event),1(event)")                
+            raise yValueError("vals of y in [0,1] and 0(no-event),1(event)")    
+
+
+    def _check_ws(self,y,sample_weight):
+
+        if sample_weight is not None:
+            
+            if not isinstance(sample_weight,pd.Series):
+                
+                raise DataTypeError("sample_weight is not pandas.Series.") 
+                
+            if not y.index.equals(sample_weight.index):
+                
+                raise XyIndexError("index of sample_weight not equal to y_pred or y_true")             
 
     
     def _check_param_dtype(self,dtype):

@@ -9,20 +9,21 @@ from sklearn.base import TransformerMixin,BaseEstimator
 from sklearn.feature_selection import f_classif,chi2
 from category_encoders.ordinal import OrdinalEncoder
 from category_encoders import WOEEncoder
-from joblib import Parallel,delayed,effective_n_jobs
 from sklearn.linear_model import LogisticRegression
 from sklearn.impute import SimpleImputer
 from BDMLtools.fun import Specials
 from BDMLtools.selector.bin_fun import binFreq
-from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import StandardScaler
-from pandas.api.types import is_numeric_dtype,is_string_dtype
 import numpy as np
 import pandas as pd
 import os
 from glob import glob
 from BDMLtools.tuner.base import sLGBMClassifier
 from BDMLtools.base import Base
+from lofo import LOFOImportance, Dataset
+from sklearn.feature_selection import SelectFpr,SelectFdr,SelectFwe
+from BDMLtools.selector.lgbm import LgbmPISelector
+
 
 
 class prefitModel(Base,BaseEstimator):
@@ -193,153 +194,35 @@ class prefitModel(Base,BaseEstimator):
             
         return X_numeric,X_categoty
 
-    
-    
-class fliterByShuffle(Base,BaseEstimator):
-    
-    """ 
-    shuffle法进行特征筛选:无需做任何特征处理，比较原始数据与与打乱顺序后原始数据的预测能力的差异
-    
-    Parameters:
-    ----------
-        s_times=1,int,随机乱序次数，次数越多auc差异越具备统计学意义，但会导致运算量增加
-        auc_val=0,float,mean_decreasing_auc阈值,小于等于auc_val的特征将被踢出,默认0,建议范围0-0.005
-        n_jobs=-1,int,列并行时任务数
-        verbose=0,int,并行信息输出等级  
-        
-    Attribute:
-    ----------
-
-    """          
-    
-    def __init__(self,s_times=1,auc_val=0,n_jobs=1,verbose=0):
-      
-        self.s_times=s_times
-        self.n_jobs=n_jobs
-        self.verbose=verbose
-        self.auc_val=auc_val
-        
-        self._is_fitted=False
-
-    def transform(self,X,y=None): 
-        
-        self._check_is_fitted()
-
-        return X[self.keep]
-    
-    
-    def fit(self,X,y):
-
-        n_jobs=effective_n_jobs(self.n_jobs)
-        p=Parallel(n_jobs=n_jobs,verbose=self.verbose)
-            
-        res=p(delayed(self._shuffle_single)(col,y,self.s_times) 
-                              for name,col in X.iteritems())
-        
-        self.mean_decreasing_auc=pd.Series({name:auc for name,auc in res},
-                                           name='mean_decreasing_auc')
-        
-        self.keep=self.mean_decreasing_auc[self.mean_decreasing_auc>self.auc_val].index.tolist()
-        
-        self._is_fitted=True
-        
-        return self
-    
-    def _shuffle(self,x,y,s_times,is_str_type=False):
-
-        categorical_feature=[0] if is_str_type else None
-        
-        diff_auc=[]
- 
-        for i in range(s_times):
-            
-            #shuffle 
-            col=x.copy()   
-            col_shuffle=x.copy()   
-            np.random.shuffle(col_shuffle)
-        
-
-            #no-shuffle
-            lgb_ns=sLGBMClassifier(
-                boosting_type='gbdt',
-                objective = 'binary',
-                learning_rate=0.1,
-                n_estimators=20,
-                colsample_bytree=1,
-                random_state=123
-            ).fit(col.reshape(col.size,1),y,categorical_feature=categorical_feature)   
-
-            #shuffle
-            lgb_s=sLGBMClassifier(
-                boosting_type='gbdt',
-                objective = 'binary',
-                learning_rate=0.1,
-                n_estimators=20,
-                colsample_bytree=1,
-                random_state=123
-            ).fit(col_shuffle.reshape(col.size,1),y,categorical_feature=categorical_feature)   
-
-            #prediction
-            pred=lgb_ns.predict_proba(col.reshape(col.size,1))[:,1]
-
-            pred_shuffle=lgb_s.predict_proba(col_shuffle.reshape(col.size,1))[:,1]
-
-            #get auc
-            auc_ns=roc_auc_score(y,pred)
-
-            auc_s=roc_auc_score(y,pred_shuffle)
-
-            #get diff
-            diff_auc.append(auc_ns-auc_s)        
-        
-        return np.nanmean(diff_auc)
 
 
-    def _shuffle_single(self,x,y,s_times=1):
-        
-        name=x.name
-
-        if is_numeric_dtype(x):
-
-            diff_auc=self._shuffle(x.values,y.values,s_times)
-
-        elif is_string_dtype(x):
-
-            x_o=OrdinalEncoder().fit_transform(x)[name]
-            
-            diff_auc=self._shuffle(x_o.values,y.values,s_times,True)
-            
-        else:
-            
-            raise ValueError('dtype only in ("number" or "object")')
-
-        return name,np.nanmean(diff_auc)
-
-    
 class preSelector(Base,Specials,TransformerMixin):
     
     """ 
     线性预筛选,适用于二分类模型
     
-    筛选过程(设定为None时代表跳过相应步骤):
+    筛选过程(设定为None时代表跳过相应步骤,相应序号会被重置):
     Step 1.缺失值(所有):缺失率高于用户定义值的列将被筛除
     Step 2.唯一值(所有):唯一值占比高于用户定义值列将被筛除
     Step 3.方差(数值特征):方差低于用户定义值列的列将被筛除
-    Step 4.卡方独立性检验p值(字符)/方差分析p值(数值):p值大于用户定义值的列将被剔除
-    Step 5.乱序筛选(所有):原始顺序与随机顺序后使用模型预测的auc差异小于用户定义值的列将被剔除
-    Step 6.Lightgbm筛选(所有):split重要性低于用户定义值的列将被剔除
-    Step 7.Iv值筛选(所有):等频30箱后iv值低于用户定义值的列将被剔除
+    Step 4.卡方独立性检验p值(字符)/方差分析p值(数值):p值大于用户定义值的列将被剔除(不支持样本权重)
+    Step 5.PI重要性筛选(所有):使用Permutation Importance进行特征筛选,具体上使用LightGBM为基模型,roc_auc为评估指标,小于等于0代表特征不重要
+    Step 6.LOFO重要性筛选(所有):根据Leave One Feature Out Importance筛选不重要特征，具体上使用LightGBM为基模型，roc_auc为评估指标，cv=5计算的特征重要性,小于0代表特征不重要
+    Step 7.Lightgbm筛选(所有):split重要性低于用户定义值的列将被剔除
+    Step 8.Iv值筛选(所有):等频30箱后iv值低于用户定义值的列将被剔除
+    
+    目前Step 4不支持sample weight(样本权重)
     
     Parameters:
     ----------
         na_pct:float or None,(0,1),默认0.99,缺失率高于na_pct的列将被筛除，设定为None将跳过此步骤
         unique_pct:float or None,(0,1),默认0.99,唯一值占比高于unique_pct的列将被筛除,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
         variance:float or None,默认0,方差低于variance的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
-        chif_pvalue:float or None,(0,1),默认0.05,大于chif_pvalue的列将被剔除,为None将跳过此步骤
+        chif_pvalue:float or None,(0,1),默认0.05,大于chif_pvalue的列将被剔除,该步骤不支持样本权重。为None将跳过此步骤
                     + 卡方计算中，缺失值将被视为单独一类,
                     + f值计算中，缺失值将被填补为接近+inf和-inf，计算两次，两次结果都不显著的列都将被剔除
-        auc_limit:float,使用shuffle法计算原始数据与乱序数据的mean_decreasing_auc,小于等于auc_val的特征将被踢出,默认0,建议范围0-0.005,设定为None将跳过此步骤
-        s_times:int,shuffle法乱序次数，越多的s_times的mean_decreasing_auc越具备统计意义，但这会增加计算量
+        lofo_imp:float or None,默认None,Leave One Feature Out Importance，使用LightGBM为基模型，neglogloss为评估指标，cv=5计算的特征重要性,小于0代表特征不重要
+        pi_limit:float or None,使用Permutation Importance进行特征筛选,将保留大于pi_limit的特征
         tree_imps:int or None,lightgbm树的split_gain小于等于tree_imps的列将被剔除,默认1，设定为None将跳过此步骤
         tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
         iv_limit:float or None使用进行iv快速筛选的iv阈值(数值等频30箱，分类则按照类别分箱)
@@ -349,6 +232,7 @@ class preSelector(Base,Specials,TransformerMixin):
                 + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换且会被计入na_pct
                 + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换且会被计入na_pct
         keep:list or None,需保留列的列名list
+        sample_weight:样本权重
         
     Attribute:
     ----------
@@ -357,21 +241,22 @@ class preSelector(Base,Specials,TransformerMixin):
     """    
     
     
-    def __init__(self,na_pct=0.99,unique_pct=0.99,variance=0,chif_pvalue=0.05,tree_imps=1,
-                 tree_size=100,auc_limit=None,s_times=1,iv_limit=0.02,out_path=None,missing_values=None,keep=None
+    def __init__(self,na_pct=0.99,unique_pct=0.99,variance=0,chif_pvalue=0.05,tree_imps=1,lofoi_limit=None,random_state=123,
+                 tree_size=250,pi_limit=None,iv_limit=0.02,out_path=None,missing_values=None,keep=None
                  ):
 
         self.na_pct=na_pct
         self.unique_pct=unique_pct #
         self.variance=variance
         self.chif_pvalue=chif_pvalue #
+        self.lofoi_limit=lofoi_limit
         self.tree_imps=tree_imps #
         self.tree_size=tree_size
-        self.auc_limit=auc_limit
-        self.s_times=s_times
+        self.pi_limit=pi_limit
         self.iv_limit=iv_limit
         self.out_path=out_path
         self.missing_values=missing_values
+        self.random_state=random_state
         self.keep=keep
         
         self._is_fitted=False
@@ -393,13 +278,20 @@ class preSelector(Base,Specials,TransformerMixin):
         
         return X[keep_col]
     
-    def fit(self,X,y):
+    def fit(self,X,y,cat_features=None,sample_weight=None):
         
         self._check_data(X,y)
         self._check_values()
         
+        #cat_features
+        cat_features=X.select_dtypes(['object','category']).columns.tolist() if cat_features is None else cat_features
+        
+        X=X.apply(lambda col:col.astype('object') if col.name in cat_features else col) if cat_features else X  
+
+        #keep col
         X=X.drop(self.keep,axis=1) if self.keep else X
-       
+        
+        #sp values
         X=self._sp_replace(X,self.missing_values,fill_num=np.nan,fill_str=np.nan)
         
         self.features_info={}
@@ -411,32 +303,41 @@ class preSelector(Base,Specials,TransformerMixin):
         
         print('0.start__________________________________complete')
         
+        step=0
+      
         #fliter by nan
         if self.na_pct is not None:
             
-            keep_col=self._filterByNA(X[keep_col],self.na_pct)
             
-            self.features_info['1.filterbyNA']=keep_col
+            keep_col=self._filterByNA(X[keep_col],self.na_pct,ws=sample_weight)
+            
+            step=step+1
+            
+            self.features_info[str(step)+'.filterbyNA']=keep_col
           
-            print('1.filterbyNA_____________________________complete')
+            print(str(step)+'.filterbyNA_____________________________complete')
             
         #fliter by unique_pct
         if self.unique_pct is not None: 
             
-            keep_col=self._filterByUnique(X[keep_col],self.unique_pct)
+            keep_col=self._filterByUnique(X[keep_col],self.unique_pct,ws=sample_weight)
             
-            self.features_info['2.filterbyUnique']=keep_col
+            step=step+1
             
-            print('2.filterbyUniquepct______________________complete')    
+            self.features_info[str(step)+'.filterbyUnique']=keep_col
+            
+            print(str(step)+'.filterbyUniquepct______________________complete')    
                       
         #fliter by variance
         if self.variance is not None: 
             
-            keep_col=self._fliterByVariance(X[keep_col],self.variance)
+            keep_col=self._fliterByVariance(X[keep_col],self.variance,ws=sample_weight)
             
-            self.features_info['3.filterbyVariance']=keep_col
+            step=step+1
             
-            print('3.filterbyVariance_______________________complete')
+            self.features_info[str(step)+'.filterbyVariance']=keep_col
+            
+            print(str(step)+'.filterbyVariance_______________________complete')
             
        
         #fliter by chi and f-value
@@ -444,39 +345,59 @@ class preSelector(Base,Specials,TransformerMixin):
             
             keep_col=self._filterByChif(X[keep_col],y,self.chif_pvalue)  
             
-            self.features_info['4.filterbyChi2Oneway']=keep_col
+            step=step+1
             
-            print('4.filterbyChi2Oneway_____________________complete')     
+            self.features_info[str(step)+'.filterbyChi2Oneway']=keep_col
+            
+            print(str(step)+'.filterbyChi2Oneway_____________________complete')     
             
             
-        #fliter by shuffle  
-        if self.auc_limit is not None:
+        #fliter by pi
+        if self.pi_limit is not None:
             
-            keep_col=fliterByShuffle(s_times=self.s_times,auc_val=self.auc_limit,n_jobs=-1).fit(X[keep_col],y).keep
+            keep_col=LgbmPISelector(threshold=self.pi_limit,early_stopping_rounds=None,random_state=123,
+                                    clf_params={'n_estimators':250,'max_depth':3,'learning_rate':0.05}).fit(X[keep_col],y,
+                                                                                                            sample_weight=sample_weight).keep_col            
+            step=step+1
             
-            self.features_info['5.filterbyShuffle']=keep_col
+            self.features_info[str(step)+'.filterbyPermutationImp']=keep_col
 
-            print('5.filterbyShuffle________________________complete')  
+            print(str(step)+'.filterbyPermutationImp_________________complete')  
         
+        #fliter by LOFO_importannce
+        if self.lofoi_limit is not None:
+            
+            keep_col=self._filterbyLofoimp(X[keep_col],y,lofo_imp=self.lofoi_limit,sample_weight=sample_weight)
+            
+            step=step+1
+            
+            self.features_info[str(step)+'.filterbyLOFOImp']=keep_col
+
+            print(str(step)+'.filterbyLOFOImp________________________complete')              
+             
         
         #fliter by lgbm-tree-imp  
         if self.tree_imps is not None:
 
-            keep_col=self._filterByTrees(X[keep_col],y,self.tree_size,self.tree_imps)
+            keep_col=self._filterByTrees(X[keep_col],y,self.tree_size,self.tree_imps,sample_weight=sample_weight)
             
-            self.features_info['6.filterbyTrees']=keep_col
+            step=step+1
             
-            print('6.filterbyTrees__________________________complete')
+            self.features_info[str(step)+'.filterbyTrees']=keep_col
+            
+            print(str(step)+'.filterbyTrees__________________________complete')
             
         
         #fliter by iv 
         if self.iv_limit is not None:   
             
-            keep_col=self._filterbyIV(X[keep_col],y,self.iv_limit)
+            keep_col=self._filterbyIV(X[keep_col],y,self.iv_limit,sample_weight=sample_weight)
             
-            self.features_info['7.filterbyIV']=keep_col
+            step=step+1
             
-            print('7.filterbyIV_____________________________complete')
+            self.features_info[str(step)+'.filterbyIV']=keep_col
+            
+            print(str(step)+'.filterbyIV_____________________________complete')
    
         
         print('_____________________________________________Done')  
@@ -499,21 +420,44 @@ class preSelector(Base,Specials,TransformerMixin):
                     
         return self
     
-    def _filterByNA(self,X,na_pct):
-        
-        NAreport=X.isnull().sum().div(len(X))
-        
-        return NAreport[NAreport<=na_pct].index.tolist() #返回满足缺失率要求的列名
     
-    def _filterByUnique(self,X,unique_pct):
+    def _filterByNA(self,X,na_pct,ws=None):
+        
+        if ws is None:
+            
+            nan_info=X.isnull().sum().div(len(X))
+            
+            keep_col=nan_info[nan_info<=na_pct].index.tolist()
+            
+        else:
+            
+            ws=np.array(ws)
+    
+            mask=np.transpose(ws*np.transpose(X.isnull().to_numpy())).sum(0)/ws.sum()<=na_pct
+            
+            keep_col=X.columns[mask].tolist()
+        
+        return keep_col
+    
+    
+    def _filterByUnique(self,X,unique_pct,ws=None):
   
         X=X.select_dtypes(include=['object','number'])
         X_oth=X.select_dtypes(exclude=['object','number'])
+            
         
         if X.columns.size:
             
-            X_unique_pct=X.apply(lambda x:x.value_counts(dropna=False).div(len(X)).max())   
+            if ws is None:
             
+                X_unique_pct=X.apply(lambda x:x.value_counts(dropna=False,normalize=True).max())   
+            
+            else:
+                
+                ws=pd.Series(ws,index=X.index)
+                
+                X_unique_pct=X.apply(lambda x:ws.groupby(x,dropna=False).sum().max()/ws.sum()) 
+                
             return X_unique_pct[X_unique_pct<unique_pct].index.tolist()+X_oth.columns.tolist()
         
         else:
@@ -521,17 +465,42 @@ class preSelector(Base,Specials,TransformerMixin):
             return X_oth.columns.tolist()
 
     
-    def _fliterByVariance(self,X,variance):
+    def _fliterByVariance(self,X,variance,ws=None):
 
         X_numeric=X.select_dtypes('number')
         X_oth=X.select_dtypes(exclude='number')
+        
+        def var_ws(vals, ws):
+
+            na_mask=np.isnan(vals)
+            vals=vals[~na_mask]
+            ws=ws[~na_mask]
+
+            if vals.size:
+
+                avg = np.average(vals, weights=ws)    
+                var = np.average((vals-avg)**2, weights=ws)  
+
+            else:
+
+                var=np.nan
+
+            return (var)
         
         #drop constant columns
         X_numeric=X_numeric.loc[:,X_numeric.apply(lambda col: False if col.unique().size==1 else True)]
         
         if X_numeric.columns.size:
             
-            X_var=X_numeric.var(ddof=0)
+            if ws is None:
+            
+                X_var=X_numeric.var(ddof=0)
+                
+            else:
+                
+                ws=np.array(ws)
+                
+                X_var=X_numeric.apply(lambda x:var_ws(x,ws))
             
             return X_var[X_var>variance].index.tolist()+X_oth.columns.tolist()
         
@@ -540,27 +509,70 @@ class preSelector(Base,Specials,TransformerMixin):
             return X_oth.columns.tolist()
         
 
-    def _filterByChif(self,X,y,chif_pvalue):
+    def _filterByChif(self,X,y,alpha=0.05,method='fpr'):
+        
+        """
+        分类模型:使用卡方与F检验的显著性进行特征初筛,参考:
+        
+            sklearn.feature_selection.chi2
+            sklearn.feature_selection.f_classif
+        
+        从统计角度上，此两种方法都对数据有分布要求，且f_classif默认样本的方差出自同一总体,若偏离要求太多则p-value意义不大。
+        因此只使用这两种方法进行特征的初步筛选，目的在于筛选掉非常不重要的特征
+        
+        筛选依据为这些检验的显著性alpha值或其修正值,并非统计量的值(卡方值或F值),参考:
+        
+            sklearn.feature_selection.SelectFpr
+            sklearn.feature_selection.SelectFdr
+            sklearn.feature_selection.SelectFwe  
+        
+        注意:本过程不支持sample_weight
+        
+        Parameters:
+        ----------  
+        X:pandas.DataFrame,X特征
+        y:pandas.Seires,目标特征
+        alpha:float,显著性水平
+        method:str,为减少第一类错误与第二类错误(误报，漏报)，可采用修正的p-value:
+            'fpr':不修正,使用原始的p-value
+            'fdr':基于估计的False Discovery rate修正p-value,该过程中p值越低的特征相应的显著性要求会比设定水平更高
+            'fwe':基于Family-wise error rate修正p-value,该过程中所有特征的显著性要求都会比设定水平更高    
+            筛选强度上,fpr<fdr<fwe,即fwe会筛选掉最多的特征，fpr会筛选掉最少的特征
+            
+        Return:
+        ---------- 
+        list,筛选后的列名
+        """
         
         #drop constant columns
-        X=X.loc[:,X.apply(lambda col: False if col.unique().size==1 else True)]
-        
+        X=X.loc[:,X.apply(lambda col: False if col.unique().size==1 else True)]        
         
         X_categoty=X.select_dtypes('object')
         
         X_numeric=X.select_dtypes('number')
         
         X_oth=X.select_dtypes(exclude=['object','number'])
-
+        
+        if method=='fpr':
+            
+            base_selector=SelectFpr
+        
+        elif method=='fdr':
+            
+            base_selector=SelectFdr
+            
+        elif method=='fwe':
+            
+            base_selector=SelectFwe
         
         #filter by chi2
         if X_categoty.columns.size:      
             
             X_categoty_encode=OrdinalEncoder().fit_transform(X_categoty.replace(np.nan,'missing'))
             
-            p_values=chi2(X_categoty_encode,y)[1]
+            selected=base_selector(chi2,alpha=alpha).fit(X_categoty_encode,y)
             
-            cate_cols=X_categoty_encode.columns[p_values<chif_pvalue].tolist()
+            cate_cols=X_categoty.columns[selected.get_support()].tolist()
             
         else:
             
@@ -572,13 +584,13 @@ class preSelector(Base,Specials,TransformerMixin):
             
             cols_fill=X_numeric.median().to_dict()
             
-            p_values_pos=f_classif(X_numeric.fillna(2**31),y)[1]
+            sp_mask=base_selector(f_classif,alpha=alpha).fit(X_numeric.fillna(np.finfo(np.float32).max),y).get_support() #fillna with inf
             
-            p_values_mean=f_classif(X_numeric.fillna(cols_fill),y)[1]
+            sm_mask=base_selector(f_classif,alpha=alpha).fit(X_numeric.fillna(cols_fill),y).get_support() #fillna with median
             
-            p_values_neg=f_classif(X_numeric.fillna(-2**31),y)[1]             
-            
-            num_cols=X_numeric.columns[(p_values_pos<chif_pvalue) | (p_values_neg<chif_pvalue) | (p_values_mean<chif_pvalue)].tolist()
+            sn_mask=base_selector(f_classif,alpha=alpha).fit(X_numeric.fillna(-np.finfo(np.float32).max),y).get_support() #fillna with -inf
+
+            num_cols=X_numeric.columns[sp_mask+sm_mask+sn_mask].tolist() #drop features with False among all three data
             
         else:
                 
@@ -588,7 +600,7 @@ class preSelector(Base,Specials,TransformerMixin):
         return cate_cols+num_cols+X_oth.columns.tolist()
     
 
-    def _filterByTrees(self,X,y,tree_size,tree_imps):
+    def _filterByTrees(self,X,y,tree_size,tree_imps,sample_weight=None):
 
         X_numeric=X.select_dtypes(include='number')
         X_category=X.select_dtypes(include='object')
@@ -606,9 +618,10 @@ class preSelector(Base,Specials,TransformerMixin):
                 objective = 'binary',
                 learning_rate=0.1,
                 n_estimators=tree_size,
+                random_state=123,
                 subsample=0.7,
                 colsample_bytree=1,
-            ).fit(X_new,y,categorical_feature=X_category_encode.columns.tolist())         
+            ).fit(X_new,y,sample_weight=sample_weight,categorical_feature=X_category_encode.columns.tolist())         
 
             lgb_imps=lgb.booster_.feature_importance(importance_type='split')
         
@@ -621,9 +634,10 @@ class preSelector(Base,Specials,TransformerMixin):
                 objective = 'binary',
                 learning_rate=0.1,
                 n_estimators=tree_size,
+                random_state=123,
                 subsample=0.7,
                 colsample_bytree=1,
-            ).fit(X_numeric,y)         
+            ).fit(X_numeric,y,sample_weight=sample_weight)         
 
             lgb_imps=lgb.booster_.feature_importance(importance_type='split')
         
@@ -633,10 +647,22 @@ class preSelector(Base,Specials,TransformerMixin):
             
             return X_oth.columns.tolist()
         
-    
-    def _filterbyIV(self,X,y,iv_limit):        
         
-        _,vtabs=binFreq(X,y,bin_num_limit=30)
+    def _filterbyLofoimp(self,X,y,lofo_imp=0,sample_weight=None):
+        
+        X=X.apply(lambda x:x.astype('category') if x.dtypes=='object' else x)  
+        
+        dt=Dataset(X.join(y),y.name,features=X.columns.tolist())
+           
+        fimp=LOFOImportance(dt,'roc_auc',cv=5,n_jobs=-1,
+                    fit_params={'sample_weight':sample_weight}).get_importance()
+        
+        return fimp[fimp['importance_mean']>lofo_imp]['feature'].tolist()
+        
+    
+    def _filterbyIV(self,X,y,iv_limit,sample_weight=None):        
+        
+        _,vtabs=binFreq(X,y,ws=sample_weight,bin_num_limit=30)
         
         iv_t=pd.Series({key:vtabs[key]['total_iv'].max() for key in vtabs},name='iv_infos')
 
@@ -674,13 +700,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             if not self.tree_imps>=0:
                 
-                raise ValueError("tree_imps is in [0,inf]")
-                
-        if self.auc_limit is not None:
-            
-            if not self.auc_limit>=0:
-                
-                raise ValueError("auc_limit is in [0,inf]")
+                raise ValueError("tree_imps is in [0,inf]")     
             
     
         if self.iv_limit is not None:

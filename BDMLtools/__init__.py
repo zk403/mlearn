@@ -6,7 +6,7 @@ from BDMLtools.selector import binSelector,binAdjuster,binFreq,binPretty,binTree
 from BDMLtools.selector import faSelector
 from BDMLtools.selector import stepLogit,cardScorer
 from BDMLtools.selector import preSelector,prefitModel
-from BDMLtools.selector import LgbmRFECVSelector,LgbmSeqSelector
+from BDMLtools.selector import LgbmRFECVSelector,LgbmSeqSelector,LgbmPISelector,LgbmShapRFECVSelector
 #from BDMLtools.selector import RFECVSelector
 from BDMLtools.selector import lassoSelector
 from BDMLtools.plotter import BaseWoePlotter
@@ -16,7 +16,7 @@ from BDMLtools.tuner import gridTuner,hgridTuner
 from BDMLtools.tuner import BayesianXGBTuner,BayesianLgbmTuner,shapCheck
 
 
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 
 __all__ = (    
     dtStandardization,
@@ -45,6 +45,8 @@ __all__ = (
     lassoSelector,
     LgbmRFECVSelector,
     LgbmSeqSelector,
+    LgbmPISelector,
+    LgbmShapRFECVSelector,
     woeTransformer,
     gridTuner,
     hgridTuner,
