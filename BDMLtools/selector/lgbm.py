@@ -7,7 +7,6 @@ Created on Tue Feb 22 17:03:34 2022
 """
 
 from sklearn.feature_selection import RFECV,SequentialFeatureSelector
-from lightgbm import LGBMClassifier
 import pandas as pd
 from joblib import effective_n_jobs
 from BDMLtools.base import Base
@@ -17,6 +16,8 @@ from probatus.feature_elimination import EarlyStoppingShapRFECV
 from sklearn.model_selection import train_test_split
 from sklearn.inspection import permutation_importance
 from skopt import BayesSearchCV
+from BDMLtools.tuner.base import sLGBMClassifier
+import warnings
 
 
 class LgbmPISelector(Base,BaseTunner):
@@ -36,7 +37,7 @@ class LgbmPISelector(Base,BaseTunner):
             - “bs”，基模型进行贝叶斯超参优化(sklearn-optimize),这将会增加计算量但会得到最优超参条件下较小偏差的筛选结果            
         clf_params:dict,默认{}(代表默认参数)
             当method="raw"时为LGBMClassifier的超参数设置,{}代表默认参数            
-            当method="bs"时为LGBMClassifier的超参数设置,LgbmPISelector._para_space_default可查看默认超参设置  
+            当method="bs"时为LGBMClassifier的超参数设置,LgbmPISelector._lgbm_hpsearch_default可查看默认超参设置  
         pi_repeats:int,默认10,PI中特征的随机排序次数,次数越多结果越有统计意义但会增加计算量
         n_iters:method='bs'时贝叶斯优化迭代次数
         init_points:method='bs'时贝叶斯优化起始搜索点个数
@@ -127,13 +128,13 @@ class LgbmPISelector(Base,BaseTunner):
                 
                 X_tr, X_val, y_tr, y_val = train_test_split(X,y,test_size=self.validation_fraction,random_state=self.random_state,stratify=y)
                 
-                estimator=LGBMClassifier(random_state=self.random_state,**self.clf_params).fit(
+                estimator=sLGBMClassifier(random_state=self.random_state,**self.clf_params).fit(
                     X_tr,y_tr,**self._get_fit_params(X_val,y_val,sample_weight,y.index,y_val.index)
                 )
                 
             else:
                 
-                estimator = LGBMClassifier(random_state=self.random_state,**self.clf_params).fit(
+                estimator = sLGBMClassifier(random_state=self.random_state,**self.clf_params).fit(
                     X,y,**{'sample_weight':sample_weight})  
                                                          
         else:
@@ -146,7 +147,7 @@ class LgbmPISelector(Base,BaseTunner):
 
                 self._BayesSearch_CV(para_space,X_tr,y_tr,sample_weight[y_tr.index])
     
-                estimator=LGBMClassifier(random_state=self.random_state,**self.bs_res.best_params_).fit(
+                estimator=sLGBMClassifier(random_state=self.random_state,**self.bs_res.best_params_).fit(
                     X_tr,y_tr,**self._get_fit_params(X_val,y_val,sample_weight,y.index,y_val.index)
                 )  
             
@@ -154,7 +155,7 @@ class LgbmPISelector(Base,BaseTunner):
                 
                 self._BayesSearch_CV(para_space,X,y,sample_weight)
                 
-                estimator = LGBMClassifier(random_state=self.random_state,**self.bs_res.best_params_).fit(
+                estimator = sLGBMClassifier(random_state=self.random_state,**self.bs_res.best_params_).fit(
                     X,y,**{'sample_weight':sample_weight})  
                 
          
@@ -211,7 +212,7 @@ class LgbmPISelector(Base,BaseTunner):
         n_jobs=effective_n_jobs(self.n_jobs)
                         
         bs=BayesSearchCV(
-            LGBMClassifier(random_state=self.random_state),para_space,cv=cv,
+            sLGBMClassifier(random_state=self.random_state),para_space,cv=cv,
             n_iter=self.n_iter,n_points=self.init_points,
             n_jobs=n_jobs,verbose=self.verbose,refit=False,random_state=self.random_state,
             scoring=scorer,error_score=0)       
@@ -326,12 +327,23 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
             keep_cols=self.clf.get_reduced_features_set(self.min_features_to_select)
             
         return X[keep_cols]
-            
     
+        
     def fit(self,X,y,cat_features=None,sample_weight=None,check_additivity=True):
+    
+        if not self.verbose:
+    
+            with warnings.catch_warnings():   
+
+                warnings.filterwarnings("ignore")
+
+                return self._fit(X,y,cat_features=None,sample_weight=None,check_additivity=True)
+
+    
+    
+    def _fit(self,X,y,cat_features=None,sample_weight=None,check_additivity=True):
         
         """
-        
         Parameters:
         --
             X:pd.DataFrame,训练数据X
@@ -341,8 +353,6 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
             check_additivity:bool,进行shap-value的可加性校验,默认True
 
         """
-                
-
         self._check_data(X, y)
         
         X=X.apply(lambda col:col.astype('category') if col.name in cat_features else col) if cat_features else X       
@@ -353,14 +363,14 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
 
         if self.method=='raw':
             
-            estimator=LGBMClassifier(random_state=self.random_state,**self.clf_params)
+            estimator=sLGBMClassifier(random_state=self.random_state,verbose=0,**self.clf_params)
             
         else:
             
             para_space=self.clf_params if self.clf_params else self._lgbm_hpsearch_default()
     
             
-            estimator=BayesSearchCV(LGBMClassifier(random_state=self.random_state),para_space,
+            estimator=BayesSearchCV(sLGBMClassifier(random_state=self.random_state,verbose=0),para_space,
                                     n_iter=self.n_iter,n_points=self.n_points,
                                     random_state=self.random_state,
                                     n_jobs=self.n_jobs,
@@ -494,7 +504,7 @@ class LgbmRFECVSelector(Base,BaseTunner):
         
         n_jobs=effective_n_jobs(self.n_jobs)
         
-        lgbm=LGBMClassifier(**self.clf_params)
+        lgbm=sLGBMClassifier(**self.clf_params)
         
         rfe_clf = RFECV(lgbm,step=self.step,
                         min_features_to_select=self.min_features_to_select,
@@ -608,7 +618,7 @@ class LgbmSeqSelector(Base,BaseTunner):
         
         n_jobs=effective_n_jobs(self.n_jobs)
         
-        lgbm=LGBMClassifier(**self.clf_params)
+        lgbm=sLGBMClassifier(**self.clf_params)
         
         seq_clf = SequentialFeatureSelector(lgbm,
                         n_features_to_select=self.n_features_to_select,

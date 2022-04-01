@@ -13,7 +13,8 @@ from BDMLtools.plotter import BaseWoePlotter
 from BDMLtools.plotter import perfEval
 from BDMLtools.encoder import woeTransformer
 from BDMLtools.tuner import gridTuner,hgridTuner
-from BDMLtools.tuner import BayesianXGBTuner,BayesianLgbmTuner,shapCheck
+from BDMLtools.tuner import BayesianXGBTuner,BayesianLgbmTuner,BayesianCBTuner,BayesianCVTuner,shapCheck
+
 
 
 __version__ = '0.2.2'
@@ -52,6 +53,8 @@ __all__ = (
     hgridTuner,
     BayesianXGBTuner,
     BayesianLgbmTuner,
+    BayesianCBTuner,
+    BayesianCVTuner,
     perfEval,
     shapCheck
 )

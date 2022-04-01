@@ -6,7 +6,7 @@ Created on Wed Jan 12 18:29:30 2022
 @author: zengke
 """
 
-from BDMLtools.tuner.bayesian import BayesianLgbmTuner,BayesianXGBTuner
+from BDMLtools.tuner.bayesian import BayesianLgbmTuner,BayesianXGBTuner,BayesianCVTuner,BayesianCBTuner
 from BDMLtools.tuner.gridcv import gridTuner
 from BDMLtools.tuner.halvingcv import hgridTuner
 from BDMLtools.tuner.fun import shapCheck
@@ -14,6 +14,8 @@ from BDMLtools.tuner.fun import shapCheck
 __all__ = (    
     BayesianLgbmTuner,
     BayesianXGBTuner,
+    BayesianCBTuner,
+    BayesianCVTuner,
     gridTuner,
     hgridTuner,
     shapCheck
