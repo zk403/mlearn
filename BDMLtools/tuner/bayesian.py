@@ -401,6 +401,7 @@ class BayesianCVTuner(Base,BaseTunner,BaseEstimator):
             
             para_space = {
                 
+                'verbose':Categorical([-1]),
                 'boosting_type':Categorical(['gbdt','goss']),
                 'n_estimators': Integer(30, 120),
                 'max_depth':Integer(2, 4),

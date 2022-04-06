@@ -6,7 +6,6 @@ Created on Tue Feb 22 17:03:34 2022
 @author: zengke
 """
 
-from sklearn.feature_selection import RFECV,SequentialFeatureSelector
 import pandas as pd
 from joblib import effective_n_jobs
 from BDMLtools.base import Base
@@ -17,7 +16,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.inspection import permutation_importance
 from skopt import BayesSearchCV
 from BDMLtools.tuner.base import sLGBMClassifier
+from BDMLtools.selector.bin_fun import R_pretty
 import warnings
+from mlxtend.feature_selection import SequentialFeatureSelector
 
 
 class LgbmPISelector(Base,BaseTunner):
@@ -54,7 +55,7 @@ class LgbmPISelector(Base,BaseTunner):
     
     Attribute:    
     --
-        clf:RFECV对象
+        
         
     Method:    
     --        
@@ -228,6 +229,7 @@ class LgbmPISelector(Base,BaseTunner):
 
         para_space={
             'boosting_type':Categorical(['goss','gbdt']),
+            'verbose':Categorical([-1]), 
             'n_estimators': Integer(low=200, high=300, prior='uniform', transform='identity'),
             'learning_rate': Real(low=0.05, high=0.2, prior='uniform', transform='identity'),
             'max_depth': Integer(low=2, high=4, prior='uniform', transform='identity')
@@ -338,6 +340,10 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
                 warnings.filterwarnings("ignore")
 
                 return self._fit(X,y,cat_features=None,sample_weight=None,check_additivity=True)
+            
+        else:
+            
+            return self._fit(X,y,cat_features=None,sample_weight=None,check_additivity=True)
 
     
     
@@ -363,14 +369,14 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
 
         if self.method=='raw':
             
-            estimator=sLGBMClassifier(random_state=self.random_state,verbose=0,**self.clf_params)
+            estimator=sLGBMClassifier(random_state=self.random_state,**self.clf_params)
             
         else:
             
             para_space=self.clf_params if self.clf_params else self._lgbm_hpsearch_default()
     
             
-            estimator=BayesSearchCV(sLGBMClassifier(random_state=self.random_state,verbose=0),para_space,
+            estimator=BayesSearchCV(sLGBMClassifier(random_state=self.random_state),para_space,
                                     n_iter=self.n_iter,n_points=self.n_points,
                                     random_state=self.random_state,
                                     n_jobs=self.n_jobs,
@@ -398,6 +404,7 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
         from skopt.utils import Categorical,Real,Integer
 
         para_space={
+            'verbose':Categorical([-1]), 
             'boosting_type':Categorical(['goss','gbdt']),
             'n_estimators': Integer(low=30, high=300, prior='uniform', transform='identity'),
             'learning_rate': Real(low=0.05, high=0.2, prior='uniform', transform='identity'),
@@ -405,141 +412,56 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
         }
         
         return para_space
-
-
-
-class LgbmRFECVSelector(Base,BaseTunner):
     
-    '''
-    使用LightGBM进行基于交叉验证的递归式特征消除(Recursive feature elimination with CV)
+    def plot(self,figure_size=(10,5)):
     
-    RFECV算法介绍:
-    https://scikit-learn.org/stable/modules/feature_selection.html#rfe  
-    
-    缺陷:
-    + 目前不支持**fit_params写法(不支持sample_weight,early_stopping等)
-    + 目前不支持在特征筛选过程中通过交叉验证中进行基模型的超参优化
-    
-    Parameters:
-    --
-        step:int,float(0-1),RFE中每次消除特征的个数(int)/百分比(float)
-        min_features_to_select:int,最少选择的特征个数
-        clf_params:dict,LGBMClassifier的超参数设置,{}代表默认参数
-        scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
-        cv:int,RepeatedStratifiedKFold交叉验证的折数
-        repeats:int,RepeatedStratifiedKFold交叉验证重复次数
-        random_state:int,随机种子
-        n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
-        verbose,int,并行信息输出等级
-    
-    Attribute:    
-    --
-        keep_cols:list,保存的列名
-        clf:RFECV对象
-        
-    Method:    
-    --        
-        fit(X,y,categorical_feature):拟合模型，categorical_feature为分类列列名list,默认None
-        transform(X):对X进行特征筛选，返回筛选后的数据
-        
-    '''     
-
-    def __init__(self,step=1,min_features_to_select=1,clf_params={},scoring='ks',cv=5,repeats=1,
-                 random_state=123,n_jobs=-1,verbose=0):
-        
-        self.step=step
-        self.min_features_to_select=min_features_to_select
-        self.clf_params=clf_params
-        self.scoring=scoring
-        self.cv=cv
-        self.repeats=repeats
-        self.random_state=random_state
-        self.n_jobs=n_jobs
-        self.verbose=verbose
-        
-        self._is_fitted=False
-        
-    def transform(self,X,y=None):
-        
-        """
-        
-        Parameters:
-        --
-            X:pd.DataFrame,训练数据X
-        """
-
-        self._check_X(X)
         self._check_is_fitted()
+        
+        from plotnine import ggplot,theme,theme_bw,ggtitle,labs,geom_errorbar,aes,geom_line,geom_point,scale_x_continuous,scale_x_reverse
+        
+        dt=self.clf.report.report_df
+    
+        title="SHAP RFE using CV and Lightgbm"
+        
+        breaks=R_pretty(dt['num_features'].min(),dt['num_features'].max(),50 if dt['num_features'].size>50 else dt['num_features'].size)
+        
+        p=(ggplot(dt,aes(x='num_features', y='val_metric_mean'))+
+            geom_point(color='red',size=3)+
+            geom_line()+
+            geom_errorbar(aes(ymin=dt['val_metric_mean']-dt['val_metric_std'],ymax=dt['val_metric_mean']+dt['val_metric_std']),width=.2)+
+            ggtitle(title)+
+            labs(x = "Num of features", y = "Val-Score") +
+            theme_bw() +
+            theme(figure_size=(25,5)) +
+            scale_x_continuous(breaks=breaks) +
+            scale_x_reverse(breaks=breaks)
+        )
+        
+        return p  
+    
 
-        return X[self.keep_cols]
-            
-    
-    def fit(self,X,y):
-        
-        """
-        
-        Parameters:
-        --
-            X:pd.DataFrame,训练数据X
-            y:pd.Series,训练数据y
-
-        """
-                
-
-        self._check_data(X, y)
-        
-        # if categorical_feature:
-        
-        #     X=X.apply(lambda col:pd.Series(pd.Categorical(col),index=col.index) if col.name in categorical_feature else col)
-        
-        if self.scoring in ['ks','auc','lift','neglogloss']:
-            
-            scorer=self._get_scorer[self.scoring]
-            
-        else:
-            
-            raise ValueError('scoring not understood,should be "ks","auc","lift","neglogloss")')
-            
-        cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)       
-        
-        n_jobs=effective_n_jobs(self.n_jobs)
-        
-        lgbm=sLGBMClassifier(**self.clf_params)
-        
-        rfe_clf = RFECV(lgbm,step=self.step,
-                        min_features_to_select=self.min_features_to_select,
-                        importance_getter='feature_importances_',
-                        n_jobs=n_jobs,cv=cv,scoring=scorer)
-        
-        rfe_clf.fit(X, y)
-        
-        self.keep_cols=rfe_clf.feature_names_in_[rfe_clf.get_support()].tolist()
-        
-        self.clf=rfe_clf
-             
-        self._is_fitted=True
-    
-        return self
-    
-    
 class LgbmSeqSelector(Base,BaseTunner):
     
     '''
     使用LightGBM进行基于交叉验证的序列特征消除(Sequential Feature Selection with CV)
     
     Sequential Feature Selection算法介绍:
-    https://scikit-learn.org/stable/modules/feature_selection.html#sequential-feature-selection
-    
+    http://rasbt.github.io/mlxtend/user_guide/feature_selection/SequentialFeatureSelector
+
+
     缺陷:
-    + 目前不支持**fit_params写法(不支持sample_weight,early_stopping等)
+    + 目前不支持early_stopping
+    + 分类特征将不参与序列法筛选
     + 目前不支持在特征筛选过程中通过交叉验证中进行基模型的超参优化
 
     Parameters:
     --
-        direction:str,逐步法方向,可选'forward','backward'
-        n_features_to_select:int,选择的特征个数
+        forward:bool,默认False,True:前向,False:后向
+        floating:bool,默认False,Adds a conditional exclusion/inclusion if True.
+        k_features:int,选择的特征个数
         clf_params:dict,LGBMClassifier的超参数设置,{}代表默认参数
         scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
+        fixed_features:list or None
         cv:int,RepeatedStratifiedKFold交叉验证的折数
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
         random_state:int,随机种子
@@ -558,13 +480,16 @@ class LgbmSeqSelector(Base,BaseTunner):
         
     '''     
 
-    def __init__(self,direction='forward',n_features_to_select=5,clf_params={},scoring='ks',cv=5,repeats=1,
+    def __init__(self,forward=False,floating=False,k_features=5,clf_params={'verbose':-1},scoring='roc_auc',
+                 cv=5,repeats=1,fixed_features=None,
                  random_state=123,n_jobs=-1,verbose=0):
         
-        self.direction=direction
-        self.n_features_to_select=n_features_to_select
+        self.forward=forward
+        self.floating=floating
+        self.k_features=k_features
         self.clf_params=clf_params
         self.scoring=scoring
+        self.fixed_features=fixed_features
         self.cv=cv
         self.repeats=repeats
         self.random_state=random_state
@@ -585,10 +510,10 @@ class LgbmSeqSelector(Base,BaseTunner):
         self._check_X(X)
         self._check_is_fitted()
 
-        return X[self.keep_cols]
+        return X[self.keep_cols+self.cat_features]
             
     
-    def fit(self,X,y):
+    def fit(self,X,y,sample_weight=None):
         
         """
         
@@ -602,36 +527,62 @@ class LgbmSeqSelector(Base,BaseTunner):
 
         self._check_data(X, y)
         
-        # if categorical_feature:
+        self.cat_features=X.select_dtypes(include=['category','object']).columns.tolist()
         
-        #     X=X.apply(lambda col:pd.Series(pd.Categorical(col),index=col.index) if col.name in categorical_feature else col)
-        
-        if self.scoring in ['ks','auc','lift','neglogloss']:
-            
-            scorer=self._get_scorer[self.scoring]
-            
-        else:
-            
-            raise ValueError('scoring not understood,should be "ks","auc","lift","neglogloss")')
-            
+        X=X.select_dtypes('number')
+     
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)       
         
         n_jobs=effective_n_jobs(self.n_jobs)
         
-        lgbm=sLGBMClassifier(**self.clf_params)
+        lgbm=sLGBMClassifier(random_state=self.random_state,**self.clf_params)
         
-        seq_clf = SequentialFeatureSelector(lgbm,
-                        n_features_to_select=self.n_features_to_select,
-                        direction=self.direction,
-                        n_jobs=n_jobs,cv=cv,scoring=scorer)
+        seq_clf = SequentialFeatureSelector(lgbm,                                            
+                        k_features=self.k_features,
+                        forward=self.forward,
+                        floating=self.floating,
+                        verbose=self.verbose,  
+                        scoring=self.scoring,
+                        cv=cv,  
+                        fixed_features=self.fixed_features,                    
+                        n_jobs=n_jobs)
         
-        seq_clf.fit(X, y)
+        seq_clf.fit(X, y, **{'sample_weight':sample_weight})
         
-        self.keep_cols=seq_clf.feature_names_in_[seq_clf.get_support()].tolist()
+        self.keep_cols=seq_clf.k_feature_names_
         
         self.clf=seq_clf
              
         self._is_fitted=True
     
-        return self    
+        return self
     
+    def plot(self,figure_size=(10,5)):
+        
+        self._check_is_fitted()
+        
+        from plotnine import ggplot,theme,theme_bw,ggtitle,labs,geom_errorbar,aes,geom_line,geom_point,scale_x_continuous,scale_x_reverse
+        
+        dt=pd.DataFrame(self.clf.get_metric_dict()).T.apply(lambda x:pd.to_numeric(x,errors='ignore'))
+        dt['num_features']=dt.index
+        
+        title="Sequential Feature Selection using CV and Lightgbm"
+        
+        breaks=R_pretty(dt['num_features'].min(),dt['num_features'].max(),50 if dt['num_features'].size>50 else dt['num_features'].size)
+        
+        p=(ggplot(dt,aes(x='num_features', y='avg_score'))+
+            geom_point(color='red',size=3)+
+            geom_line()+
+            geom_errorbar(aes(ymin=dt['avg_score']-dt['std_dev'],ymax=dt['avg_score']+dt['std_dev']),width=.2)+
+            ggtitle(title)+
+            labs(x = "Num of features", y = "Val-Score") +
+            scale_x_continuous(breaks=breaks) +
+            theme_bw() +
+            theme(figure_size=figure_size)     
+        )
+        
+        if not self.forward:
+            
+            p = p + scale_x_reverse(breaks=breaks)
+        
+        return p        
