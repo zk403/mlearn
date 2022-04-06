@@ -169,9 +169,9 @@ class hgridTuner(Base,BaseTunner,BaseEstimator):
     '''     
     
     
-    def __init__(self,Estimator,para_space,cat_features=None,method='h_random',scoring='auc',eval_metric='auc',repeats=1,cv=5,
+    def __init__(self,Estimator,para_space,method='h_random',scoring='auc',eval_metric='auc',repeats=1,cv=5,
                  factor=3,n_candidates='exhaust',early_stopping_rounds=10,validation_fraction=0.1,
-                 n_jobs=-1,verbose=0,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
+                 n_jobs=-1,verbose=0,random_state=123,calibration=False,cv_calibration=5):
       
         self.Estimator=Estimator
         self.para_space=para_space

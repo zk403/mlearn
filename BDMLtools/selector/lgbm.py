@@ -11,7 +11,7 @@ from joblib import effective_n_jobs
 from BDMLtools.base import Base
 from BDMLtools.tuner.base import BaseTunner
 from sklearn.model_selection import RepeatedStratifiedKFold
-from probatus.feature_elimination import EarlyStoppingShapRFECV
+from probatus.feature_elimination import EarlyStoppingShapRFECV,ShapRFECV
 from sklearn.model_selection import train_test_split
 from sklearn.inspection import permutation_importance
 from skopt import BayesSearchCV
@@ -289,7 +289,7 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
                  n_iter=5,n_points=5,
                  scoring='roc_auc',
                  cv=5,repeats=1,
-                 early_stopping_rounds=5,
+                 early_stopping_rounds=None,
                  random_state=123,n_jobs=-1,verbose=0):
         
         self.step=step
@@ -381,18 +381,35 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
                                     random_state=self.random_state,
                                     n_jobs=self.n_jobs,
                                     verbose=self.verbose,cv=cv)
-            
-        self.clf=EarlyStoppingShapRFECV(estimator,
-                                    min_features_to_select=self.min_features_to_select,
-                                    step=self.step,
-                                    random_state=self.random_state,
-                                    scoring=self.scoring,
-                                    n_jobs=n_jobs,
-                                    verbose=self.verbose,
-                                    early_stopping_rounds=self.early_stopping_rounds,
-                                    cv=cv)
         
-        self.clf.fit_compute(X,y,check_additivity=check_additivity,sample_weight=sample_weight)
+        if self.early_stopping_rounds:
+        
+        
+            self.clf=EarlyStoppingShapRFECV(estimator,
+                                        min_features_to_select=self.min_features_to_select,
+                                        step=self.step,
+                                        random_state=self.random_state,
+                                        scoring=self.scoring,
+                                        n_jobs=n_jobs,
+                                        verbose=-1,
+                                        early_stopping_rounds=self.early_stopping_rounds,
+                                        cv=cv)
+        
+            self.clf.fit_compute(X,y,check_additivity=check_additivity,sample_weight=sample_weight)
+            
+        else:
+
+            self.clf=ShapRFECV(estimator,
+                                min_features_to_select=self.min_features_to_select,
+                                step=self.step,
+                                random_state=self.random_state,
+                                scoring=self.scoring,
+                                n_jobs=n_jobs,
+                                verbose=-1,
+                                cv=cv)
+        
+            self.clf.fit_compute(X,y,check_additivity=check_additivity,sample_weight=sample_weight)
+            
         
         self._is_fitted=True
     
@@ -417,13 +434,21 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
     
         self._check_is_fitted()
         
-        from plotnine import ggplot,theme,theme_bw,ggtitle,labs,geom_errorbar,aes,geom_line,geom_point,scale_x_continuous,scale_x_reverse
+        from plotnine import ggplot,theme,theme_bw,ggtitle,labs,geom_errorbar,aes,geom_line,geom_point,scale_x_reverse
         
-        dt=self.clf.report.report_df
+        dt=self.clf.report_df
     
         title="SHAP RFE using CV and Lightgbm"
         
-        breaks=R_pretty(dt['num_features'].min(),dt['num_features'].max(),50 if dt['num_features'].size>50 else dt['num_features'].size)
+        if dt['num_features'].size>50 and self.step==1:
+            
+            n=50
+        
+        else:
+            
+            n=dt['num_features'].size
+            
+        breaks=R_pretty(dt['num_features'].min(),dt['num_features'].max(),n)
         
         p=(ggplot(dt,aes(x='num_features', y='val_metric_mean'))+
             geom_point(color='red',size=3)+
@@ -432,8 +457,7 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
             ggtitle(title)+
             labs(x = "Num of features", y = "Val-Score") +
             theme_bw() +
-            theme(figure_size=(25,5)) +
-            scale_x_continuous(breaks=breaks) +
+            theme(figure_size=figure_size) +
             scale_x_reverse(breaks=breaks)
         )
         
@@ -572,7 +596,7 @@ class LgbmSeqSelector(Base,BaseTunner):
         
         title="Sequential Feature Selection using CV and Lightgbm"
         
-        breaks=R_pretty(dt['num_features'].min(),dt['num_features'].max(),50 if dt['num_features'].size>50 else dt['num_features'].size)
+        breaks=R_pretty(dt['num_features'].min(),dt['num_features'].max(),50 if dt['num_features'].size>50 else dt['num_features'].size)                
         
         p=(ggplot(dt,aes(x='num_features', y='avg_score'))+
             geom_point(color='red',size=3)+

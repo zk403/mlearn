@@ -112,8 +112,8 @@ class BayesianCVTuner(Base,BaseTunner,BaseEstimator):
 
     '''    
     
-    def __init__(self,Estimator,para_space={},cat_features=None,n_iter=10,init_points=5,scoring='auc',eval_metric='auc',
-                 cv=5,repeats=1,n_jobs=-1,verbose=0,early_stopping_rounds=10,validation_fraction=0.1,random_state=123,sample_weight=None,calibration=False,cv_calibration=5):
+    def __init__(self,Estimator,para_space={},n_iter=10,init_points=5,scoring='auc',eval_metric='auc',
+                 cv=5,repeats=1,n_jobs=-1,verbose=0,early_stopping_rounds=10,validation_fraction=0.1,random_state=123,calibration=False,cv_calibration=5):
         
         self.Estimator=Estimator
         self.para_space=para_space

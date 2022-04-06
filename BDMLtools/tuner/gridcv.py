@@ -162,7 +162,7 @@ class gridTuner(Base,BaseTunner,BaseEstimator):
     '''    
     
     
-    def __init__(self,Estimator,para_space,cat_features=None,method='random_grid',n_iter=10,scoring='roc_auc',eval_metric='auc',repeats=1,cv=5,early_stopping_rounds=10,validation_fraction=0.1,
+    def __init__(self,Estimator,para_space,method='random_grid',n_iter=10,scoring='roc_auc',eval_metric='auc',repeats=1,cv=5,early_stopping_rounds=10,validation_fraction=0.1,
                  n_jobs=-1,verbose=0,random_state=123,calibration=False,cv_calibration=5):
        
         self.Estimator=Estimator
