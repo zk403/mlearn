@@ -456,8 +456,12 @@ class LgbmSeqSelector(Base,BaseTunner):
 
     Parameters:
     --
-        forward:bool,默认False,True:前向,False:后向
-        floating:bool,默认False,Adds a conditional exclusion/inclusion if True.
+        forward:bool,默认False,当floating=False时
+            + True:前向序列特征选择(Sequential Forward Selection)
+            + False:后向序列特征选择(Sequential Backward Selection)
+        floating:bool,默认False,代表使用基础的SFS或SBS
+            + 当为True时,若forward=True则执行SFFS(Sequential Forward Floating Selection)
+            + 当为True时,若forward=False则执行SBFS(Sequential Backward Floating Selection)           
         k_features:int,选择的特征个数
         clf_params:dict,LGBMClassifier的超参数设置,{}代表默认参数
         scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'

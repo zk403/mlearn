@@ -3,8 +3,9 @@ v0.2.2
 1.加入特征筛选方法LgbmShapRFESelector和LgbmPISelector
 2.优化了preSelector代码
 3.移除特征筛选方法_fliterByShuffle,LgbmRFESelector
-4.修复了网格参数优化、减半参数优化、贝叶斯优化中early_stopping的bug
-5.相关文档维护
+4.移除BayesianXGBTuner,BayesianLGBMTuner,BayesianCBTuner
+5.修复了网格参数优化、减半参数优化、贝叶斯优化中early_stopping的bug
+6.相关文档维护
 ```
 
 ```

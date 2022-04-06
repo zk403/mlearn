@@ -17,7 +17,7 @@ from BDMLtools.selector import lassoSelector,LgbmSeqSelector,LgbmShapRFECVSelect
 from BDMLtools.plotter import  perfEval
 from BDMLtools.encoder import woeTransformer
 from BDMLtools.tuner import gridTuner,hgridTuner
-from BDMLtools.tuner import BayesianXGBTuner,BayesianLgbmTuner,shapCheck
+from BDMLtools.tuner import shapCheck,BayesianCVTuner
 import scorecardpy as sc
 from sklearn.linear_model import LogisticRegression 
 import pandas as pd
@@ -25,7 +25,6 @@ import numpy as np
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 from catboost import CatBoostClassifier
-from BDMLtools.tuner.bayesian import BayesianCVTuner
 
 
 class test:
@@ -601,38 +600,9 @@ class test:
         
         lassoSelector().fit(dt_woe_bm,y)
         
-        LgbmRFECVSelector().fit(dt_woe_bm,y)
-        
         LgbmSeqSelector().fit(dt_woe_bm,y)
         
         
-        #Bayesian based tunner
-        BayesianXGBTuner(para_space={
-                     'n_estimators': (80, 150),
-                     'learning_rate': (0.05, 0.2),
-                     'max_depth': (3, 10),
-                     'gamma': (0, 20),
-                     'min_child_weight': (0, 10),
-                     'max_delta_step': (0, 0),
-                     'scale_pos_weight': (11,11),
-                     'subsample': (0.5, 1),
-                     'colsample_bytree': (0.5, 1),
-                     'reg_lambda': (0, 10)
-                               }).fit(dt_woe_bm,y)
-        
-        BayesianLgbmTuner(para_space={ 
-                         'n_estimators':(30,120),
-                         'learning_rate':(0.05,0.2), 
-                        
-                         'max_depth':(2,4),
-                         'min_split_gain': (0,20),
-                         'min_sum_hessian_in_leaf': (0,20),
-                         
-                         'scale_pos_weight':(1,1),
-                         'subsample':(0.5,1),
-                         'colsample_bytree' :(0.5,1),
-                         'reg_lambda':(0,10), 
-                         }).fit(dt_woe_bm,y)
         
         #Grid based tunner
         gridTuner(XGBClassifier,para_space={
