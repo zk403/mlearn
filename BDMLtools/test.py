@@ -13,7 +13,7 @@ from BDMLtools.selector import faSelector
 from BDMLtools.selector import stepLogit,cardScorer
 from BDMLtools.selector import preSelector,prefitModel
 #from BDMLtools.selector import RFECVSelector
-from BDMLtools.selector import lassoSelector,LgbmRFECVSelector,LgbmSeqSelector
+from BDMLtools.selector import lassoSelector,LgbmSeqSelector,LgbmShapRFECVSelector
 from BDMLtools.plotter import  perfEval
 from BDMLtools.encoder import woeTransformer
 from BDMLtools.tuner import gridTuner,hgridTuner
