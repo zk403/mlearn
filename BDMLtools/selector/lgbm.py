@@ -59,7 +59,7 @@ class LgbmPISelector(Base,BaseTunner):
         
     Method:    
     --        
-        fit(X,y,categorical_feature=None,sample_weight=None,check_additivity=False):拟合模型，
+        fit(X,y,categorical_feature=None,sample_weight=None):拟合模型，
         transform(X):对X进行特征筛选，返回筛选后的数据
         
     '''     
@@ -280,7 +280,7 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
         
     Method:    
     --        
-        fit(X,y,categorical_feature=None,sample_weight=None,check_additivity=False):拟合模型，
+        fit(X,y,categorical_feature=None,sample_weight=None,check_additivity):拟合模型，
         transform(X):对X进行特征筛选，返回筛选后的数据
         
     '''     
@@ -339,11 +339,11 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
 
                 warnings.filterwarnings("ignore")
 
-                return self._fit(X,y,cat_features=None,sample_weight=None,check_additivity=True)
+                return self._fit(X,y,cat_features=None,sample_weight=None,check_additivity=check_additivity)
             
         else:
             
-            return self._fit(X,y,cat_features=None,sample_weight=None,check_additivity=True)
+            return self._fit(X,y,cat_features=None,sample_weight=None,check_additivity=check_additivity)
 
     
     
@@ -577,7 +577,7 @@ class LgbmSeqSelector(Base,BaseTunner):
         
         seq_clf.fit(X, y, **{'sample_weight':sample_weight})
         
-        self.keep_cols=seq_clf.k_feature_names_
+        self.keep_cols=list(seq_clf.k_feature_names_)
         
         self.clf=seq_clf
              
@@ -604,13 +604,16 @@ class LgbmSeqSelector(Base,BaseTunner):
             geom_errorbar(aes(ymin=dt['avg_score']-dt['std_dev'],ymax=dt['avg_score']+dt['std_dev']),width=.2)+
             ggtitle(title)+
             labs(x = "Num of features", y = "Val-Score") +
-            scale_x_continuous(breaks=breaks) +
             theme_bw() +
             theme(figure_size=figure_size)     
         )
         
-        if not self.forward:
+        if self.forward:
             
-            p = p + scale_x_reverse(breaks=breaks)
+            p = p + scale_x_continuous(breaks=breaks)
+            
+        else:
+            
+            p = p + scale_x_reverse(breaks=breaks) 
         
         return p        
