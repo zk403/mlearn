@@ -73,6 +73,7 @@ setup(
                       'toad>=0.1.0',
                       'probatus>=1.8.8',
                       'mlxtend>=0.19.0',
+                      'scikit-optimize>=0.9.0',
                       'lofo-importance>=0.3.1',
                       'patsy>=0.5.2',
                       'bayesian-optimization>=1.2.0',

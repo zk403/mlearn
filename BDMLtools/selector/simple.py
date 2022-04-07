@@ -220,10 +220,13 @@ class preSelector(Base,Specials,TransformerMixin):
         variance:float or None,默认0,方差低于variance的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
         chif_pvalue:float or None,(0,1),默认0.05,大于chif_pvalue的列将被剔除,该步骤不支持样本权重。为None将跳过此步骤
                     + 卡方计算中，缺失值将被视为单独一类,
-                    + f值计算中，缺失值将被填补为接近+inf和-inf，计算两次，两次结果都不显著的列都将被剔除
-        lofo_imp:float or None,默认None,Leave One Feature Out Importance，使用LightGBM为基模型，neglogloss为评估指标，cv=5计算的特征重要性,小于0代表特征不重要
-        pi_limit:float or None,使用Permutation Importance进行特征筛选,将保留大于pi_limit的特征
-        tree_imps:int or None,lightgbm树的split_gain小于等于tree_imps的列将被剔除,默认1，设定为None将跳过此步骤
+                    + f值计算中，缺失值将被填补为接近+inf和-inf，计算两次，两次结果都不显著的列都将被剔除                   
+        lofo_imp:float or None,默认None,Leave One Feature Out Importance，使用LightGBM为基模型，neglogloss为评估指标，cv=5计算的特征重要性,小于0代表特征不重要,
+                详情请见lofo.LOFOImportance:https://github.com/aerdem4/lofo-importance               
+        pi_limit:float or None,使用Permutation Importance进行特征筛选,将保留大于pi_limit的特征,详情请见bm.LgbmPISelector
+                Permutation importance介绍:https://scikit-learn.org/stable/modules/permutation_importance.html
+                Permutation importance源码:https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/inspection/_permutation_importance.py
+        tree_imps:int or None,lightgbm树的split_gan小于等于tree_imps的列将被剔除,默认1，设定为None将跳过此步骤
         tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
         iv_limit:float or None使用进行iv快速筛选的iv阈值(数值等频30箱，分类则按照类别分箱)
         out_path:str or None,模型报告路径,将预筛选过程每一步的筛选过程输出到模型报告中
