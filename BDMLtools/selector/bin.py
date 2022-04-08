@@ -25,10 +25,10 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
     
     """ 
     自动分箱
-    本模块提供自动分箱方法包括等频、kmeans,pretty，决策树、卡方等
+    本模块提供自动分箱方法包括等频、kmeans，pretty，决策树、卡方等
     由于numpy部分计算函数的结果的最低精度类型为float64，
-    因此数值类数据的精度类型最好为float64，若为float32则为近似结果且可能会有精度问题
-    此外字符类数据的levels不要为['','missing','special']
+    因此数值类数据的精度类型最好为float64，不支持inf,若为float32则为近似结果且可能会有精度问题
+    此外字符类数据的levels不要为'','missing','special',None等特殊字符
 
     Parameters:
     ----------
