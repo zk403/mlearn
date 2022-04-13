@@ -5,7 +5,7 @@ BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数�
 
 + 涵盖数据清洗、数据探索、特征工程、评分卡制作、模型评估、统计学逐步回归、机器学习模型及其参数优化等内容
 + 在准确性和运行效率的前提下集成了诸多流行的三方库，包括sklearn,xgboost,lightgbm,statsmodels等
-+ 本模块的评分卡开发部分参考了R::scorecard
++ 本模块的评分卡开发部分参考了谢士晨博士的R::scorecard(https://github.com/ShichenXie/scorecard)
     - 功能上几乎与其一致并增加了更多的拓展，例如单调最优分箱算法
     - 支持sklearn、statsmodel的logit回归模型的评分卡制作
     - 在分箱算法、报告制作、评分转换上的本模组运行效率更优  
