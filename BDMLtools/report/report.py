@@ -687,8 +687,12 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
         
         self._check_X(X)
      
-        self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,axis=1).columns}    
-
+        self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,axis=1).columns}   
+        
+        if len(self.breaks_list_dict)==0:
+            
+            raise ValueError("variables‘ names in breaks_list not in X.columns")
+        
         X=pd.concat([X.drop(self.columns,axis=1),X[self.columns].astype('str')],axis=1)
                              
         
