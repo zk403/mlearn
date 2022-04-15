@@ -32,14 +32,13 @@ BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数�
     - BDMLtools.binAdjuster:分箱调整器,支持单特征、组特征的交互式分箱及分箱调整
     - BDMLtools.stepLogit:统计逐步回归筛选器，提供基于aic/bic与statsmodel的logit-reg的逐步法进行筛选特征与模型构建
     - BDMLtools.cardScorer:制作评分卡
-    - BDMLtools.LgbmSeqSelector:Lgbm逐步式特征消除筛选器
-    - BDMLtools.LgbmShapRFECVSelector:LgbmShap逐步式特征消除筛选器
+    - BDMLtools.LgbmSeqSelector:Lgbm逐步式特征选择筛选器
+    - BDMLtools.LgbmShapRFECVSelector:Lgbm递归式特征消除筛选器
     - BDMLtools.LgbmPISelector:Lgbm组合重要性除筛选器
     
 + 报告
 
     - BDMLtools.EDAReport:数据质量报告
-    - BDMLtools.businessReport:业务分析报告   
     - BDMLtools.varReportSinge:单特征分析报告 
     - BDMLtools.varReport:特征分析报告
     - BDMLtools.varGroupsReport:分群特征分析报告
