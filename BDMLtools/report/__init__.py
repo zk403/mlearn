@@ -6,7 +6,7 @@ Created on Wed Jan 12 18:29:30 2022
 @author: zengke
 """
 
-from BDMLtools.report.report import EDAReport,businessReport,varReportSinge,varReport,varGroupsReport,varGroupsPlot
+from BDMLtools.report.report import EDAReport,businessReport,varReportSinge,varReport,varGroupsReport,varGroupsPlot,GainsTable
 
 __all__ = (    
     EDAReport,
@@ -14,5 +14,6 @@ __all__ = (
     varReportSinge,
     varReport,
     varGroupsReport,
-    varGroupsPlot
+    varGroupsPlot,
+    GainsTable
 )

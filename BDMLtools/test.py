@@ -7,7 +7,7 @@ Created on Wed Jan 12 17:46:24 2022
 """
 
 from BDMLtools.clearner import outliersTransformer,dtypeAllocator,nanTransformer,dtStandardization
-from BDMLtools.report import businessReport,EDAReport,varReport,varGroupsReport,varReportSinge
+from BDMLtools.report import businessReport,EDAReport,varReport,varGroupsReport,varReportSinge,GainsTable
 from BDMLtools.selector import binSelector,binFreq,binPretty,binTree,binChi2,binKmeans
 from BDMLtools.selector import faSelector
 from BDMLtools.selector import stepLogit,cardScorer
@@ -41,7 +41,8 @@ class test:
         self.test_scorecard()
         self.test_perfEval()
         self.test_tab()
-        self.test_tunner()       
+        self.test_tunner()     
+        self.test_perfEval()
 
     def test_dtStandardization(self):
     
@@ -853,8 +854,11 @@ class test:
         
         figs_score=perfEval(show_plot=('density',),title='g-credit score').plot(dt_score_bm['score'],y_true,group,sample_weight,figure_size=(6,6))
         
+        gtab=GainsTable().fit_report(dt_score_bm['score'],y_true,group)
+        
         print(figs)
         print(figs_score)
+        print(gtab)
         
         print('perfEval test successfully')            
         

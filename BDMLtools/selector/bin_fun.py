@@ -15,6 +15,7 @@ import warnings
 from itertools import groupby
 from sklearn.cluster import KMeans
 from scipy.stats import chi2,chi2_contingency
+from warnings import warn
 from BDMLtools.fun import raw_to_bin_sc,Specials
 from BDMLtools.base import Base
 from BDMLtools.report.report import varReportSinge
@@ -54,7 +55,6 @@ def R_pretty(low, high, n):
     miny  = np.floor(low  / d) * d
     maxy  = np.ceil (high / d) * d
     return np.arange(miny, maxy+0.5*d, d)
-
 
 
 def remove_outlier(col):
@@ -182,8 +182,16 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
 
         if col.isnull().all():
             
+            warn('nan column:{},return blank breaks'.format(col.name))
+            
             breaks=[]     
-        
+            
+        elif np.max(col) == np.min(col):
+            
+            warn('constant column:{},return blank breaks'.format(col.name))
+            
+            breaks=[]     
+            
         elif is_numeric_dtype(col):
             
             y=y[~np.isnan(col)]    
@@ -195,9 +203,12 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
                 if ws.size!=y.size:
                 
                     raise ValueError('length of weight not equal to y')
+                    
+            else:
+                
+                ws=np.ones(y.size)
             
             col=col[~np.isnan(col)]
-            col_rm=remove_outlier(col)
             
             if np.unique(col).size<bin_num_limit:
                 
@@ -207,11 +218,14 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
                 
                 n_bins_adj=bin_num_limit
                 
-            breaks=np.percentile(col_rm,np.arange(n_bins_adj+1)/n_bins_adj*100,interpolation='lower')[1:-1]
-            breaks=np.unique(np.round(breaks,2))  
+            breaks=np.percentile(col,np.arange(n_bins_adj+1)/n_bins_adj*100)[1:-1]
+            
+            #adjust bin for extreamly unbalanced count distr
+            if ws[col<np.min(breaks)].sum()/ws.sum()<=min(1/n_bins_adj,0.01):
                 
-            #prevent from failed cut when col's distr too dense but will lose some infos    
-            breaks=breaks[(breaks>col.min()) & (breaks<col.max())].tolist()   
+                breaks=breaks[breaks!=np.min(breaks)]                
+            
+            breaks=np.unique(breaks).tolist()    
             
             if coerce_monotonic:
                 
@@ -233,7 +247,6 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
     bins={col:varReportSinge().report(X[col],y,breaks_list[col],ws,special_values) for col in X.columns}
    
     return breaks_list,bins
-
 
 
 class binKmeans(Base,Specials,BaseEstimator):

@@ -1,4 +1,12 @@
 ```
+v0.2.3
+1.加入GainsTable
+2.优化了shapCheck代码
+3.修复了LgbmShapRFECV中可能导致分类特征dtype变为category的bug
+4.相关文档维护
+```
+
+```
 v0.2.2
 1.加入特征筛选方法LgbmShapRFESelector和LgbmPISelector
 2.优化了preSelector代码

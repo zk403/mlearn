@@ -1053,5 +1053,169 @@ class varGroupsPlot(Base,BaseWoePlotter):
         
         
         
+class GainsTable(Base):
+    
+    """ 
+    根据模型评分产生适合策略分析的Gains Table
+    
+    Params:
+    ------
+        order:str,模型输出顺序假定,顺序假定会影响累积分布(cumsum)的运算结果,默认'auto',
+            + 'prob',当模型输出为概率时，概率越高风险越高,反之越低,
+            + 'score',当模型输出为评分时，评分越高风险越低,反之越高,
+            + 'auto',当输入值范围在0-1之间时推断为'prob',当输入值范围在0-1之外时,推断为'score'
+        method:str,默认'freq'为等频分箱,任意其他值为等宽分箱
+        bin_num:int,分箱数,默认10
+    
+    Method:
+    -------
+        fit_report:产生Gains Table
+    """  
+    
+    
+    def __init__(self,order='auto',method='freq',bin_num=10):
+
+        self.order=order
+        self.method=method
+        self.bin_num=bin_num
         
+    def fit_report(self,X,y,group=None,base_grouper=None):
+        
+        """ 
+        根据模型评分产生适合策略分析的Gains Table
+
+        Params:
+        ------
+            X:series,输入评分
+            y:series,实际值(0,1)
+            group:series,组变量,用于对数据分组,默认None即无组变量
+            base_grouper:string list,基准水平,若组变量存在,可设定组中的基准水平范围以进行分箱,默认None即全部数据都用做分箱
+            
+        Output:
+        -------
+            gain_tab,DataFrame or dict,产生的Gains Table
+        """  
+        
+        self._check_x(X)
+        self._check_x(y)
+        self._check_ind([X,y])
+        
+        if group is not None:
+            
+            self._check_x(group)
+            
+            self._check_ind([X,group])
+        
+        gain_tab=self._fit_report(X,y,group,base_grouper,self.order,self.method,self.bin_num)
+
+        return gain_tab
+       
+    
+    def _fit_report(self, X, y, group=None,base_grouper=None,order='auto',method='freq',bin_num=10):  
+                   
+        if group is not None:
+            
+            X_g=X.groupby(group)
+            y_g=y.groupby(group)
+            
+            if base_grouper is not None:
+            
+                b_mask=group.isin(base_grouper)      
+                
+            else:
+                
+                b_mask=np.repeat(True,group.size)
+            
+            breaks=self._get_breaks(X[b_mask],method,bin_num)
+            
+            report_var={items[0]:self._get_single(items[1],items[2],breaks,order) 
+                        for items in [(g,X_g.get_group(g),y_g.get_group(g)) for g in X_g.groups]}
+                
+        else:
+            
+            breaks=self._get_breaks(X,method,bin_num)
+            
+            report_var=self._get_single(X,y,breaks,order)
+        
+        return report_var 
+    
+    
+    def _get_breaks(self,X,method,bin_num):
+        
+        #equal_freq bin 
+        if method=='freq':
+            
+            breaks=np.unique(np.percentile(X,np.arange(bin_num+1)/bin_num*100)[1:-1]).tolist()
+        
+        #equal_width bin
+        else:
+            
+            breaks=np.unique(np.histogram_bin_edges(X,bin_num)[1:-1]).tolist()
+            
+        return breaks
+   
+        
+    def _get_single(self,X,y,breaks,order='auto'):     
+
+        #check dtype
+        if not is_numeric_dtype(X):
+            
+            raise ValueError('only numeric X allowed for gains table')
+            
+            
+        var_bin=pd.cut(X,[-np.inf]+breaks+[np.inf],right=False)
+            
+        #check order
+        if order=='auto':
+            
+            #infer probability 
+            if np.min(X)>=0 and np.max(X)<=1:
+                
+                var_bin=var_bin
+            
+            #infer score 
+            else:
+
+                var_bin=var_bin.cat.reorder_categories(np.flip(var_bin.cat.categories))
+                
+                
+        elif order=='prob':
+                
+            var_bin=var_bin
+            
+
+        elif order=='score':
+
+            var_bin=var_bin.cat.reorder_categories(np.flip(var_bin.cat.categories))            
+            
+        var_bin=pd.concat([var_bin,y],axis=1)
+        var_bin['sample_weight']=1
+         
+        #print var_bin
+        rename_aggfunc=dict(zip(['sample_weight',y.name],['count','bad']))
+        result=pd.pivot_table(var_bin,index=X.name,values=[y.name,'sample_weight'],
+                           margins=False,
+                           aggfunc='sum').rename(columns=rename_aggfunc,level=0)
+
+        var_tab=self._get_gt(result,X.name) 
+        
+        return var_tab
+        
+            
+    def _get_gt(self,var_ptable,col):
+        
+        var_ptable['good']=var_ptable['count'].sub(var_ptable['bad'])
+        var_ptable['cum_count']=var_ptable['count'].cumsum()
+        var_ptable['cum_bad']=var_ptable['bad'].cumsum()
+        var_ptable['cum_good']=var_ptable['good'].cumsum()        
+        var_ptable['badprob']=var_ptable['bad'].div(var_ptable['count'])
+        var_ptable['count_distr']=var_ptable['count'].div(var_ptable['count'].sum())
+        var_ptable['approval_rate']=var_ptable['count_distr'].cumsum()
+        var_ptable['cum_posprob']=var_ptable['cum_bad'].div(var_ptable['cum_count'])        
+        var_ptable['model']=col
+        var_ptable.index.name='bin'
+
+        var_ptable=var_ptable[['model','count','cum_count','good','cum_good','bad','cum_bad','count_distr','badprob','approval_rate','cum_posprob']]
+        
+        return var_ptable        
         

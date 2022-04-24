@@ -137,7 +137,7 @@ class dtypeAllocator(Base,TransformerMixin):
         dtypes_dict={}
             + dtypes_dict=dict():自动处理输入数据并最终转换为object、number(float,int)、date三种类型
                 + 初始数据中的浮点数值类型数据(float)将被全部转换为float64或float32类型数据(用户自定义)
-                + 初始数据中的整型类型数据(int)将被全部转换为int64或int32类型数据(用户自定义)
+                + 初始数据中的整型类型数据(int)将被全部转换为int64或int32类型数据(用户自定义),注意int类型列不允许出现缺失值nan,否则会转换为float
                 + 初始数据中的布尔数值类型数据(bool)将被全部转换为int64或int32类型数据(用户自定义)               
                 + 初始数据中的字符类型数据(str)将被全部转换为object类型数据 
                 + 初始数据中的无序分类类型数据(category-unordered)将被全部转换为object类型数据
@@ -275,7 +275,8 @@ class dtypeAllocator(Base,TransformerMixin):
             
             X_tdiff=X[col_tdiff].div(pd.to_timedelta(self.t_unit)).astype("float"+self.dtype_num).apply(np.round,args=(self.precision,))
             
-            X_int=X[col_int].astype("int"+self.dtype_num)
+            #if nan in col_int            
+            X_int=X[col_int].apply(lambda x: x.astype('float'+self.dtype_num) if np.any(np.isnan(x)) else x.astype('int'+self.dtype_num))
             
             X_float=X[col_float].astype("float"+self.dtype_num).apply(np.round,args=(self.precision,))
             

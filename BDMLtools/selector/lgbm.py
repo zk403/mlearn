@@ -361,6 +361,9 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
         """
         self._check_data(X, y)
         
+        X=X.copy()
+        y=y.copy()
+        
         X=X.apply(lambda col:col.astype('category') if col.name in cat_features else col) if cat_features else X       
     
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)       

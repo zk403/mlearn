@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*- 
 
 from BDMLtools.clearner import outliersTransformer,dtypeAllocator,nanTransformer,dtStandardization
-from BDMLtools.report import businessReport,EDAReport,varReport,varGroupsReport,varReportSinge,varGroupsPlot
+from BDMLtools.report import businessReport,EDAReport,varReport,varGroupsReport,varReportSinge,varGroupsPlot,GainsTable
 from BDMLtools.selector import binSelector,binAdjuster,binFreq,binPretty,binTree,binChi2,binKmeans
 from BDMLtools.selector import faSelector
 from BDMLtools.selector import stepLogit,cardScorer
@@ -16,8 +16,7 @@ from BDMLtools.tuner import gridTuner,hgridTuner
 from BDMLtools.tuner import BayesianCVTuner,shapCheck
 
 
-
-__version__ = '0.2.2'
+__version__ = '0.2.3'
 
 __all__ = (    
     dtStandardization,
@@ -31,6 +30,7 @@ __all__ = (
     varReport,
     varGroupsReport,
     varGroupsPlot,
+    GainsTable,
     binSelector,
     binAdjuster,
     binFreq,

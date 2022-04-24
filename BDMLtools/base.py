@@ -13,6 +13,7 @@ from pandas.api.types import is_array_like
 from warnings import warn
 import pandas as pd
 import numpy as np
+from itertools import combinations
 
 class Base:
     
@@ -23,6 +24,23 @@ class Base:
             raise NotFittedError("This {} instance is not fitted yet. Call "
                                  "'fit' with appropriate arguments."
                                  .format(self.__class__.__name__))
+            
+    def _check_x(self,x):
+        
+        if not isinstance(x,pd.core.frame.Series):
+            
+            raise DataTypeError("x is pd.core.frame.Series")
+            
+
+    def _check_ind(self,lst):
+        
+        if not np.all([np.all(np.equal(com[0],com[1])) for com in combinations([x.index for x in lst],2)]):
+            
+            raise XyIndexError("All data's index must be equal")
+            
+        if not np.all([(x.index.is_unique) for x in lst]):
+            
+            raise XyIndexError("All data's index must be unique")      
             
             
     def _check_X(self,X):
