@@ -306,7 +306,9 @@ class binAdjuster(Base,BaseWoePlotter):
     def fit(self,X,y):
         
         self._check_param_dtype(self.b_dtype)
-        self._check_data(X,y)    
+        self._check_data(X,y)                
+        self._check_colname(X)  
+            
         
         if self.column is None:
             

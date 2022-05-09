@@ -53,6 +53,12 @@ class Base:
                 
             raise XyIndexError("X.index is not unique")
             
+    def _check_colname(self,X):
+        
+        if not X.columns.is_unique:
+            
+            raise XyIndexError("duplicated colname in X")
+            
             
     def _check_data(self,X,y):
         
