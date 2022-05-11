@@ -118,6 +118,7 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
         """    
         
         self._check_data(X, y)        
+        self._check_colname(X)
        
         if y.name:
             
@@ -309,7 +310,11 @@ class binAdjuster(Base,BaseWoePlotter):
         self._check_data(X,y)                
         self._check_colname(X)  
             
-        
+        if not np.all(np.isin(list(self.breaks_list_dict),X.columns)):
+            
+            raise ValueError("breaks_list_dict contains colname not in X")
+            
+            
         if self.column is None:
             
             breaks_list_adj,vtabs_dict_adj=self._get_breaks_adj(self.breaks_list_dict,
