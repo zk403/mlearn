@@ -338,15 +338,11 @@ class faSelector(Base,BaseEstimator,TransformerMixin):
             for feature in cluster_features:
 
                 #计算类内的R方,类内所有特征与类主成分回归的R方
-                #ols_in=LinearRegression().fit(label_components_df[[label]],X[feature])
-                #r2_in=ols_in.score(label_components_df[[label]],X[feature])      
-                r2_in=np.corrcoef(label_components_df[label],X[feature])[0, 1] ** 2
-                
+
+                r2_in=np.corrcoef(label_components_df[label],X[feature])[0, 1] ** 2                
                 featrues_r2[feature]=r2_in
 
                 #计算类间的R方,类内所有特征与最邻近类的主成分回归的R方
-                #ols_between=LinearRegression().fit(label_components_df[[label_neigbor[label]]],X[feature])
-                #r2_between=ols_between.score(label_components_df[[label_neigbor[label]]],X[feature])
                 r2_between=[]
                 
                 for components in label_components:
