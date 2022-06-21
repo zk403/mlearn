@@ -1,4 +1,14 @@
 ```
+v0.2.4
+1.修复了binAdjust绘图数据显示的bug
+2.修复了varGroupsReport绘图数据显示的bug
+3.修复了EDAReport中分类特征频数统计中的缺失值问题
+4.修复了binAdjust中数值分箱输入乱序情况下报错的问题
+5.修复了stepLogit中单变量模型的vif报错问题
+6.补充了部分函数的文档
+```
+
+```
 v0.2.3
 1.加入GainsTable
 2.优化了shapCheck代码

@@ -39,7 +39,7 @@ class EDAReport(Base,TransformerMixin):
         nacorr_report:pd.DataFrame,缺失率相关性报告
     """
     
-    def __init__(self,categorical_col=None,numeric_col=None,is_nacorr=False,out_path="report"):
+    def __init__(self,categorical_col=None,numeric_col=None,is_nacorr=False,out_path=None):
         
         self.categorical_col = categorical_col
         self.numeric_col = numeric_col
@@ -121,7 +121,7 @@ class EDAReport(Base,TransformerMixin):
             report={}
             for col in category_col:
     
-                ColTable=X[col].value_counts().sort_index().rename('Freq').reset_index() \
+                ColTable=X[col].value_counts(dropna=False).sort_index().rename('Freq').reset_index() \
                     .rename(columns={'index':'Levels'})[['Levels','Freq']]
     
                 ColTable['Percent']=ColTable.Freq/X[col].size #占比
@@ -1045,7 +1045,9 @@ class varGroupsPlot(Base,BaseWoePlotter):
                        row_limit=0,
                       ).fit(X[[colname]+[column]+[target]]).report_dict_raw
         
-        binx_g=pd.concat(varbin_g,axis=1).droplevel(0)
+        cd_col=sort_column if sort_column else X[column].astype('str').unique()
+        
+        binx_g=pd.concat({col:varbin_g[col] for col in cd_col},axis=1).droplevel(0)
         
         figure,colname=self._get_plot_single_group(binx_g,sort_column=sort_column,figure_size=figure_size,show_plot=False)
         

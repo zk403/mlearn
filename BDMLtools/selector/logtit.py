@@ -22,6 +22,7 @@ from BDMLtools.fun import raw_to_bin_sc,Specials
 from joblib import Parallel,delayed,effective_n_jobs
 from BDMLtools.base import Base
 
+
 class stepLogit(Base,BaseEstimator,TransformerMixin):
     
     '''
@@ -33,10 +34,11 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
             +首先尝试加入:
                 +从潜在特征中尝试所有特征并选择出使指标(aic,bic)优化的特征进入
             +再进行剔除:
-                +若特征的在模型中的p值过高(大于p_value_enter),那么该特征将被剔除并永不加入
+                +剔除模型中p值最高的特征(大于p_value_enter)
         循环上述步骤直到
-            +无潜在特征可使指标(aic,bic)优化
             +无潜在特征可用
+            +无潜在特征可使aic或bic优化 
+            +迭代次数达到最大
     
     Parameters:
     --
@@ -174,100 +176,139 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
             SET_USE_BIC_LLF(True)
             
             criterion_list = ['bic', 'aic']
+            
             if criterion not in criterion_list:
+                
                 raise ValueError('criterion must in', '\n', criterion_list)
 
-            # 默认p_enter参数    
-            p_enter = {'bic':0.0, 'aic':0.0}
 
-            if normalize: # 如果需要标准化数据
-                intercept = False  # 截距强制设置为0
+            if normalize: #normalize data if normalize=True
+                intercept = False  # no intercept
                 df_std = StandardScaler().fit_transform(df)
                 df = pd.DataFrame(df_std, columns=df.columns, index=df.index)  
 
-            remaining = list(df.columns)  # 自变量集合
+            remaining = list(df.columns)  # variables set
             remaining.remove(response)
-            selected = []  # 初始化选入模型的变量列表
-            # 初始化当前评分,最优新评分
-            if intercept: # 是否有截距
+            selected = []  # selected variables set
+            # initializing
+            if intercept: 
+                
                 formula = "{} ~ {} + 1".format(response, remaining[0])
+                
             else:
+                
                 formula = "{} ~ {} - 1".format(response, remaining[0])
 
-            result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0) # logit回归           
+            result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0) # logit          
             current_score = eval('result.' + criterion)
             best_new_score = eval('result.' + criterion)
 
             if show_step:    
                 print('\nstepwise starting:\n')
                 
-            # 当变量未剔除完，并且当前评分更新时进行循环
+            # loop when current_score keeps updating 
             iter_times = 0
+            
             while remaining and (current_score == best_new_score) and (iter_times<max_iter):
-                scores_with_candidates = []  # 初始化变量以及其评分列表
-                for candidate in remaining:  # 在未剔除的变量中每次选择一个变量进入模型，如此循环
+                
+                scores_with_candidates = []  
+                
+                for candidate in remaining:  
+                    
                     if intercept: # 是否有截距
+                    
                         formula = "{} ~ {} + 1".format(response, ' + '.join(selected + [candidate]))
+                        
                     else:
+                        
                         formula = "{} ~ {} - 1".format(response, ' + '.join(selected + [candidate]))
 
-                    result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0) # logit回归
+                    result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0) 
                     llf = result.llf
                          
                     score = eval('result.' + criterion)                    
-                    scores_with_candidates.append((score, candidate, llf)) # 记录此次循环的变量、评分列表
+                    scores_with_candidates.append((score, candidate, llf))
+                    
+                
+                if criterion in ['bic', 'aic']:  
+                    
+                    #sort aic/bic decscending and pop the minimal aic/bic element(the best score)
+                    scores_with_candidates.sort(key=lambda x:x[0],reverse=True)                      
+                    best_new_score, best_candidate, best_new_llf = scores_with_candidates.pop() 
+                    
+                    print(current_score,best_new_score)
+                    
+                    if (current_score - best_new_score) > 0:  
+                    
+                        remaining.remove(best_candidate)  
+                        
+                        selected.append(best_candidate) 
+                        
+                        current_score = best_new_score  
+                        
+                        if show_step: 
+                        
+                            print('Adding %s, %s = %.3f' % (best_candidate, criterion, best_new_score))
 
-                if criterion in ['bic', 'aic']:  # 这几个指标取最小值进行优化
-                    scores_with_candidates.sort(reverse=True)  # 对评分列表进行降序排序
-                    best_new_score, best_candidate, best_new_llf = scores_with_candidates.pop()  # 提取最小分数及其对应变量
-                    if (current_score - best_new_score) > p_enter[criterion]:  # 如果当前评分大于最新评分
-                        remaining.remove(best_candidate)  # 从剩余未评分变量中剔除最新最优分对应的变量
-                        selected.append(best_candidate)  # 将最新最优分对应的变量放入已选变量列表
-                        current_score = best_new_score  # 更新当前评分
-                        if show_step:  # 是否显示逐步回归过程
-                            print('Adding %s, %s = %.3f' % (best_candidate, criterion, best_new_score))
-                    elif (current_score - best_new_score) >= 0 and iter_times == 0: # 当评分差大于等于0，且为第一次迭代
-                        remaining.remove(best_candidate)
-                        selected.append(best_candidate)
-                        current_score = best_new_score
-                        if show_step:  # 是否显示逐步回归过程                             
-                            print('Adding %s, %s = %.3f' % (best_candidate, criterion, best_new_score))
-                    elif iter_times == 0:  # 当评分差小于p_enter，且为第一次迭代
+                    #when no aic/bic updating at first selection then continuing the process        
+                    elif iter_times == 0:  
+                    
                         selected.append(remaining[0])
+                        
                         remaining.remove(remaining[0])
-                        if show_step:  # 是否显示逐步回归过程                             
+                        
+                        if show_step:       
+                        
                             print('Adding %s, %s = %.3f' % (remaining[0], criterion, best_new_score))
-
-                if intercept: # 是否有截距
+                
+                print(current_score,best_new_score)
+                
+                if intercept: 
+                
                     formula = "{} ~ {} + 1".format(response, ' + '.join(selected))
+                    
                 else:
+                    
                     formula = "{} ~ {} - 1".format(response, ' + '.join(selected))                    
 
-                result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0)  # 最优模型拟合                    
-                if iter_times >= 1: # 当第二次循环时判断变量的pvalue是否达标
+                result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0)  
+                   
+                if iter_times >= 1: #remove variables i selected set when its pvalue too high 
                 
                     if result.pvalues.max() > p_value_enter:
+                        
                         var_removed = result.pvalues[result.pvalues == result.pvalues.max()].index[0]
+                        
                         p_value_removed = result.pvalues[result.pvalues == result.pvalues.max()].values[0]
+                        
                         selected.remove(result.pvalues[result.pvalues == result.pvalues.max()].index[0])
-                        if show_step:  # 是否显示逐步回归过程                
+                        
+                        if show_step:          
+                        
                             print('Removing %s, Pvalue = %.3f' % (var_removed, p_value_removed))                            
                     
                 iter_times += 1
 
-            if intercept: # 是否有截距
+            if intercept: 
+            
                 formula = "{} ~ {} + 1".format(response, ' + '.join(selected))
+                
             else:
+                
                 formula = "{} ~ {} - 1".format(response, ' + '.join(selected))
-
-            stepwise_model = smf.glm(formula,data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0)  # 最优模型拟合           
-            if show_step:  # 是否显示逐步回归过程                
+            
+            #modeling with selected vars    
+            stepwise_model = smf.glm(formula,data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0)  
+            
+            if show_step:                 
                 print('\nLinear regression model:', '\n  ', stepwise_model.model.formula)
                 print('\n', stepwise_model.summary())                
 
             return stepwise_model
+        
 
     def _vif(self,logit_model,X,show_high_vif_only=False):
+        
         '''
         输出vif方差膨胀系数,大于10时说明存在共线性
         Parameters:
@@ -278,12 +319,24 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
         '''
         vif = pd.DataFrame()
         variables_stepwise=logit_model.params.index.tolist()[1:]
-        vif["VIF Factor"] = [variance_inflation_factor(X[variables_stepwise].values, i) for i in range(X[variables_stepwise].shape[1])]
-        vif["features"] = variables_stepwise
-        if show_high_vif_only:
-            return(vif[vif['VIF Factor']>=10])
+        
+        if len(variables_stepwise)<=1:
+            
+            return(None)
+            
         else:
-            return(vif)    
+        
+            vif["VIF Factor"] = [variance_inflation_factor(X[variables_stepwise].values, i) for i in range(X[variables_stepwise].shape[1])]
+            vif["features"] = variables_stepwise
+        
+            if show_high_vif_only:
+                
+                return(vif[vif['VIF Factor']>=10])
+            
+            else:
+                
+                return(vif)
+
 
 
 class cardScorer(Base,Specials,TransformerMixin):

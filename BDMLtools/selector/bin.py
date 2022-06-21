@@ -467,6 +467,7 @@ class binAdjuster(Base,BaseWoePlotter):
                     breaks = input(">>> Enter modified breaks: ")
                 
                     breaks = re.sub("^[,\.]+|[,\.]+$|\s", "", breaks).split(',')  
+                    
     
                     while True:
     
@@ -477,6 +478,8 @@ class binAdjuster(Base,BaseWoePlotter):
                             break
     
                         elif all([self._is_numeric(i) for i in breaks]):
+                            
+                            breaks=sorted(breaks)
     
                             break
     
@@ -620,9 +623,7 @@ class binAdjuster(Base,BaseWoePlotter):
                                       psi_base=psi_base,
                                       sample_weight=sample_weight,
                                       b_dtype=b_dtype,
-                                      row_limit=0,n_jobs=1).fit(X[[colname]+[column]].join(y))
-            
-            binx_g=pd.concat(bins.report_dict_raw,axis=1).droplevel(0)
+                                      row_limit=0,n_jobs=1).fit(X[[colname]+[column]].join(y))            
             
             binx_psi=bins.report_dict['report_psi']
             
@@ -630,15 +631,15 @@ class binAdjuster(Base,BaseWoePlotter):
             
             psi_info=[(i,round(binx_psi.loc[binx_psi.bin=='psi'][i]['count_distr'].values[0],4)) for i in psi_col]
             
+            binx_g=pd.concat({col:bins.report_dict_raw[col] for col in psi_col},axis=1).droplevel(0)
+            
             print('PSI at current breaks:{}'.format(psi_info))
             
             fig,_=self._get_plot_single_group(binx_g,
                                               sort_column=sort_column,
                                               figure_size=figure_size,
                                               show_plot=True)
-                
-                
-    
+                                
             plt.show(fig)
     
             # interactive options
@@ -674,6 +675,8 @@ class binAdjuster(Base,BaseWoePlotter):
                             break
     
                         elif all([self._is_numeric(i) for i in breaks]):
+                            
+                            breaks=sorted(breaks)
     
                             break
     

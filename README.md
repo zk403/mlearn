@@ -1,4 +1,4 @@
-# BDMLtools-0.2.3
+# BDMLtools-0.2.4
 
 BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数据量的二分类模型的机器学习建模工具包。
 本模组将集成商业分析场景中二分类模型中常用的机器学习模型，并使之能够兼顾模型开发效率、报告制作与建模流程标准化。
@@ -11,7 +11,7 @@ BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数�
     - 在分箱算法、报告制作、评分转换上的本模组运行效率更优  
 + 部分功能都基于sklearn.base的TransformerMixin与BaseEstimator进行构建，可支持pipeline
 + 模块中对列的数据处理进行了并行优化
-+ 工具包总体上还在开发中
++ 工具包总体上还在早期开发中
 
 功能介绍:
 
@@ -81,11 +81,22 @@ pip uninstall BDMLtools
 示例:
 
 ```
-见demo
+见example
 ```
 
 
 更新日志:
+
+```
+v0.2.4
+1.修复了binAdjust绘图数据显示的bug
+2.修复了varGroupsReport绘图数据显示的bug
+3.修复了EDAReport中分类特征频数统计中的缺失值问题
+4.修复了binAdjust中数值分箱输入乱序情况下报错的问题
+5.修复了stepLogit中单变量模型的vif报错问题
+6.补充了部分函数的文档
+```
+
 
 ```
 v0.2.3
@@ -105,18 +116,3 @@ v0.2.2
 5.修复了网格参数优化、减半参数优化、贝叶斯优化中early_stopping的bug
 6.相关文档维护
 ```
-
-
-```
-v0.2.1
-1.在网格参数优化、减半参数优化、贝叶斯优化中加入对Catboost的支持
-2.在网格参数优化、减半参数优化、贝叶斯优化中加入early_stopping参数
-3.优化贝叶斯优化代码使之能够支持设定随机数实现模型复现
-4.优化贝叶斯优化代码使之能够支持更多参数选择，并加入固定参数
-5.LgbmRFESelector更名为LgbmRFECVSelector
-6.dtypeAllocator中的number类型以float和int进行了进一步的区分
-7.修复了outliersTransformer中的后非number列丢失问题
-8.修复了减半参数优化中模型无法通过随机数复现的bug
-9.相关文档维护
-```
-

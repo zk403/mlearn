@@ -425,6 +425,24 @@ class preSelector(Base,Specials,TransformerMixin):
     
     
     def _filterByNA(self,X,na_pct,ws=None):
+        """
+        使用缺失值比例筛选数值
+        + 缺失值指代为np.nan,即函数只会识别float类型的np.nan为缺失值
+        + 对于分类特征
+            + string型中np.nan为字符'nan'，因此其不会被当作np.nan处理
+            + object型中np.nan可以为float,因此其可以被当作np.nan处理
+            + category型中np.nan可以为float,因此其可以被当作np.nan处理
+
+        Parameters:
+        ----------  
+        X:pandas.DataFrame,X特征
+        unique_pct:float,唯一值比例阈值，大于等于阈值的列将被筛除
+        ws:Series,样本权重
+            
+        Return:
+        ---------- 
+        list,筛选后的列名
+        """
         
         if ws is None:
             
@@ -444,6 +462,19 @@ class preSelector(Base,Specials,TransformerMixin):
     
     
     def _filterByUnique(self,X,unique_pct,ws=None):
+        """
+        使用唯一值比例筛选数值、分类特征
+        
+        Parameters:
+        ----------  
+        X:pandas.DataFrame,X特征
+        unique_pct:float,唯一值比例阈值，大于等于阈值的列将被筛除
+        ws:Series,样本权重
+            
+        Return:
+        ---------- 
+        list,筛选后的列名
+        """
   
         X=X.select_dtypes(include=['object','number'])
         X_oth=X.select_dtypes(exclude=['object','number'])
@@ -469,6 +500,20 @@ class preSelector(Base,Specials,TransformerMixin):
 
     
     def _fliterByVariance(self,X,variance,ws=None):
+        """
+        使用方差筛选数值特征，
+        + 本函数只筛选数值特征，分类特征不进行处理直接输出
+        
+        Parameters:
+        ----------  
+        X:pandas.DataFrame,X特征
+        variance:float,方差阈值，小于等于阈值的列将被筛除
+        ws:Series,样本权重
+            
+        Return:
+        ---------- 
+        list,筛选后的列名
+        """
 
         X_numeric=X.select_dtypes('number')
         X_oth=X.select_dtypes(exclude='number')
@@ -520,7 +565,7 @@ class preSelector(Base,Specials,TransformerMixin):
             sklearn.feature_selection.chi2
             sklearn.feature_selection.f_classif
         
-        从统计角度上，此两种方法都对数据有分布要求，且f_classif默认样本的方差出自同一总体,若偏离要求太多则p-value意义不大。
+        从统计角度上，此两种方法都要求数据独立同分布，且f_classif默认样本的方差出自同一总体,若偏离要求太多则p-value意义不大。
         因此只使用这两种方法进行特征的初步筛选，目的在于筛选掉非常不重要的特征
         
         筛选依据为这些检验的显著性alpha值或其修正值,并非统计量的值(卡方值或F值),参考:
@@ -604,6 +649,22 @@ class preSelector(Base,Specials,TransformerMixin):
     
 
     def _filterByTrees(self,X,y,tree_size,tree_imps,sample_weight=None):
+        
+        """
+        使用LightGbm的Split重要性筛选特征
+        
+        Parameters:
+        ----------  
+        X:pandas.DataFrame,X特征
+        y:pandas.Seires,目标特征
+        tree_size,int,数个数
+        tree_imps,int,特征重要性阈值，小于等于阈值的列将被剔除
+        sample_weight:Series,样本权重
+            
+        Return:
+        ---------- 
+        list,筛选后的列名
+        """
 
         X_numeric=X.select_dtypes(include='number')
         X_category=X.select_dtypes(include='object')
@@ -653,6 +714,28 @@ class preSelector(Base,Specials,TransformerMixin):
         
     def _filterbyLofoimp(self,X,y,lofo_imp=0,sample_weight=None):
         
+        """
+        使用Leave one out重要性筛选特征:
+            + 特征x的重要性=全量特征模型表在交叉验证集表现的均值-移除特征x后的模型在交叉验证集表现的均值
+            + 基模型为lightgbm
+            + 模型表现衡量标准为roc_auc
+            
+        该重要性计算量较大请慎用
+        
+        LOFOImportance:https://github.com/aerdem4/lofo-importance
+        
+        Parameters:
+        ----------  
+        X:pandas.DataFrame,X特征
+        y:pandas.Seires,目标特征
+        lofo_imp,int,特征重要性阈值，小于等于阈值的列将被剔除
+        sample_weight:Series,样本权重
+            
+        Return:
+        ---------- 
+        list,筛选后的列名
+        """
+        
         X=X.apply(lambda x:x.astype('category') if x.dtypes=='object' else x)  
         
         dt=Dataset(X.join(y),y.name,features=X.columns.tolist())
@@ -663,7 +746,22 @@ class preSelector(Base,Specials,TransformerMixin):
         return fimp[fimp['importance_mean']>lofo_imp]['feature'].tolist()
         
     
-    def _filterbyIV(self,X,y,iv_limit,sample_weight=None):        
+    def _filterbyIV(self,X,y,iv_limit,sample_weight=None): 
+        """
+        使用分箱IV重筛选特征:
+            + 等频30箱
+        
+        Parameters:
+        ----------  
+        X:pandas.DataFrame,X特征
+        y:pandas.Seires,目标特征
+        iv_limit,int,IV重要性阈值，小于等于阈值的列将被剔除
+        sample_weight:Series,样本权重
+            
+        Return:
+        ---------- 
+        list,筛选后的列名
+        """
         
         _,vtabs=binFreq(X,y,ws=sample_weight,bin_num_limit=30)
         
