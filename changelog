@@ -2,12 +2,12 @@
 v0.2.4
 1.新增了二分类决策模型评估函数perfEval2
 2.stepLogit中加入标准化回归系数属性
-2.修复了binAdjust绘图数据显示的bug
-3.修复了varGroupsReport绘图数据显示的bug
-4.修复了EDAReport中分类特征频数统计中的缺失值问题
-5.修复了binAdjust中数值分箱输入乱序情况下报错的问题
-6.修复了stepLogit中单变量模型的vif报错问题
-7.补充了部分函数的文档
+3.修复了binAdjust绘图数据显示的bug
+4.修复了varGroupsReport绘图数据显示的bug
+5.修复了EDAReport中分类特征频数统计中的缺失值问题
+6.修复了binAdjust中数值分箱输入乱序情况下报错的问题
+7.修复了stepLogit中单变量模型的vif报错问题
+8.补充了部分函数的文档
 ```
 
 ```
