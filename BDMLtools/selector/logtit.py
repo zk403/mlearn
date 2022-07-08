@@ -143,6 +143,7 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
                     
         self.model_info=self.logit_model.summary()
         self.vif_info=self._vif(self.logit_model,X,show_high_vif_only=self.show_high_vif_only)
+        self.coefficients_sd=self._sdcoeff(self.logit_model,X)
         
         self._is_fitted=True
         
@@ -336,6 +337,46 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
             else:
                 
                 return(vif)
+            
+    def _sdcoeff(self,logit_model,X,method='Agresti'):
+            
+        '''
+        Partial standardization coefficients
+        
+        参考文献:
+        http://web.pdx.edu/~newsomj/mvclass/ho_logistic.pdf
+        https://think-lab.github.io/d/205/
+        
+        标准化回归系数(Agresti):
+        b_i_std=b_i*sd_i=b_i*sd_i 
+        
+        标准化回归系数(SAS):        
+        b_i_std=b_i*sd_i/(pi/sqrt(3))=b_i*sd_i*0.5513   
+        
+        标准化回归系数(Long):
+        b_i_std=b_i*sd_i=b_i*sd_i /(pi/sqrt(3)+1)=b_i*sd_i*0.3554
+  
+        '''
+
+        params=logit_model.params[1:]
+        
+        if method=='Agresti':
+        
+            coeff_std=params*X[params.index].std()
+            
+        elif method=='SAS':
+            
+            coeff_std=params*X[params.index].std()*0.5513
+            
+        elif method=='Long':
+            
+            coeff_std=params*X[params.index].std()*0.3554
+            
+        else:
+            
+            coeff_std=params*X[params.index].std()
+        
+        return coeff_std
 
 
 

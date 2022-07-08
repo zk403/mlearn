@@ -1,16 +1,18 @@
 ```
 v0.2.4
-1.修复了binAdjust绘图数据显示的bug
-2.修复了varGroupsReport绘图数据显示的bug
-3.修复了EDAReport中分类特征频数统计中的缺失值问题
-4.修复了binAdjust中数值分箱输入乱序情况下报错的问题
-5.修复了stepLogit中单变量模型的vif报错问题
-6.补充了部分函数的文档
+1.新增了二分类决策模型评估函数perfEval2
+2.stepLogit中加入标准化回归系数属性
+2.修复了binAdjust绘图数据显示的bug
+3.修复了varGroupsReport绘图数据显示的bug
+4.修复了EDAReport中分类特征频数统计中的缺失值问题
+5.修复了binAdjust中数值分箱输入乱序情况下报错的问题
+6.修复了stepLogit中单变量模型的vif报错问题
+7.补充了部分函数的文档
 ```
 
 ```
 v0.2.3
-1.加入GainsTable
+1.新增审批决策报表函数GainsTable
 2.优化了shapCheck代码
 3.修复了LgbmShapRFECV中可能导致分类特征dtype变为category的bug
 4.相关文档维护
@@ -18,7 +20,7 @@ v0.2.3
 
 ```
 v0.2.2
-1.加入特征筛选方法LgbmShapRFESelector和LgbmPISelector
+1.新增特征筛选方法LgbmShapRFESelector和LgbmPISelector
 2.优化了preSelector代码
 3.移除特征筛选方法_fliterByShuffle,LgbmRFESelector
 4.移除BayesianXGBTuner,BayesianLGBMTuner,BayesianCBTuner

@@ -10,7 +10,7 @@ from BDMLtools.selector import LgbmSeqSelector,LgbmPISelector,LgbmShapRFECVSelec
 #from BDMLtools.selector import RFECVSelector
 from BDMLtools.selector import lassoSelector
 from BDMLtools.plotter import BaseWoePlotter
-from BDMLtools.plotter import perfEval
+from BDMLtools.plotter import perfEval,perfEval2
 from BDMLtools.encoder import woeTransformer
 from BDMLtools.tuner import gridTuner,hgridTuner
 from BDMLtools.tuner import BayesianCVTuner,shapCheck
@@ -52,6 +52,7 @@ __all__ = (
     hgridTuner,
     BayesianCVTuner,
     perfEval,
+    perfEval2,
     shapCheck
 )
 

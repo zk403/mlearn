@@ -163,7 +163,7 @@ class BaseEval:
         
         if pd.isnull(y_pred).any():
             
-            warn("y_pred contains NAN and will be droped.")   
+            raise ValueError("y_pred contains NAN")   
             
         if pd.isnull(y_true).any():
             
@@ -177,7 +177,7 @@ class BaseEval:
             
             if pd.isnull(group).any():
             
-                warn("group contains NAN and will be droped.")  
+                raise ValueError("group contains NAN")  
 
         if not np.isin(y_true.unique(),[0,1]).any():
         

@@ -63,7 +63,7 @@ setup(
                       'pandas>=1.3.3',#https://github.com/pandas-dev/pandas
                       'statsmodels>=0.13.0',#https://github.com/statsmodels/statsmodels
                       'matplotlib>=3.2.2',#https://github.com/matplotlib/matplotlib
-                      'plotnine>=0.8.0',#https://github.com/has2k1/plotnine
+                      'plotnine>=0.9.0',#https://github.com/has2k1/plotnine
                       'scikit-learn>=1.0',#https://github.com/scikit-learn/scikit-learn
                       'xgboost>=1.4.2',#https://github.com/dmlc/xgboost
                       'catboost>=1.0.4',#https://github.com/catboost/catboost
@@ -71,10 +71,11 @@ setup(
                       'category_encoders>=2.3.0',#https://github.com/scikit-learn-contrib/category_encoders
                       'lightgbm>=3.3.0',#https://github.com/microsoft/LightGBM 
                       'toad>=0.1.0',#https://github.com/amphibian-dev/toad
-                      'probatus>=1.8.8',#https://github.com/ing-bank/probatus
+                      'probatus>=1.8.9',#https://github.com/ing-bank/probatus
                       'mlxtend>=0.19.0',#https://github.com/rasbt/mlxtend
                       'scikit-optimize>=0.9.0',#https://github.com/scikit-optimize/scikit-optimize
-                      'shap>=0.38.1'#https://github.com/slundberg/shap
+                      'shap>=0.38.1',#https://github.com/slundberg/shap
+                      'numba==0.53'
                      ],  # Optional
     #package_data={'scorecardpy': ['data/*.csv']},
     # data_files=[('scorecardpy': ['data/*.csv'])],  # Optional

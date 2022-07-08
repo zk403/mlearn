@@ -7,10 +7,11 @@ Created on Wed Jan 12 18:29:30 2022
 """
 
 from BDMLtools.plotter.base import BaseWoePlotter
-from BDMLtools.plotter.eval import perfEval
+from BDMLtools.plotter.eval import perfEval,perfEval2
 
 
 __all__ = (    
     BaseWoePlotter,
-    perfEval
+    perfEval,
+    perfEval2
 )

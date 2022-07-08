@@ -84,35 +84,15 @@ pip uninstall BDMLtools
 见example
 ```
 
-
-更新日志:
+更新
 
 ```
 v0.2.4
+1.新增了二分类决策模型评估函数perfEval2
 1.修复了binAdjust绘图数据显示的bug
 2.修复了varGroupsReport绘图数据显示的bug
 3.修复了EDAReport中分类特征频数统计中的缺失值问题
 4.修复了binAdjust中数值分箱输入乱序情况下报错的问题
 5.修复了stepLogit中单变量模型的vif报错问题
 6.补充了部分函数的文档
-```
-
-
-```
-v0.2.3
-1.加入评分策略报告GainsTable
-2.优化了shapCheck代码
-3.修复了LgbmShapRFECV中可能导致分类特征dtype变为category的bug
-4.相关文档维护
-```
-
-
-```
-v0.2.2
-1.加入特征筛选方法LgbmShapRFESelector和LgbmPISelector
-2.优化了preSelector代码
-3.移除特征筛选方法_fliterByShuffle,LgbmRFESelector
-4.移除BayesianXGBTuner,BayesianLGBMTuner,BayesianCBTuner
-5.修复了网格参数优化、减半参数优化、贝叶斯优化中early_stopping的bug
-6.相关文档维护
 ```
