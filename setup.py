@@ -16,6 +16,21 @@ from codecs import open
 from os import path
 import re
 
+# def get_requirements():
+    
+#     file_name = 'requirements'
+
+#     requirements = []
+#     with open(f"{file_name}.txt", 'r') as f:
+#         for line in f:
+#             line = line.strip()
+#             if not line or line.startswith('-'):
+#                 continue
+            
+#             requirements.append(line)
+    
+#     return requirements
+
 here = path.abspath(path.dirname(__file__))
 # Get the long description from the README file
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
@@ -50,14 +65,13 @@ setup(
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
     ],
     #keywords='credit scorecard',  # Optional
     packages=find_packages(),  # Required
-    install_requires=[
-                      'numpy>=1.20',#https://github.com/numpy/numpy
+    install_requires=['numpy>=1.20',#https://github.com/numpy/numpy
                       'lofo-importance>=0.3.1',#https://github.com/aerdem4/lofo-importance
                       'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
                       'pandas>=1.3.3',#https://github.com/pandas-dev/pandas
