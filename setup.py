@@ -16,20 +16,27 @@ from codecs import open
 from os import path
 import re
 
-# def get_requirements():
-    
-#     file_name = 'requirements'
+base_pkgs=['numpy>=1.20',#https://github.com/numpy/numpy
+                  'lofo-importance>=0.3.1',#https://github.com/aerdem4/lofo-importance
+                  'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
+                  'pandas>=1.3.3',#https://github.com/pandas-dev/pandas
+                  'statsmodels>=0.13.0',#https://github.com/statsmodels/statsmodels
+                  'matplotlib>=3.2.2',#https://github.com/matplotlib/matplotlib
+                  'plotnine>=0.9.0',#https://github.com/has2k1/plotnine
+                  'scikit-learn>=1.0',#https://github.com/scikit-learn/scikit-learn
+                  'xgboost>=1.4.2',#https://github.com/dmlc/xgboost
+                  'catboost>=1.0.4',#https://github.com/catboost/catboost
+                  'category_encoders>=2.3.0',#https://github.com/scikit-learn-contrib/category_encoders
+                  'lightgbm>=3.3.0',#https://github.com/microsoft/LightGBM 
+                  'probatus>=1.8.9',#https://github.com/ing-bank/probatus
+                  'mlxtend>=0.19.0',#https://github.com/rasbt/mlxtend
+                  'scikit-optimize>=0.9.0',#https://github.com/scikit-optimize/scikit-optimize
+                 ]
 
-#     requirements = []
-#     with open(f"{file_name}.txt", 'r') as f:
-#         for line in f:
-#             line = line.strip()
-#             if not line or line.startswith('-'):
-#                 continue
-            
-#             requirements.append(line)
-    
-#     return requirements
+dev_dep = [
+    "pytest>=6.0.0",
+    "pytest-cov>=2.10.0"
+]
 
 here = path.abspath(path.dirname(__file__))
 # Get the long description from the README file
@@ -71,23 +78,10 @@ setup(
     ],
     #keywords='credit scorecard',  # Optional
     packages=find_packages(),  # Required
-    install_requires=[
-                      'numpy>=1.20',#https://github.com/numpy/numpy
-                      'lofo-importance>=0.3.1',#https://github.com/aerdem4/lofo-importance
-                      'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
-                      'pandas>=1.3.3',#https://github.com/pandas-dev/pandas
-                      'statsmodels>=0.13.0',#https://github.com/statsmodels/statsmodels
-                      'matplotlib>=3.2.2',#https://github.com/matplotlib/matplotlib
-                      'plotnine>=0.9.0',#https://github.com/has2k1/plotnine
-                      'scikit-learn>=1.0',#https://github.com/scikit-learn/scikit-learn
-                      'xgboost>=1.4.2',#https://github.com/dmlc/xgboost
-                      'catboost>=1.0.4',#https://github.com/catboost/catboost
-                      'category_encoders>=2.3.0',#https://github.com/scikit-learn-contrib/category_encoders
-                      'lightgbm>=3.3.0',#https://github.com/microsoft/LightGBM 
-                      'probatus>=1.8.9',#https://github.com/ing-bank/probatus
-                      'mlxtend>=0.19.0',#https://github.com/rasbt/mlxtend
-                      'scikit-optimize>=0.9.0',#https://github.com/scikit-optimize/scikit-optimize
-                     ],  # Optional
+    install_requires=base_pkgs,  # Optional
+    extras_require={
+        "all": base_pkgs + dev_dep,
+    },
     #package_data={'scorecardpy': ['data/*.csv']},
     # data_files=[('scorecardpy': ['data/*.csv'])],  # Optional
 )
