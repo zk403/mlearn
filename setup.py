@@ -70,7 +70,6 @@ setup(
                       'scipy>=1.5.0',#https://github.com/scipy/scipy
                       'category_encoders>=2.3.0',#https://github.com/scikit-learn-contrib/category_encoders
                       'lightgbm>=3.3.0',#https://github.com/microsoft/LightGBM 
-                      'toad>=0.1.0',#https://github.com/amphibian-dev/toad
                       'probatus>=1.8.9',#https://github.com/ing-bank/probatus
                       'mlxtend>=0.19.0',#https://github.com/rasbt/mlxtend
                       'scikit-optimize>=0.9.0',#https://github.com/scikit-optimize/scikit-optimize

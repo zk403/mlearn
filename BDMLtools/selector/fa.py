@@ -17,7 +17,6 @@ from scipy.stats import pearsonr,spearmanr
 from sklearn.base import BaseEstimator,TransformerMixin
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from toad import selection
 import warnings
 from BDMLtools.base import Base
 
@@ -120,8 +119,8 @@ class faSelector(Base,BaseEstimator,TransformerMixin):
             
         elif self.n_clusters=='auto':
             
-            self.n_clusters=selection.drop_corr(X.join(y),target=y.name,threshold=self.corr_limit,by=self.by).drop(y.name,axis=1).columns.size
-
+            self.n_clusters=self.get_clusternum(X,threshold=self.corr_limit)
+            
             print('n_clusters set to '+str(self.n_clusters))
             
             self.model=self._featurecluster(X,self._distance(),self.linkage,self.n_clusters,self.distance_threshold)
@@ -150,6 +149,69 @@ class faSelector(Base,BaseEstimator,TransformerMixin):
         self._is_fitted=True
         
         return self        
+    
+    def get_clusternum(self,X,threshold = 0.7):
+        
+        """
+        get columns number by correlation,rewrite from toad 0.1.0
+        """
+        cols = X.columns.copy()
+    
+        corr = X[cols].corr().abs()
+    
+        drops = []
+    
+        # get position who's corr greater than threshold
+        ix, cn = np.where(np.triu(corr.values, 1) > threshold)
+    
+        # if has position
+        if len(ix):
+            # get the graph of relationship
+            graph = np.hstack([ix.reshape((-1, 1)), cn.reshape((-1, 1))])
+    
+            uni, counts = np.unique(graph, return_counts = True)
+
+            weights = np.ones(len(cols))
+      
+            while(True):
+                # TODO deal with circle
+    
+                # get nodes with the most relationship
+                nodes = uni[np.argwhere(counts == np.amax(counts))].flatten()
+    
+                # get node who has the min weights
+                n = nodes[np.argsort(weights[nodes])[0]]
+    
+                # get nodes of 1 degree relationship of n
+                i, c = np.where(graph == n)
+                pairs = graph[(i, 1-c)]
+    
+                # if sum of 1 degree nodes greater than n
+                # then delete n self
+                # else delete all 1 degree nodes
+                if weights[pairs].sum() > weights[n]:
+                    dro = [n]
+                else:
+                    dro = pairs.tolist()
+    
+                # add nodes to drops list
+                drops += dro
+    
+                # delete nodes from graph
+                di, _ = np.where(np.isin(graph, dro))
+                graph = np.delete(graph, di, axis = 0)
+    
+                # if graph is empty
+                if len(graph) <= 0:
+                    break
+    
+                # update nodes and counts
+                uni, counts = np.unique(graph, return_counts = True)
+    
+        drop_list = corr.index[drops].values
+
+        return len(cols)-len(drop_list)
+    
     
     def transform(self,X):
         
