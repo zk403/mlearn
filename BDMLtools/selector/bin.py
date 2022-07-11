@@ -686,7 +686,7 @@ class binAdjuster(Base,BaseWoePlotter):
     
                             breaks = input(">>> Enter modified breaks: ")
     
-                            breaks = re.sub("^[,\.]+|[,\.]+$|\s", "", breaks).split(',')  
+                            breaks = re.sub("^[,\.]+|[,\.]+$|\s", "", breaks).split(',')
     
                     #check break dtype 
                     if b_dtype=='float64':

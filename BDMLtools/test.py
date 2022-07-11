@@ -7,7 +7,7 @@ Created on Wed Jan 12 17:46:24 2022
 """
 
 from BDMLtools.clearner import outliersTransformer,dtypeAllocator,nanTransformer,dtStandardization
-from BDMLtools.report import businessReport,EDAReport,varReport,varGroupsReport,varReportSinge,GainsTable
+from BDMLtools.report import EDAReport,varReport,varGroupsReport,varReportSinge,GainsTable
 from BDMLtools.selector import binSelector,binFreq,binPretty,binTree,binChi2,binKmeans
 from BDMLtools.selector import faSelector
 from BDMLtools.selector import stepLogit,cardScorer
@@ -198,7 +198,15 @@ class test:
         
             raise ValueError('param precision not work') 
 
-        print('dtypeAllocator test successfully')            
+        print('dtypeAllocator test successfully')       
+        
+    
+    def test_EDA(self):
+        
+        dt=sc.germancredit().copy()
+        res=EDAReport().fit(dt)
+        
+        print('EDAReport test successfully')
 
 
 
