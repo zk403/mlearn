@@ -16,8 +16,7 @@ from codecs import open
 from os import path
 import re
 
-base_pkgs=['numpy>=1.20',#https://github.com/numpy/numpy
-                  'lofo-importance>=0.3.1',#https://github.com/aerdem4/lofo-importance
+base_pkgs=[       'lofo-importance>=0.3.1',#https://github.com/aerdem4/lofo-importance
                   'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
                   'pandas>=1.3.3',#https://github.com/pandas-dev/pandas
                   'statsmodels>=0.13.0',#https://github.com/statsmodels/statsmodels
