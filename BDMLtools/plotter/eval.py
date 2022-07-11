@@ -142,7 +142,7 @@ class perfEval2(BaseEval):
     labels=None or list,设定二分类标签,labels=[0标签,1标签],None为保持数据默认,例如labels=['good','bad']
     sort_group=None or list,当评估的数据存在分组时，使用sort_group排序混淆矩阵绘图中的组顺序,例如sort_group=['train','test']
     beta=1 or float,fbeta指标的beta预定值,fbeta值将用于预测结果评估与最优切分点的选择;
-                    beta=1时即平衡precison与recall,beta<1时更侧重precison,beta>1时更侧重recall
+                    beta=1时即平衡precison与recall(等价与f1),beta<1时更侧重precison,beta>1时更侧重recall
         
     Method:
     -------

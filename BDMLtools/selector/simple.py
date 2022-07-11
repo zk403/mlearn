@@ -304,7 +304,7 @@ class preSelector(Base,Specials,TransformerMixin):
         
         keep_col=self.features_info['0.orgin']
         
-        print('0.start__________________________________complete')
+        print('Start'.center(100,'-'))
         
         step=0
       
@@ -318,7 +318,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info[str(step)+'.filterbyNA']=keep_col
           
-            print(str(step)+'.filterbyNA_____________________________complete')
+            print((str(step)+'.filterbyNA').rjust(35)+'Done.'.rjust(35,'_'))
             
         #fliter by unique_pct
         if self.unique_pct is not None: 
@@ -329,7 +329,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info[str(step)+'.filterbyUnique']=keep_col
             
-            print(str(step)+'.filterbyUniquepct______________________complete')    
+            print((str(step)+'.filterbyUniquepct').rjust(42)+'Done.'.rjust(28,'_'))
                       
         #fliter by variance
         if self.variance is not None: 
@@ -340,7 +340,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info[str(step)+'.filterbyVariance']=keep_col
             
-            print(str(step)+'.filterbyVariance_______________________complete')
+            print((str(step)+'.filterbyVariance').rjust(41)+'Done.'.rjust(29,'_'))
             
        
         #fliter by chi and f-value
@@ -352,7 +352,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info[str(step)+'.filterbyChi2Oneway']=keep_col
             
-            print(str(step)+'.filterbyChi2Oneway_____________________complete')     
+            print((str(step)+'.filterbyChi2Oneway').rjust(43)+'Done.'.rjust(27,'_'))
             
             
         #fliter by pi
@@ -365,7 +365,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info[str(step)+'.filterbyPermutationImp']=keep_col
 
-            print(str(step)+'.filterbyPermutationImp_________________complete')  
+            print((str(step)+'.filterbyPermutationImp').rjust(47)+'Done.'.rjust(23,'_')) 
         
         #fliter by LOFO_importannce
         if self.lofoi_limit is not None:
@@ -376,7 +376,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info[str(step)+'.filterbyLOFOImp']=keep_col
 
-            print(str(step)+'.filterbyLOFOImp________________________complete')              
+            print((str(step)+'.filterbyLOFOImp').rjust(40)+'Done.'.rjust(30,'_'))              
              
         
         #fliter by lgbm-tree-imp  
@@ -388,7 +388,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info[str(step)+'.filterbyTrees']=keep_col
             
-            print(str(step)+'.filterbyTrees__________________________complete')
+            print((str(step)+'.filterbyTrees').rjust(38)+'Done.'.rjust(32,'_'))
             
         
         #fliter by iv 
@@ -400,10 +400,10 @@ class preSelector(Base,Specials,TransformerMixin):
             
             self.features_info[str(step)+'.filterbyIV']=keep_col
             
-            print(str(step)+'.filterbyIV_____________________________complete')
+            print((str(step)+'.filterbyIV').rjust(35)+'Done.'.rjust(35,'_'))
    
         
-        print('_____________________________________________Done')  
+        print('Done'.center(100,'-'))
         
         #summary
         for key in self.features_info:

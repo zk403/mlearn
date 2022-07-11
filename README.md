@@ -55,7 +55,6 @@ BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数�
     
     
 + 模型评估 
-
     - BDMLtools.perfEval:二分类排序模型评估，包含绘制图ks、roc、gini、gain、lorenz、f1、pr、density的功能
     
 安装: 
