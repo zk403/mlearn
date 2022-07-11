@@ -74,7 +74,7 @@ setup(
                       'probatus>=1.8.9',#https://github.com/ing-bank/probatus
                       'mlxtend>=0.19.0',#https://github.com/rasbt/mlxtend
                       'scikit-optimize>=0.9.0',#https://github.com/scikit-optimize/scikit-optimize
-                      'shap>=0.38.1',#https://github.com/slundberg/shap
+                      'shap>=0.38.1 < 0.39.0',#https://github.com/slundberg/shap
                       'numba==0.53'
                      ],  # Optional
     #package_data={'scorecardpy': ['data/*.csv']},
