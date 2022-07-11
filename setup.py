@@ -71,7 +71,9 @@ setup(
     ],
     #keywords='credit scorecard',  # Optional
     packages=find_packages(),  # Required
-    install_requires=['numpy>=1.20',#https://github.com/numpy/numpy
+    install_requires=[
+                      'wheel',
+                      'numpy>=1.20',#https://github.com/numpy/numpy
                       'lofo-importance>=0.3.1',#https://github.com/aerdem4/lofo-importance
                       'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
                       'pandas>=1.3.3',#https://github.com/pandas-dev/pandas
