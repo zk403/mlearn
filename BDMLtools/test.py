@@ -338,7 +338,7 @@ class test:
         keep_col=preSelector(na_pct=None,
                            unique_pct=None,
                            variance=None,
-                           chif_pvalue=0.01,
+                           chif_pvalue=0.001,
                            tree_imps=None,
                            pi_limit=None,
                            iv_limit=None).fit(X[['chi2_test','f_test']],y).keep_col       
