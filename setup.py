@@ -72,7 +72,6 @@ setup(
     #keywords='credit scorecard',  # Optional
     packages=find_packages(),  # Required
     install_requires=[
-                      'wheel',
                       'numpy>=1.20',#https://github.com/numpy/numpy
                       'lofo-importance>=0.3.1',#https://github.com/aerdem4/lofo-importance
                       'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
@@ -83,14 +82,11 @@ setup(
                       'scikit-learn>=1.0',#https://github.com/scikit-learn/scikit-learn
                       'xgboost>=1.4.2',#https://github.com/dmlc/xgboost
                       'catboost>=1.0.4',#https://github.com/catboost/catboost
-                      'scipy>=1.5.0',#https://github.com/scipy/scipy
                       'category_encoders>=2.3.0',#https://github.com/scikit-learn-contrib/category_encoders
                       'lightgbm>=3.3.0',#https://github.com/microsoft/LightGBM 
                       'probatus>=1.8.9',#https://github.com/ing-bank/probatus
                       'mlxtend>=0.19.0',#https://github.com/rasbt/mlxtend
                       'scikit-optimize>=0.9.0',#https://github.com/scikit-optimize/scikit-optimize
-                      'shap>= 0.38.1, <0.39.0',#https://github.com/slundberg/shap
-                      'numba==0.53'
                      ],  # Optional
     #package_data={'scorecardpy': ['data/*.csv']},
     # data_files=[('scorecardpy': ['data/*.csv'])],  # Optional

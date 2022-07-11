@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         #ubuntu
-        build: [windows,macos]
+        build: [windows,macos,ubuntu]
         include:
           - build: macos
             os: macos-latest
