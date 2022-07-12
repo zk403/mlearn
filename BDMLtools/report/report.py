@@ -145,7 +145,7 @@ class EDAReport(Base,TransformerMixin):
             
         numeric_col=X.select_dtypes(include='number').columns.tolist() if self.numeric_col is None else self.numeric_col
         
-        X=X[set(category_col+numeric_col)].copy()
+        X=X[np.unique(category_col+numeric_col)].copy()
  
         report=pd.DataFrame(
         {'N':X.apply(   

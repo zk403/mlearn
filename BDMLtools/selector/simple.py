@@ -765,7 +765,7 @@ class preSelector(Base,Specials,TransformerMixin):
         
         _,vtabs=binFreq(X,y,ws=sample_weight,bin_num_limit=30)
         
-        iv_t=pd.Series({key:vtabs[key]['total_iv'].max() for key in vtabs},name='iv_infos')
+        iv_t=pd.Series({key:vtabs[key]['total_iv'].max() for key in vtabs},name='iv_infos',dtype='float')
 
         return iv_t[iv_t>iv_limit].index.tolist()
     

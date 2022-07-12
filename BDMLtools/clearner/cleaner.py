@@ -475,6 +475,7 @@ class nanTransformer(Base,Specials,TransformerMixin):
     """ 
     缺失值填补，集成sklearn.impute        
     注意本模块不支持除字符、数值以外（时间、日期、时间差类）列的填充，这些列将直接返回原始值。请使用bm.dtypeAllocator分配列的dtype类型
+    
     Params:
     ------
     method:(str,str)应对连续特征和分类特征的缺失值填补方法,连续可选constant,mean,median,knn,most_frequent,分类特征可选constant,most_frequent
@@ -488,6 +489,7 @@ class nanTransformer(Base,Specials,TransformerMixin):
         + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换为np.nan
         + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换为np.nan
     fill_value=(num_fill_values,str_fill_values),tuple,method=constant时的填补设定值=(数值列填充值，字符列填充值)
+        当字符列的所有值均被认为是缺失值时，其将以float列形式出现,所有值均为np.nan
     indicator:bool,是否生成缺失值指代特征
     n_neighbors:knn算法中的邻近个数k
     weights_knn:str,knn算法中的预测权重，可选‘uniform’, ‘distance’

@@ -237,7 +237,7 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
                     scores_with_candidates.sort(key=lambda x:x[0],reverse=True)                      
                     best_new_score, best_candidate, best_new_llf = scores_with_candidates.pop() 
                     
-                    print(current_score,best_new_score)
+                    #print(current_score,best_new_score)
                     
                     if (current_score - best_new_score) > 0:  
                     
@@ -262,7 +262,7 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
                         
                             print('Adding %s, %s = %.3f' % (remaining[0], criterion, best_new_score))
                 
-                print(current_score,best_new_score)
+                #print(current_score,best_new_score)
                 
                 if intercept: 
                 
