@@ -870,6 +870,5 @@ class test:
         
         print('perfEval test successfully')            
         
-        
 
 test().test_all()
