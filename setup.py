@@ -21,7 +21,6 @@ base_pkgs=[       'numpy>=1.18,<=1.22',#https://github.com/numpy/numpy
                   'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
                   'pandas>=1.3.3',#https://github.com/pandas-dev/pandas
                   'statsmodels>=0.13.0',#https://github.com/statsmodels/statsmodels
-                  'matplotlib>=3.2.2',#https://github.com/matplotlib/matplotlib
                   'plotnine>=0.9.0',#https://github.com/has2k1/plotnine
                   'scikit-learn>=1.0',#https://github.com/scikit-learn/scikit-learn
                   'xgboost>=1.4.2',#https://github.com/dmlc/xgboost
