@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         #ubuntu
-        build: [windows,macos]
+        build: [windows,macos,ubuntu]
         include:
           - build: macos
             os: macos-latest
@@ -20,7 +20,7 @@ jobs:
           - build: windows
             os: windows-latest
             SKIP_LIGHTGBM: False
-        python-version: [3.8, 3.9, "3.10"]
+        python-version: [3.7,3.8, 3.9,"3.10"]
     steps:
     - uses: actions/checkout@master
     - name: Setup Python  
@@ -34,8 +34,3 @@ jobs:
       run: |
         pip3 install --upgrade setuptools pip
         pip3 install ".[all]"
-    - name: Run unit tests and linters
-      env:
-        SKIP_LIGHTGBM: ${{ matrix.SKIP_LIGHTGBM }}
-      run: |
-        pytest BDMLtools/unit_test.py
