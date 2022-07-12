@@ -38,4 +38,4 @@ jobs:
       env:
         SKIP_LIGHTGBM: ${{ matrix.SKIP_LIGHTGBM }}
       run: |
-        pytest BDMLtools/test.py
+        pytest BDMLtools/unit_test.py
