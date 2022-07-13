@@ -408,7 +408,7 @@ class preSelector(Base,Specials,TransformerMixin):
         #summary
         for key in self.features_info:
             
-            print('步骤{},保留的特征数:{}'.format(key,len(self.features_info[key])))
+            print('Step:{},features remain:{}'.format(key,len(self.features_info[key])))
         
         #report
         if self.out_path: 

@@ -36,8 +36,12 @@ def test_faSelector():
         )
     y=pd.Series([0,0,1,1,1],name='y')
     
-    faSelector(n_clusters='auto').fit(X,y)
- 
+    res=faSelector(n_clusters='auto').fit(X,y)
+    res=faSelector(n_clusters=2).fit(X,y)
+    
+    assert hasattr(res,'components_infos')
+    assert hasattr(res,'rsquare_infos')
+    
     
 def test_preSelector():
     

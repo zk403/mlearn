@@ -19,7 +19,10 @@ def test_LgbmSeqSelector():
         )
     y=pd.Series([0,0,1,1,1],name='y')
     
-    LgbmSeqSelector(k_features=1,n_jobs=1,cv=2).fit(X,y)
+    LgbmSeqSelector(k_features=1,n_jobs=1,cv=2,forward=False,floating=False).fit(X,y)
+    LgbmSeqSelector(k_features=1,n_jobs=1,cv=2,forward=True,floating=False).fit(X,y)
+    LgbmSeqSelector(k_features=1,n_jobs=1,cv=2,forward=False,floating=True).fit(X,y)
+    LgbmSeqSelector(k_features=1,n_jobs=1,cv=2,forward=True,floating=True).fit(X,y)
     
 
 def test_LgbmShapRFECVSelector():
@@ -30,6 +33,8 @@ def test_LgbmShapRFECVSelector():
     y=pd.Series(np.random.randint(0,2,100),name='y')
     
     LgbmShapRFECVSelector(n_jobs=1,cv=2).fit(X,y,check_additivity=False)    
+    LgbmShapRFECVSelector(n_jobs=1,cv=2,early_stopping_rounds=10).fit(X,y,check_additivity=False)   
+    LgbmShapRFECVSelector(n_jobs=1,cv=2,method='bs').fit(X,y,check_additivity=False)   
     
 
 def test_LgbmPISelector():
@@ -40,6 +45,8 @@ def test_LgbmPISelector():
     y=pd.Series(np.random.randint(0,2,100),name='y')
     
     LgbmPISelector(cv=2,n_jobs=1,validation_fraction=0.2).fit(X,y)
+    LgbmPISelector(cv=2,n_jobs=1,validation_fraction=None).fit(X,y)
+    LgbmPISelector(cv=2,n_jobs=1,early_stopping_rounds=None).fit(X,y)
     
     
 def test_stepLogit():
@@ -49,7 +56,9 @@ def test_stepLogit():
         )
     y=pd.Series([1,0,1,0,1],name='y')
     
+    stepLogit(no_stepwise=True,show_step=True).fit(X,y)
     stepLogit(no_stepwise=False,show_step=True).fit(X,y)
+    stepLogit(no_stepwise=False,custom_column=['a']).fit(X,y)
     
     
 def test_cardScorer():
@@ -65,6 +74,11 @@ def test_cardScorer():
     
     lm=stepLogit(no_stepwise=True,show_step=True).fit(X_woe,y) 
     
-    cardScorer(lm.logit_model,bins).fit(X)
+    res=cardScorer(lm.logit_model,bins).fit(X)
+    
+    assert hasattr(res,'scorecard')
+    
+    res.transform(X)
+    
     
     

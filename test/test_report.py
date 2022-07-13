@@ -42,9 +42,10 @@ def test_varReport():
     
     res=varReport({'a':[1],'c':['1','2','3']},n_jobs=1).fit(X,y)
     
-    res.var_report_dict
+    assert hasattr(res,'var_report_dict')
+    assert hasattr(res,'breaks_list_dict')
     
-    
+
 def test_varGroupsReport():  
     
     X=pd.DataFrame(
@@ -52,7 +53,7 @@ def test_varGroupsReport():
     
     res=varGroupsReport({'a':[1],'c':['1','2','3']},columns=['g'],target='y',n_jobs=1).fit(X)
     
-    res.report_dict
+    assert hasattr(res,'report_dict')
     
     
 def test_GainsTable():      
@@ -60,4 +61,4 @@ def test_GainsTable():
     X=pd.Series([100,200,300,400,500],name='score')
     y=pd.Series([1,0,0,1,1],name='y')
     
-    GainsTable().fit_report(X, y)   
+    print(GainsTable().fit_report(X, y))   
