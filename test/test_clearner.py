@@ -23,6 +23,7 @@ def test_dtStandardization():
     
     assert len(res)==2
     assert all(np.equal(res.columns,['b'])) 
+    assert res.index.name=='a'
     
     
 def test_dtypeAllocator():

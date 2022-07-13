@@ -397,8 +397,6 @@ class BaseEvalFuns:
                 
                 
                 
-                
-                
 class BaseEvalData:    
     
     def _get_df(self,y_pred,y_true,group):
@@ -639,6 +637,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             theme_bw() +
             theme(figure_size=figure_size,
                   legend_position=(0.8,0.8),
+                  legend_direction='',
                   #legend_justification=(1,1),
                   legend_background=element_blank(),
                   legend_key=element_blank()) +
@@ -672,6 +671,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             theme_bw() +
             theme(figure_size=figure_size,
                   legend_position=(0.26,0.8),
+                  legend_direction='',
                   #legend_justification=(0,1),
                   legend_background=element_blank(),
                   legend_key=element_blank(),
@@ -709,6 +709,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             theme_bw() +
             theme(legend_position=(legend_xposition,0.8),
                   #legend.justification=c(legend_xposition,1),
+                  legend_direction='',
                   figure_size=figure_size,
                   legend_background=element_blank(),
                   legend_key=element_blank()) +
@@ -737,6 +738,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
                 geom_line(aes(y = 'precision'), na_rm = True) +
                 theme_bw() +
                 theme(figure_size=figure_size,
+                      legend_direction='',
                       legend_position=(legend_xposition,0.8),
                       legend_background=element_blank(),
                       legend_key=element_blank()) +
@@ -766,6 +768,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             # geom_segment(aes(x=0, y=0, xend=1, yend=1), linetype = "dashed", colour="red") +
             theme_bw() +
             theme(legend_position=(0.7,0.2),
+                  legend_direction='',
                   figure_size=figure_size,
                   #legend_justification=c(1,0),
                   legend_background=element_blank(),
@@ -795,6 +798,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             theme_bw() +
             theme(figure_size=figure_size,
                   legend_position=(0.26,0.8),
+                  legend_direction='',
                   #legend_justification=c(0,1),
                   legend_background=element_blank(),
                   legend_key=element_blank()) +
@@ -820,6 +824,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
                 theme(figure_size=figure_size,
                       legend_position=(0.2,0.2),
                       legend_background=element_blank(),
+                      legend_direction='',
                       legend_key=element_blank()) +
                 guides(color=guide_legend(title='')) +
                 ggtitle(title+' P-R' if title else 'P-R') +
@@ -843,7 +848,8 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
                 geom_segment(dtf1, aes(x = 'cumpop', y = 0, xend = 'cumpop', yend = 'f1', color='group'), linetype = "dashed") +
                 theme_bw() +
                 theme(figure_size=figure_size,
-                      legend_position=(0.7,0.2),                      
+                      legend_position=(0.7,0.2),      
+                      legend_direction='',
                       legend_background=element_blank(),
                       legend_key=element_blank()) +
                 guides(color=guide_legend(title=''), fill=False)+

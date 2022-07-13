@@ -11,7 +11,6 @@ import pandas as pd
 
 def test_binSelector():
 
-
     X=pd.DataFrame(
         {'a':[1,2,2],'b':[1,2,3]}
         )

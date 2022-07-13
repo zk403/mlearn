@@ -80,8 +80,6 @@ class perfEval(BaseEval,BaseEvalPlotter):
             figs_d:dict,{plot_type:fig}形式
             
         """
-        
-        
         self._check_plot_params(self.show_plot,self.pred_desc)
         self._check_params(y_pred, y_true, group,sample_weight)
         self._check_values(y_pred, y_true, group,sample_weight)
@@ -106,7 +104,6 @@ class perfEval(BaseEval,BaseEvalPlotter):
             
         dt_plt_dict=self._get_dfev_dict(dt_plt,sample_weight)
            
-        
         figs_d={}
         
         for ty in self.show_plot:

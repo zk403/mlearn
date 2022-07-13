@@ -113,6 +113,13 @@ class faSelector(Base,BaseEstimator,TransformerMixin):
         
         self._check_data(X, y)
         
+        #drop constant columns
+        X = X.loc[:,X.apply(lambda col: False if col.unique().size==1 else True)]
+        
+        if X.columns.size == 0:
+            
+            raise ValueError("All columns in X are constant.")      
+        
         if isinstance(self.n_clusters,int):
         
             self.model=self._featurecluster(X,self._distance(),self.linkage,self.n_clusters,self.distance_threshold)

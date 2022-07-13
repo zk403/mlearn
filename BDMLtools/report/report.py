@@ -322,6 +322,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
         """       
         
         self._check_param_dtype(b_dtype)
+        self._check_yname(y)
                 
         X=self._sp_replace_single(X,self._check_spvalues(X.name,special_values),fill_num=2**63,fill_str='special')
                
@@ -541,6 +542,7 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
     def fit(self, X, y):
         
         self._check_data(X,y)
+        self._check_yname(y)
         
         n_jobs=effective_n_jobs(self.n_jobs)
         

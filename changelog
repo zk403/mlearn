@@ -1,4 +1,13 @@
 ```
+v0.2.5
+1.加入了新的单元测试脚本，移除旧test脚本
+2.修复faSelector的bug，在计算距离矩阵前将移除constant特征
+3.优化代码，在部分模块中加入对Series的name检查
+4.修复preSelector在windows平台下的乱码错误
+5.修复perfeval在plotnine 0.9.0下图例显示问题
+```
+
+```
 v0.2.4
 1.新增了二分类决策模型评估函数perfEval2
 2.stepLogit中加入标准化回归系数属性

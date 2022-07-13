@@ -105,6 +105,15 @@ class Base:
         if not dtype in ('float32','float64'):
             
             raise ValueError("dtype in ('float32','float64')")
+            
+            
+    def _check_yname(self,y):
+        
+        if y.name is None:
+            
+            raise ValueError("Series y must have a name!")
+            
+        
 
 
 

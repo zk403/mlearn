@@ -80,5 +80,3 @@ def test_cardScorer():
     
     res.transform(X)
     
-    
-    

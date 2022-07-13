@@ -1,6 +1,7 @@
-# BDMLtools-0.2.4
+# BDMLtools-0.2.5
 
 [![PyPI version](https://img.shields.io/pypi/pyversions/BDMLtools.svg)](https://pypi.python.org/pypi/BDMLtools)
+[![Build Status](https://github.com/zk403/mlearn/actions/workflows/build-test.yml/badge.svg)](https://github.com/zk403/mlearn/actions/workflows/build-test.yml)
 [![PyPI release](https://img.shields.io/pypi/v/BDMLtools.svg)](https://pypi.python.org/pypi/BDMLtools)
 
 
@@ -60,6 +61,7 @@ BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数�
     
 + 模型评估 
     - BDMLtools.perfEval:二分类排序模型评估，包含绘制图ks、roc、gini、gain、lorenz、f1、pr、density的功能
+    - BDMLtools.perfEval2:二分类决策模型评估，包含绘制混淆矩阵与计算相应指标的功能
     
 安装: 
 
@@ -90,13 +92,10 @@ pip uninstall BDMLtools
 更新
 
 ```
-v0.2.4
-1.新增了二分类决策模型评估函数perfEval2
-2.stepLogit中加入标准化回归系数属性
-3.修复了binAdjust绘图数据显示的bug
-4.修复了varGroupsReport绘图数据显示的bug
-5.修复了EDAReport中分类特征频数统计中的缺失值问题
-6.修复了binAdjust中数值分箱输入乱序情况下报错的问题
-7.修复了stepLogit中单变量模型的vif报错问题
-8.补充了部分函数的文档
+v0.2.5
+1.加入了新的单元测试脚本，移除旧test脚本
+2.修复faSelector的bug，在计算距离矩阵前将移除constant特征
+3.优化代码，在部分模块中加入对Series的name检查
+4.修复preSelector在windows平台下的乱码错误
+5.修复perfeval在plotnine 0.9.0下图例显示问题
 ```
