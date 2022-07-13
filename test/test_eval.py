@@ -28,7 +28,7 @@ def test_eval2():
     true=pd.Series([0,0,1,0,1],name='true',dtype='int')
     group=pd.Series(['g1','g1','g1','g1','g1'],name='group')
     
-    res=perfEval().plot(pred,true,group)
+    res=perfEval2().plot(pred,true,group)
     
     assert isinstance(res,ggplot)
     
