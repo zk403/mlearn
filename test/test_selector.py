@@ -19,7 +19,7 @@ def test_binSelector():
 
     X=pd.DataFrame(
         {
-         'a':np.arange(100),
+         'a':np.arange(100,dtype='float'),
          'b':np.concatenate([[-999],np.ones(98),[999]]),
          'c':np.concatenate([np.repeat('a',50),np.repeat('b',50)],dtype=object)}
         )
@@ -52,7 +52,6 @@ def test_binSelector():
     binSelector(method='pretty',n_jobs=1,iv_limit=0,coerce_monotonic=True).fit_transform(X,y)         
     binSelector(method='pretty',n_jobs=1,iv_limit=0,sample_weight=ws,keep=['a','c']).fit_transform(X,y)      
     binSelector(method='pretty',n_jobs=1,iv_limit=0,special_values=[1,2,3,4,'a']).fit_transform(X,y)        
-
     
 
 def test_binAdjuster():
