@@ -29,7 +29,7 @@ class shapCheck:
     
         woe=ln(% of event/% of non-events) --> woe值越高,事件更倾向于发生，反之则倾向于事件倾向于不发生
         
-    因此两者应具有高度相关性，woe/shap相关性校验过程如下
+    因此两者理应具有高度相关性，woe/shap相关性校验过程如下
     
     1.对原始数据进行分箱并进行woe编码
     2.根据构建好的模型对原始数据计算shap值

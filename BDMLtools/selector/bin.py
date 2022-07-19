@@ -442,7 +442,8 @@ class binAdjuster(Base,BaseWoePlotter):
     
             fig,_=self._get_plot_single(binx,figure_size=None,show_plot=True)
     
-            plt.show(fig)
+            fig
+            plt.show()
     
             # interactive options
             option=self._menu(adj_count+1,var_sum,colname)
@@ -639,8 +640,8 @@ class binAdjuster(Base,BaseWoePlotter):
                                               sort_column=sort_column,
                                               figure_size=figure_size,
                                               show_plot=True)
-                                
-            plt.show(fig)
+            fig                                
+            plt.show()
     
             # interactive options
             option=self._menu(adj_count+1,var_sum,colname)

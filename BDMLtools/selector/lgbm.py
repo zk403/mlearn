@@ -19,9 +19,10 @@ from BDMLtools.tuner.base import sLGBMClassifier
 from BDMLtools.selector.bin_fun import R_pretty
 import warnings
 from mlxtend.feature_selection import SequentialFeatureSelector
+from sklearn.base import TransformerMixin
 
 
-class LgbmPISelector(Base,BaseTunner):
+class LgbmPISelector(TransformerMixin,Base,BaseTunner):
     
     '''
     使用基于LightGBM的Permutation importance进行特征筛选
@@ -146,7 +147,7 @@ class LgbmPISelector(Base,BaseTunner):
                 
                 X_tr, X_val, y_tr, y_val = train_test_split(X,y,test_size=self.validation_fraction,random_state=self.random_state,stratify=y)
 
-                self._BayesSearch_CV(para_space,X_tr,y_tr,sample_weight[y_tr.index])
+                self._BayesSearch_CV(para_space,X_tr,y_tr,None if sample_weight is None else sample_weight[y_tr.index])
     
                 estimator=sLGBMClassifier(random_state=self.random_state,**self.bs_res.best_params_).fit(
                     X_tr,y_tr,**self._get_fit_params(X_val,y_val,sample_weight,y.index,y_val.index)
@@ -167,8 +168,7 @@ class LgbmPISelector(Base,BaseTunner):
         self.keep_col=self.pi_df[self.pi_df['importances_mean']>self.threshold].index.to_list()
  
         self._is_fitted=True
-        
-    
+            
         return self
     
     
@@ -239,7 +239,7 @@ class LgbmPISelector(Base,BaseTunner):
     
     
  
-class LgbmShapRFECVSelector(Base,BaseTunner):
+class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
     
     '''
     使用LightGBM进行基于交叉验证的SHAP重要性的递归式特征消除(Recursive feature elimination with CV and Shap-value)
@@ -467,7 +467,7 @@ class LgbmShapRFECVSelector(Base,BaseTunner):
         return p  
     
 
-class LgbmSeqSelector(Base,BaseTunner):
+class LgbmSeqSelector(TransformerMixin,Base,BaseTunner):
     
     '''
     使用LightGBM进行基于交叉验证的序列特征消除(Sequential Feature Selection with CV)

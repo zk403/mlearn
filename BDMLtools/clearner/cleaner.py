@@ -318,7 +318,7 @@ class dtypeAllocator(Base,TransformerMixin):
         X_float=X.select_dtypes(include=['float']).astype('float'+self.dtype_num).apply(np.round,args=(self.precision,))        
          
         #字符
-        X_obj=X.select_dtypes(include=['object'])
+        X_obj=X.select_dtypes(include=['object']).astype('str')
         
         #类别
         X_cat=X.select_dtypes(include=['category'])
@@ -656,7 +656,7 @@ class nanTransformer(Base,Specials,TransformerMixin):
         if self.indicator:                       
 
             X_na=pd.DataFrame(self.indicator_na.transform(X[self.na_cols]),
-                              columns=self.indicator_na.feature_names_in_,dtype='int8',
+                              columns=[n+'_isnan' for n in self.indicator_na.feature_names_in_],dtype='int8',
                               index=X.index)
         else:
             

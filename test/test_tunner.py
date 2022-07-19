@@ -8,6 +8,7 @@ Created on Wed Jul 13 10:00:29 2022
 
 from BDMLtools.tuner import gridTuner,hgridTuner
 from BDMLtools.tuner import BayesianCVTuner
+from BDMLtools.tuner.fun import shapCheck
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 from catboost import CatBoostClassifier
@@ -20,13 +21,12 @@ def test_gridTuner_xgb():
     
     X=pd.DataFrame(
         {
-         'a':[1,2,2,4,5,1,2,2,4,5,],
-         'b':[1,2,3,4,5,1,2,3,4,5],
-         'c':[1,1,1,2,1,1,1,1,2,1]}
+         'a':[1,2,2,4,5,1,2,2,4,5,1,2,2,4,5,1,2,2,4,5],
+         'b':[1,2,3,4,5,1,2,3,4,5,1,2,3,4,5,1,2,3,4,5],
+         'c':[1,1,1,2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,2,1]}
         )
-    y=pd.Series([0,0,1,1,1,0,0,1,1,1],name='y')
-    
-        
+    y=pd.Series([0,0,1,1,1,0,0,1,1,1,0,0,1,1,1,0,0,1,1,1],name='y')
+          
     para_space_gird={    'n_estimators':[10],
                          'learning_rate':[0.1],
                         
@@ -41,11 +41,35 @@ def test_gridTuner_xgb():
                          'use_label_encoder':[False]
                          }
     
-    gridTuner(XGBClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
-              validation_fraction=None,early_stopping_rounds=None).fit(X,y)
+    res=gridTuner(XGBClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=None).fit(X,y)  
+    res=gridTuner(XGBClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)  
+    res=gridTuner(XGBClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=10).fit(X,y)  
+    res=gridTuner(XGBClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+           validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)     
+    res.predict_proba(X);res.predict_score(X)
     
-    hgridTuner(XGBClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
-              validation_fraction=None,early_stopping_rounds=None).fit(X,y)
+
+    res=hgridTuner(XGBClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=None).fit(X,y)  
+    res=hgridTuner(XGBClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
+              validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)  
+    res=hgridTuner(XGBClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=10).fit(X,y)
+    res=hgridTuner(XGBClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)  
+    res.predict_proba(X);res.predict_score(X)
+    
+    
+    gridTuner(XGBClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=None,scoring='auc').fit(X,y)     
+    gridTuner(XGBClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=None,scoring='ks').fit(X,y)  
+    gridTuner(XGBClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=None,scoring='lift').fit(X,y)  
+    
 
     para_space_random={   'n_estimators':sp_randint(low=60,high=120),#迭代次数
                           'learning_rate':sp_uniform(loc=0.05,scale=0.15), #学习率                         
@@ -58,23 +82,36 @@ def test_gridTuner_xgb():
                           'use_label_encoder':[False]
                          }   
     
-    gridTuner(XGBClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
+    res=gridTuner(XGBClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
               validation_fraction=None,early_stopping_rounds=None).fit(X,y)
+    res=gridTuner(XGBClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
+              validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)
+    res=gridTuner(XGBClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
+              validation_fraction=None,early_stopping_rounds=10).fit(X,y)
+    res=gridTuner(XGBClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
+              validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)
+    res.predict_proba(X);res.predict_score(X)
     
-    hgridTuner(XGBClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
+    res=hgridTuner(XGBClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
               validation_fraction=None,early_stopping_rounds=None).fit(X,y)
-    
+    res=hgridTuner(XGBClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
+              validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)
+    res=hgridTuner(XGBClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
+              validation_fraction=None,early_stopping_rounds=10).fit(X,y)
+    res=hgridTuner(XGBClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
+              validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)
+    res.predict_proba(X);res.predict_score(X)
     
     
 def test_gridTuner_lgbm():
     
     X=pd.DataFrame(
-        {
-         'a':[1,2,2,4,5,1,2,2,4,5,],
-         'b':[1,2,3,4,5,1,2,3,4,5],
-         'c':[1,1,1,2,1,1,1,1,2,1]}
-        )
-    y=pd.Series([0,0,1,1,1,0,0,1,1,1],name='y')
+            {
+             'a':[1,2,2,4,5,1,2,2,4,5,1,2,2,4,5,1,2,2,4,5],
+             'b':[1,2,3,4,5,1,2,3,4,5,1,2,3,4,5,1,2,3,4,5],
+             'c':['1','1','1','2','1','1','1','1','2','1','1','1','1','2','1','1','1','1','2','1']},
+            )
+    y=pd.Series([0,0,1,1,1,0,0,1,1,1,0,0,1,1,1,0,0,1,1,1],name='y')
 
     para_space_gird={ 'boosting_type':['goss'], 
                         'n_estimators':[10],
@@ -85,12 +122,33 @@ def test_gridTuner_lgbm():
                         'colsample_bytree' :[1],
                         'reg_lambda':[0], 
                          }
+    res=gridTuner(LGBMClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=None,scoring='auc').fit(X,y)
+    res=gridTuner(LGBMClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=None,scoring='ks').fit(X,y)
+    res=gridTuner(LGBMClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=None,scoring='lift').fit(X,y)
     
-    gridTuner(LGBMClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+    res=gridTuner(LGBMClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
               validation_fraction=None,early_stopping_rounds=None).fit(X,y)
+    res=gridTuner(LGBMClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)
+    res=gridTuner(LGBMClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=10).fit(X,y)
+    res=gridTuner(LGBMClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)
+    res.predict_proba(X);res.predict_score(X)
     
-    hgridTuner(LGBMClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
+    res=hgridTuner(LGBMClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
               validation_fraction=None,early_stopping_rounds=None).fit(X,y)
+    res=hgridTuner(LGBMClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
+              validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)
+    res=hgridTuner(LGBMClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=10).fit(X,y)
+    res=hgridTuner(LGBMClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)
+    res.predict_proba(X);res.predict_score(X)
+    
 
     para_space_random={  
                      'boosting_type':['gbdt','goss'], #'goss','gbdt'
@@ -104,22 +162,36 @@ def test_gridTuner_lgbm():
                      'reg_lambda':sp_uniform(loc=0,scale=20),
                          }   
     
-    gridTuner(LGBMClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
+    res=gridTuner(LGBMClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
               validation_fraction=None,early_stopping_rounds=None).fit(X,y)
+    res=gridTuner(LGBMClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
+              validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)
+    res=gridTuner(LGBMClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
+              validation_fraction=None,early_stopping_rounds=10).fit(X,y)
+    res=gridTuner(LGBMClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
+              validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)
+    res.predict_proba(X);res.predict_score(X)
     
-    hgridTuner(LGBMClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
+    res=hgridTuner(LGBMClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
               validation_fraction=None,early_stopping_rounds=None).fit(X,y)    
+    res=hgridTuner(LGBMClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
+              validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)    
+    res=hgridTuner(LGBMClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
+              validation_fraction=None,early_stopping_rounds=10).fit(X,y)    
+    res=hgridTuner(LGBMClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
+              validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)    
+    res.predict_proba(X);res.predict_score(X)
     
 
 def test_gridTuner_cb():
     
     X=pd.DataFrame(
-        {
-         'a':[1,2,2,4,5,1,2,2,4,5,],
-         'b':[1,2,3,4,5,1,2,3,4,5],
-         'c':[1,1,1,2,1,1,1,1,2,1]}
-        )
-    y=pd.Series([0,0,1,1,1,0,0,1,1,1],name='y')
+            {
+             'a':[1,2,2,4,5,1,2,2,4,5,1,2,2,4,5,1,2,2,4,5],
+             'b':[1,2,3,4,5,1,2,3,4,5,1,2,3,4,5,1,2,3,4,5],
+             'c':['1','1','1','2','1','1','1','1','2','1','1','1','1','2','1','1','1','1','2','1']},
+            )
+    y=pd.Series([0,0,1,1,1,0,0,1,1,1,0,0,1,1,1,0,0,1,1,1],name='y')
 
     para_space_gird={
         'nan_mode':['Min'],
@@ -132,12 +204,26 @@ def test_gridTuner_cb():
         'reg_lambda': [0]
     }
     
-    gridTuner(CatBoostClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
-              validation_fraction=None,early_stopping_rounds=None).fit(X,y)
+    res=gridTuner(CatBoostClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=None).fit(X,y)  
+    res=gridTuner(CatBoostClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=10).fit(X,y)  
+    res=gridTuner(CatBoostClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)  
+    res=gridTuner(CatBoostClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)  
+    res.predict_proba(X);res.predict_score(X)
     
-    hgridTuner(CatBoostClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
+    res=hgridTuner(CatBoostClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
               validation_fraction=None,early_stopping_rounds=None).fit(X,y)
-
+    res=hgridTuner(CatBoostClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
+              validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)
+    res=hgridTuner(CatBoostClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=10).fit(X,y)
+    res=hgridTuner(CatBoostClassifier,para_space_gird,method='h_grid',n_jobs=1,cv=2,
+              validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)
+    res.predict_proba(X);res.predict_score(X)
+    
     para_space_random={  
                         'nan_mode':['Min'],
                         'n_estimators':sp_randint(low=100,high=110),
@@ -147,13 +233,26 @@ def test_gridTuner_cb():
                         'subsample':sp_uniform(loc=0.5,scale=0.5),
                         'colsample_bylevel' :sp_uniform(loc=0.5,scale=0.5),
                         'reg_lambda':sp_uniform(loc=0,scale=20),
-                         }   
-    
-    gridTuner(CatBoostClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
-              validation_fraction=None,early_stopping_rounds=None).fit(X,y)
-    
-    hgridTuner(CatBoostClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
-              validation_fraction=None,early_stopping_rounds=None).fit(X,y)        
+                         }      
+    res=gridTuner(CatBoostClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
+              validation_fraction=None,early_stopping_rounds=None).fit(X,y)  
+    res=gridTuner(CatBoostClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
+              validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)
+    res=gridTuner(CatBoostClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
+              validation_fraction=None,early_stopping_rounds=10).fit(X,y)
+    res=gridTuner(CatBoostClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,
+              validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)
+    res.predict_proba(X);res.predict_score(X)
+   
+    res=hgridTuner(CatBoostClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
+              validation_fraction=None,early_stopping_rounds=None).fit(X,y)  
+    res=hgridTuner(CatBoostClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
+              validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)  
+    res=hgridTuner(CatBoostClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
+              validation_fraction=None,early_stopping_rounds=10).fit(X,y)  
+    res=hgridTuner(CatBoostClassifier,para_space_random,method='h_random',n_jobs=1,cv=2,n_candidates=1,
+              validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)  
+    res.predict_proba(X);res.predict_score(X)      
     
     
     
@@ -162,24 +261,105 @@ def test_BayesianCVTuner():
     
     X=pd.DataFrame(
         {
-         'a':[1,2,2,4,5,1,2,2,4,5,],
-         'b':[1,2,3,4,5,1,2,3,4,5],
-         'c':[1,1,1,2,1,1,1,1,2,1]}
+         'a':[1,2,2,4,5,1,2,2,4,5,1,2,2,4,5,1,2,2,4,5],
+         'b':[1,2,3,4,5,1,2,3,4,5,1,2,3,4,5,1,2,3,4,5],
+         'c':[1,1,1,2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,2,1]}
         )
-    y=pd.Series([0,0,1,1,1,0,0,1,1,1],name='y')
+    y=pd.Series([0,0,1,1,1,0,0,1,1,1,0,0,1,1,1,0,0,1,1,1],name='y')
 
     BayesianCVTuner(XGBClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
                     init_points=1,n_iter=1,
                     validation_fraction=None,early_stopping_rounds=None).fit(X,y)
+    BayesianCVTuner(XGBClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
+                    init_points=1,n_iter=1,
+                    validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)
+    BayesianCVTuner(XGBClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
+                    init_points=1,n_iter=1,
+                    validation_fraction=None,early_stopping_rounds=10).fit(X,y)
+    res=BayesianCVTuner(XGBClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
+                    init_points=1,n_iter=1,
+                    validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)
+    res.predict_proba(X);res.predict_score(X)
+    
+    X=pd.DataFrame(
+            {
+             'a':[1,2,2,4,5,1,2,2,4,5,1,2,2,4,5,1,2,2,4,5],
+             'b':[1,2,3,4,5,1,2,3,4,5,1,2,3,4,5,1,2,3,4,5],
+             'c':['1','1','1','2','1','1','1','1','2','1','1','1','1','2','1','1','1','1','2','1']},
+            )
+    y=pd.Series([0,0,1,1,1,0,0,1,1,1,0,0,1,1,1,0,0,1,1,1],name='y')
     
     BayesianCVTuner(LGBMClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
                     init_points=1,n_iter=1,
                     validation_fraction=None,early_stopping_rounds=None).fit(X,y)
+    BayesianCVTuner(LGBMClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
+                    init_points=1,n_iter=1,
+                    validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)
+    BayesianCVTuner(LGBMClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
+                    init_points=1,n_iter=1,
+                    validation_fraction=None,early_stopping_rounds=10).fit(X,y)
+    res=BayesianCVTuner(LGBMClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
+                    init_points=1,n_iter=1,
+                    validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)
+    res.predict_proba(X);res.predict_score(X)
     
     BayesianCVTuner(CatBoostClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
                     init_points=1,n_iter=1,
-                    validation_fraction=None,early_stopping_rounds=None).fit(X,y)        
+                    validation_fraction=None,early_stopping_rounds=None).fit(X,y)    
+    BayesianCVTuner(CatBoostClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
+                    init_points=1,n_iter=1,
+                    validation_fraction=0.1,early_stopping_rounds=None).fit(X,y)      
+    BayesianCVTuner(CatBoostClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
+                    init_points=1,n_iter=1,
+                    validation_fraction=None,early_stopping_rounds=10).fit(X,y)      
+    res=BayesianCVTuner(CatBoostClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
+                    init_points=1,n_iter=1,
+                    validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)      
+    res.predict_proba(X);res.predict_score(X)
     
     
-
+def test_shapcheck():
+    
+    X=pd.DataFrame(
+        {
+         'a':[1,2,2,4,5,1,2,2,4,5,1,2,2,4,5,1,2,2,4,5],
+         'b':[1,2,3,4,5,1,2,3,4,5,1,2,3,4,5,1,2,3,4,5],
+         'c':[1,1,1,2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,2,1]}
+        )
+    y=pd.Series([0,0,1,1,1,0,0,1,1,1,0,0,1,1,1,0,0,1,1,1],name='y')
+    
+    res=BayesianCVTuner(XGBClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
+                        init_points=1,n_iter=1,
+                        validation_fraction=None,early_stopping_rounds=None).fit(X,y)
+        
+    shapCheck(res.model_refit).fit_plot(X,y)
+    
+    X=pd.DataFrame(
+            {
+             'a':[1,2,2,4,5,1,2,2,4,5,1,2,2,4,5,1,2,2,4,5],
+             'b':[1,2,3,4,5,1,2,3,4,5,1,2,3,4,5,1,2,3,4,5],
+             'c':['1','1','1','2','1','1','1','1','2','1','1','1','1','2','1','1','1','1','2','1']},
+            )
+    y=pd.Series([0,0,1,1,1,0,0,1,1,1,0,0,1,1,1,0,0,1,1,1],name='y')
+    
+    res=BayesianCVTuner(LGBMClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
+                        init_points=1,n_iter=1,
+                        validation_fraction=None,early_stopping_rounds=None).fit(X,y)
+        
+    shapCheck(res.model_refit).fit_plot(X,y)
+    
+    X=pd.DataFrame(
+            {
+             'a':[1,2,2,4,5,1,2,2,4,5,1,2,2,4,5,1,2,2,4,5],
+             'b':[1,2,3,4,5,1,2,3,4,5,1,2,3,4,5,1,2,3,4,5],
+             'c':['1','1','1','2','1','1','1','1','2','1','1','1','1','2','1','1','1','1','2','1']},
+            )
+    y=pd.Series([0,0,1,1,1,0,0,1,1,1,0,0,1,1,1,0,0,1,1,1],name='y')
+    
+    res=BayesianCVTuner(CatBoostClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
+                        init_points=1,n_iter=1,
+                        validation_fraction=None,early_stopping_rounds=None).fit(X,y)
+        
+    shapCheck(res.model_refit).fit_plot(X,y)
+    
     

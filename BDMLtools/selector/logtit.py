@@ -87,7 +87,7 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
         
         pred=self.logit_model.predict(X)
         
-        return pred
+        return pd.Series(pred,index=X.index,name='pred')
     
     def transform(self,X,y=None):     
         '''

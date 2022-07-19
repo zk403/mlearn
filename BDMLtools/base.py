@@ -10,7 +10,6 @@ Created on Tue Jan 11 22:12:51 2022
 from sklearn.exceptions import NotFittedError
 from BDMLtools.exception import DataTypeError,XyIndexError,yValueError
 from pandas.api.types import is_array_like
-from warnings import warn
 import pandas as pd
 import numpy as np
 from itertools import combinations
@@ -114,9 +113,6 @@ class Base:
             raise ValueError("Series y must have a name!")
             
         
-
-
-
 class BaseEval:    
     
     

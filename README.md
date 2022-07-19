@@ -1,4 +1,4 @@
-# BDMLtools-0.2.5
+# BDMLtools-0.2.6
 
 [![PyPI version](https://img.shields.io/pypi/pyversions/BDMLtools.svg)](https://pypi.python.org/pypi/BDMLtools)
 [![License](https://img.shields.io/github/license/zk403/mlearn)](https://github.com/zk403/mlearn/blob/master/LICENSE)
@@ -93,10 +93,13 @@ pip uninstall BDMLtools
 更新
 
 ```
-v0.2.5
-1.加入了新的单元测试脚本，移除旧test脚本
-2.修复faSelector的bug，在计算距离矩阵前将移除constant特征
-3.优化代码，在部分模块中加入对Series的name检查
-4.修复preSelector在windows平台下的乱码错误
-5.修复perfeval在plotnine 0.9.0下图例显示问题
+v0.2.6
+1.更新单元测试脚本
+2.现在preSelector中若存在任何步骤筛选掉所有特征，将停止下一步筛选并输出结果
+3.移除preSelector中特征筛选方法Permutation Importance和Leave One Feature Out Importance
+4.修复EDAReport的bug,删除了参数category_col与numeric_col参数，加入参数missing_values
+4.修复了nanTransformer中indicator为True时产生的缺失值指代列列名重复的bug
+5.修复了preSelector,dtypeAllocator中object类型问题，生成方式由astype('object')变为astype('str')
+6.修复了LgbmPISelector中选择贝叶斯优化且样本权重为None时会报错的bug
+7.在varGroupsReport中加入因rowlimit设定过高而导致无法产生报告的错误提示
 ```

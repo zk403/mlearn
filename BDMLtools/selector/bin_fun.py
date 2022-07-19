@@ -28,7 +28,7 @@ def R_pretty(low, high, n):
     Params
     ------
     low: minimal value 
-    low: maximal value 
+    high: maximal value 
     n: number of intervals
     
     Returns
@@ -185,7 +185,7 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
             warn('nan column:{},return blank breaks'.format(col.name))
             
             breaks=[]     
-            
+
         elif np.max(col) == np.min(col):
             
             warn('constant column:{},return blank breaks'.format(col.name))
@@ -666,7 +666,7 @@ class binTree(Base,Specials,BaseEstimator):
         #sample_wieght
         if is_array_like(ws):
             
-            ws=ws.values()
+            ws=ws.values
         
         else:
             

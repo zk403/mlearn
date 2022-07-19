@@ -7,15 +7,15 @@ Created on Thu Jan 27 09:46:42 2022
 """
 
 from sklearn.base import BaseEstimator,TransformerMixin
-from sklearn import metrics
-from sklearn.model_selection import GridSearchCV,RepeatedStratifiedKFold
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import l1_min_c
-from joblib import Parallel,delayed,effective_n_jobs
+#from sklearn import metrics
+#from sklearn.model_selection import GridSearchCV,RepeatedStratifiedKFold
+#from sklearn.preprocessing import StandardScaler
+#from sklearn.linear_model import LogisticRegression
+#from sklearn.svm import l1_min_c
+#from joblib import Parallel,delayed,effective_n_jobs
 from BDMLtools.base import Base
-import numpy as np
-import pandas as pd
+#import numpy as np
+#import pandas as pd
 
 
 class lassoSelector(Base,BaseEstimator,TransformerMixin):    
@@ -53,16 +53,16 @@ class lassoSelector(Base,BaseEstimator,TransformerMixin):
     def __init__(self):
         pass
         
-    def transform(self,X,y):
+    def transform(self,X,y=None):
         """ 
         变量筛选
         """
 
-        return self
+        return X
           
     def fit(self,X,y):
 
-        return self  
+        return self
     
     # def __init__(self,c_num=50,method='1se',max_iter=500,scoring='logloss',repeats=1,cv=5,class_weight=None,keep=None,
     #              n_jobs=-1,verbose=0,random_state=123,sample_weight=None):
@@ -280,24 +280,6 @@ class lassoSelector(Base,BaseEstimator,TransformerMixin):
     #     aic = -2*log_loss+2*k
         
     #     return aic        
-        
-
-    
-class sequentialSelector(BaseEstimator):
-    
-    def __init__(self):
-        pass
-        
-    def transform(self,X,y):
-        """ 
-        变量筛选
-        """
-
-        return self
-          
-    def fit(self,X,y):
-
-        return self  
 
 
     

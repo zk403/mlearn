@@ -20,9 +20,9 @@ import os
 from glob import glob
 from BDMLtools.tuner.base import sLGBMClassifier
 from BDMLtools.base import Base
-from lofo import LOFOImportance, Dataset
+#from lofo import LOFOImportance, Dataset
 from sklearn.feature_selection import SelectFpr,SelectFdr,SelectFwe
-from BDMLtools.selector.lgbm import LgbmPISelector
+#from BDMLtools.selector.lgbm import LgbmPISelector
 
 
 
@@ -232,7 +232,7 @@ class preSelector(Base,Specials,TransformerMixin):
         out_path:str or None,模型报告路径,将预筛选过程每一步的筛选过程输出到模型报告中
         missing_values:缺失值指代值
                 + None
-                + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换且会被计入na_pct
+                + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换
                 + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换且会被计入na_pct
         keep:list or None,需保留列的列名list
         sample_weight:样本权重
@@ -289,7 +289,7 @@ class preSelector(Base,Specials,TransformerMixin):
         #cat_features
         cat_features=X.select_dtypes(['object','category']).columns.tolist() if cat_features is None else cat_features
         
-        X=X.apply(lambda col:col.astype('object') if col.name in cat_features else col) if cat_features else X  
+        X=X.apply(lambda col:col.astype('str') if col.name in cat_features else col) if cat_features else X  
 
         #keep col
         X=X.drop(self.keep,axis=1) if self.keep else X
@@ -309,8 +309,7 @@ class preSelector(Base,Specials,TransformerMixin):
         step=0
       
         #fliter by nan
-        if self.na_pct is not None:
-            
+        if self.na_pct is not None and len(keep_col):
             
             keep_col=self._filterByNA(X[keep_col],self.na_pct,ws=sample_weight)
             
@@ -321,7 +320,7 @@ class preSelector(Base,Specials,TransformerMixin):
             print((str(step)+'.filterbyNA').rjust(35)+'Done.'.rjust(35,'_'))
             
         #fliter by unique_pct
-        if self.unique_pct is not None: 
+        if self.unique_pct is not None and len(keep_col): 
             
             keep_col=self._filterByUnique(X[keep_col],self.unique_pct,ws=sample_weight)
             
@@ -332,7 +331,7 @@ class preSelector(Base,Specials,TransformerMixin):
             print((str(step)+'.filterbyUniquepct').rjust(42)+'Done.'.rjust(28,'_'))
                       
         #fliter by variance
-        if self.variance is not None: 
+        if self.variance is not None and len(keep_col): 
             
             keep_col=self._fliterByVariance(X[keep_col],self.variance,ws=sample_weight)
             
@@ -344,7 +343,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
        
         #fliter by chi and f-value
-        if self.chif_pvalue is not None:
+        if self.chif_pvalue is not None and len(keep_col):
             
             keep_col=self._filterByChif(X[keep_col],y,self.chif_pvalue)  
             
@@ -355,32 +354,32 @@ class preSelector(Base,Specials,TransformerMixin):
             print((str(step)+'.filterbyChi2Oneway').rjust(43)+'Done.'.rjust(27,'_'))
             
             
-        #fliter by pi
-        if self.pi_limit is not None:
+        # #fliter by pi
+        # if self.pi_limit is not None and len(keep_col):
             
-            keep_col=LgbmPISelector(threshold=self.pi_limit,early_stopping_rounds=None,random_state=123,
-                                    clf_params={'n_estimators':250,'max_depth':3,'learning_rate':0.05}).fit(X[keep_col],y,
-                                                                                                            sample_weight=sample_weight).keep_col            
-            step=step+1
+        #     keep_col=LgbmPISelector(threshold=self.pi_limit,early_stopping_rounds=None,random_state=123,
+        #                             clf_params={'n_estimators':250,'max_depth':3,'learning_rate':0.05}).fit(X[keep_col],y,
+        #                                                                                                     sample_weight=sample_weight).keep_col            
+        #     step=step+1
             
-            self.features_info[str(step)+'.filterbyPermutationImp']=keep_col
+        #     self.features_info[str(step)+'.filterbyPermutationImp']=keep_col
 
-            print((str(step)+'.filterbyPermutationImp').rjust(47)+'Done.'.rjust(23,'_')) 
+        #     print((str(step)+'.filterbyPermutationImp').rjust(47)+'Done.'.rjust(23,'_')) 
         
-        #fliter by LOFO_importannce
-        if self.lofoi_limit is not None:
+        # #fliter by LOFO_importannce
+        # if self.lofoi_limit is not None and len(keep_col):
             
-            keep_col=self._filterbyLofoimp(X[keep_col],y,lofo_imp=self.lofoi_limit,sample_weight=sample_weight)
+        #     keep_col=self._filterbyLofoimp(X[keep_col],y,lofo_imp=self.lofoi_limit,sample_weight=sample_weight)
             
-            step=step+1
+        #     step=step+1
             
-            self.features_info[str(step)+'.filterbyLOFOImp']=keep_col
+        #     self.features_info[str(step)+'.filterbyLOFOImp']=keep_col
 
-            print((str(step)+'.filterbyLOFOImp').rjust(40)+'Done.'.rjust(30,'_'))              
+        #     print((str(step)+'.filterbyLOFOImp').rjust(40)+'Done.'.rjust(30,'_'))              
              
         
         #fliter by lgbm-tree-imp  
-        if self.tree_imps is not None:
+        if self.tree_imps is not None and len(keep_col):
 
             keep_col=self._filterByTrees(X[keep_col],y,self.tree_size,self.tree_imps,sample_weight=sample_weight)
             
@@ -392,7 +391,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
         
         #fliter by iv 
-        if self.iv_limit is not None:   
+        if self.iv_limit is not None and len(keep_col):   
             
             keep_col=self._filterbyIV(X[keep_col],y,self.iv_limit,sample_weight=sample_weight)
             
@@ -712,38 +711,38 @@ class preSelector(Base,Specials,TransformerMixin):
             return X_oth.columns.tolist()
         
         
-    def _filterbyLofoimp(self,X,y,lofo_imp=0,sample_weight=None):
+    # def _filterbyLofoimp(self,X,y,lofo_imp=0,sample_weight=None):
         
-        """
-        使用Leave one out重要性筛选特征:
-            + 特征x的重要性=全量特征模型表在交叉验证集表现的均值-移除特征x后的模型在交叉验证集表现的均值
-            + 基模型为lightgbm
-            + 模型表现衡量标准为roc_auc
+    #     """
+    #     使用Leave one out重要性筛选特征:
+    #         + 特征x的重要性=全量特征模型表在交叉验证集表现的均值-移除特征x后的模型在交叉验证集表现的均值
+    #         + 基模型为lightgbm
+    #         + 模型表现衡量标准为roc_auc
             
-        该重要性计算量较大请慎用
+    #     该重要性计算量较大请慎用
         
-        LOFOImportance:https://github.com/aerdem4/lofo-importance
+    #     LOFOImportance:https://github.com/aerdem4/lofo-importance
         
-        Parameters:
-        ----------  
-        X:pandas.DataFrame,X特征
-        y:pandas.Seires,目标特征
-        lofo_imp,int,特征重要性阈值，小于等于阈值的列将被剔除
-        sample_weight:Series,样本权重
+    #     Parameters:
+    #     ----------  
+    #     X:pandas.DataFrame,X特征
+    #     y:pandas.Seires,目标特征
+    #     lofo_imp,int,特征重要性阈值，小于等于阈值的列将被剔除
+    #     sample_weight:Series,样本权重
             
-        Return:
-        ---------- 
-        list,筛选后的列名
-        """
+    #     Return:
+    #     ---------- 
+    #     list,筛选后的列名
+    #     """
         
-        X=X.apply(lambda x:x.astype('category') if x.dtypes=='object' else x)  
+    #     X=X.apply(lambda x:x.astype('category') if x.dtypes=='object' else x)  
         
-        dt=Dataset(X.join(y),y.name,features=X.columns.tolist())
+    #     dt=Dataset(X.join(y),y.name,features=X.columns.tolist())
            
-        fimp=LOFOImportance(dt,'roc_auc',cv=5,n_jobs=-1,
-                    fit_params={'sample_weight':sample_weight}).get_importance()
+    #     fimp=LOFOImportance(dt,'roc_auc',cv=5,n_jobs=-1,
+    #                 fit_params={'sample_weight':sample_weight}).get_importance()
         
-        return fimp[fimp['importance_mean']>lofo_imp]['feature'].tolist()
+    #     return fimp[fimp['importance_mean']>lofo_imp]['feature'].tolist()
         
     
     def _filterbyIV(self,X,y,iv_limit,sample_weight=None): 

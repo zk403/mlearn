@@ -29,7 +29,13 @@ jobs:
         pip3 install --upgrade setuptools pip
         pip3 install ".[all]"
         
-    - name: Test with pytest
-      run: pytest -vs test/
+    - name: Generate coverage report
+      run: pytest -vs test --cov-report xml --cov BDMLtools
         
-    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        env_vars: OS,PYTHON
+        files: coverage.xml
+        flags: unittests
+        name: codecov-umbrella

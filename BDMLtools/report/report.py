@@ -20,14 +20,16 @@ from BDMLtools.fun import raw_to_bin_sc,Specials
 from BDMLtools.plotter.base import BaseWoePlotter
 
 
-class EDAReport(Base,TransformerMixin):
+class EDAReport(Base,Specials):
     
     """ 
     产生数据质量报告
     Params:
     ------
-        categorical_col:list,类别特征列名
-        numeric_col:list,连续特征列名
+        missing_values:list or dict,缺失值指代值,
+            + None,保持数据默认
+            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换为np.nan
+            + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换为np.nan
         is_nacorr:bool,是否输出缺失率相关性报告
         out_path:str or None,将数据质量报告输出到本地工作目录的str文件夹下，None代表不输出            
     
@@ -39,20 +41,21 @@ class EDAReport(Base,TransformerMixin):
         nacorr_report:pd.DataFrame,缺失率相关性报告
     """
     
-    def __init__(self,categorical_col=None,numeric_col=None,is_nacorr=False,out_path=None):
+    def __init__(self,missing_values=[np.nan, np.inf, -np.inf,'nan','','special','missing'],is_nacorr=False,out_path=None):
         
-        self.categorical_col = categorical_col
-        self.numeric_col = numeric_col
+        self.missing_values=missing_values
         self.is_nacorr=is_nacorr
         self.out_path=out_path
         
-    def fit(self, X, y=None):
+    def report(self, X, y=None):
 
         self._check_X(X)
         
         if X.select_dtypes(exclude=['number','object','category']).shape[1]>0:
             
             warnings.warn("column which not in ['number','object','category'] will not be shown in report")
+
+        X=self._sp_replace(X,self.missing_values,fill_num=np.nan,fill_str=np.nan)
 
         #产生报告
         self.num_report=self._num_info(X)
@@ -68,26 +71,14 @@ class EDAReport(Base,TransformerMixin):
             
             self._writeExcel()                
                                     
-        return self
+        return self 
     
-    def transform(self, X, y=None):       
-
-        return X
- 
-    
-
     def _num_info(self,X):
         
         """ 数据质量报告-数值特征
         """
         
-        if self.numeric_col is None:
-            
-            num_col=X.select_dtypes(include='number').columns.tolist()
-            
-        else:
-            
-            num_col=self.numeric_col
+        num_col=X.select_dtypes(include='number').columns.tolist()
             
         if len(num_col):
 
@@ -108,13 +99,7 @@ class EDAReport(Base,TransformerMixin):
         """ 数据质量报告-分类特征
         """
         
-        if self.categorical_col is None:
-            
-            category_col=X.select_dtypes(include=['object','category']).columns.tolist()
-            
-        else:
-            
-            category_col=self.categorical_col
+        category_col=X.select_dtypes(include=['object','category']).columns.tolist()
             
         if len(category_col):    
     
@@ -141,11 +126,7 @@ class EDAReport(Base,TransformerMixin):
         """ 数据质量报告-缺失特征
         """        
                    
-        category_col=X.select_dtypes(include=['object','category']).columns.tolist() if self.categorical_col is None else self.categorical_col
-            
-        numeric_col=X.select_dtypes(include='number').columns.tolist() if self.numeric_col is None else self.numeric_col
-        
-        X=X[np.unique(category_col+numeric_col)].copy()
+        X=X.select_dtypes(include=['object','category','number']).copy()
  
         report=pd.DataFrame(
         {'N':X.apply(   
@@ -158,7 +139,7 @@ class EDAReport(Base,TransformerMixin):
             lambda col:col.isnull().sum()/col.size    
                ),
         'dtype':X.dtypes
-            } ).reset_index().rename(columns={'index':'VarName'})
+            })
     
         return report
     
@@ -167,17 +148,14 @@ class EDAReport(Base,TransformerMixin):
         """ 数据质量报告-缺失特征相关性
         """        
         
-        category_col=X.select_dtypes(include=['object','category']).columns.tolist() if self.categorical_col is None else self.categorical_col
-            
-        numeric_col=X.select_dtypes(include='number').columns.tolist() if self.numeric_col is None else self.numeric_col
-        
-        X=X[set(category_col+numeric_col)].copy()
-      
+        X=X.select_dtypes(include=['object','category','number']).copy()
+
         nan_info=X.isnull().sum()
         
         nan_corr_table=X[nan_info[nan_info>0].index].isnull().corr()
         
         return nan_corr_table
+    
     
     def _writeExcel(self):
         
@@ -236,7 +214,7 @@ class businessReport(Base,TransformerMixin):
         self.rename_index=rename_index
         self.out_path=out_path
         
-    def fit(self, X,y=None):
+    def report(self, X,y=None):
         
         self._check_X(X)
             
@@ -249,30 +227,25 @@ class businessReport(Base,TransformerMixin):
         aggfunc=['count','sum','mean']
         rename_aggfunc=dict(zip(aggfunc,['#','event#','event%#']))
 
-        self.ptable=pd.pivot_table(X,index=index,columns=columns,
+        ptable=pd.pivot_table(X,index=index,columns=columns,
                           values=values,aggfunc=aggfunc,
                           margins=True).rename(columns=rename_aggfunc,level=0)
 
         if rename_index:
-            self.ptable.index.names=rename_index
+            ptable.index.names=rename_index
 
         if rename_columns:
-            self.ptable.columns.names=[None]+rename_columns
+            ptable.columns.names=[None]+rename_columns
             
         
         if self.out_path:
             
-            self._writeExcel()                
+            self._writeExcel(ptable)                
                                     
-        return self
+        return ptable
+        
     
-    def transform(self,X,y=None):     
- 
-        return X
-
-    
-    
-    def _writeExcel(self):
+    def _writeExcel(self,ptable):
         
         if not glob(self.out_path):
             
@@ -290,7 +263,7 @@ class businessReport(Base,TransformerMixin):
                               #engine_kwargs={'mode':'a','if_sheet_exists':'replace'},
                               engine='openpyxl')
 
-        self.ptable.to_excel(writer,sheet_name='2.Businessreport')
+        ptable.to_excel(writer,sheet_name='2.Businessreport')
             
         writer.save()     
         print('to_excel done') 
@@ -688,6 +661,10 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
     def fit(self, X, y=None):               
         
         self._check_X(X)
+        
+        if self.row_limit>0 and len(X)<=self.row_limit:
+            
+            raise ValueError('row_limit should less than len(X)')
      
         self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,axis=1).columns}   
         
@@ -717,6 +694,10 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
                                                        self.special_values,self.b_dtype) for g in X_g_gen.groups)
         
         self.report_dict_raw={columns:vtabs for columns,vtabs in out_list}
+        
+        if all(np.array([len(self.report_dict_raw[key]) for key in self.report_dict_raw])==0):
+            
+            raise ValueError('row_limit too high to get group report,reset it and try again')
 
         report=pd.concat(self.report_dict_raw,axis=1)
         
@@ -1083,7 +1064,7 @@ class GainsTable(Base):
         self.method=method
         self.bin_num=bin_num
         
-    def fit_report(self,X,y,group=None,base_grouper=None):
+    def report(self,X,y,group=None,base_grouper=None):
         
         """ 
         根据模型评分产生适合策略分析的Gains Table

@@ -12,11 +12,17 @@ import pandas as pd
 
 def test_eval():
     
-    pred=pd.Series([0.22,0.34,0.78,0.13,0.54],name='pred',dtype='float')
+    pred_prob=pd.Series([0.22,0.34,0.78,0.13,0.54],name='pred',dtype='float')
+    pred=pd.Series([100,130,70,150,160],name='pred',dtype='float')
     true=pd.Series([0,0,1,0,1],name='true',dtype='int')
     group=pd.Series([1,1,1,1,1],name='group')
     
+    res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density')).plot(pred,true)
+    res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density')).plot(pred_prob,true)
     res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density')).plot(pred,true,group)
+    res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density')).plot(pred_prob,true,group)
+    res=perfEval(title='test',pred_desc=True).plot(pred,true,group)
+
     
     assert all([isinstance(res[key],ggplot) for key in res])
     
@@ -28,12 +34,11 @@ def test_eval2():
     true=pd.Series([0,0,1,0,1],name='true',dtype='int')
     group=pd.Series(['g1','g1','g1','g1','g1'],name='group')
     
+    res=perfEval2().plot(pred,true)
+    res=perfEval2(pred_prob=True).plot(pred_prob,true)
     res=perfEval2().plot(pred,true,group)
-    
-    assert isinstance(res,ggplot)
-    
     res=perfEval2(pred_prob=True).plot(pred_prob,true,group)
-    
+    res=perfEval2(labels=['g','b'],sort_group=['g','b']).plot(pred,true,group)
     assert isinstance(res,ggplot)
     
 
