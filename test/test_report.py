@@ -9,7 +9,7 @@ Created on Tue Jul 12 13:34:22 2022
 from BDMLtools.report import EDAReport,varReport,varGroupsReport,varReportSinge,varGroupsPlot,GainsTable,businessReport
 import pandas as pd
 import numpy as np
-
+import mock
 
 def test_EDAReport():
 
@@ -18,7 +18,7 @@ def test_EDAReport():
         index=[0,1,2])
     
     res=EDAReport().report(dt)
-    res=EDAReport(out_path='tmp.xlsx').report(dt)
+    res=EDAReport(out_path='tmp').report(dt)
     res=EDAReport(missing_values=[1,'1']).report(dt)
     res=EDAReport(missing_values={'a':[1],'b':[1,2,3]}).report(dt) 
     res=EDAReport(is_nacorr=True).report(dt)
@@ -27,8 +27,8 @@ def test_EDAReport():
     assert hasattr(res,'na_report')
     assert hasattr(res,'nacorr_report')
 
-
-def test_varReportSinge():
+@mock.patch('matplotlib.pyplot.show')
+def test_varReportSinge(mock_show):
     
     X=pd.DataFrame(
         {'a':[1,2,2],'c':['1','2','3']})
@@ -41,9 +41,10 @@ def test_varReportSinge():
     varReportSinge().report(X['a'],y,[1],sample_weight=ws)
     varReportSinge().woe_plot(X['c'],y,['1','2','3'])
     varReportSinge().woe_plot(X['c'],y,['1','2','3'],sample_weight=ws)
-    
 
-def test_varReport():
+    
+@mock.patch('matplotlib.pyplot.show')
+def test_varReport(mock_show):
     
     X=pd.DataFrame(
         {'a':[1,2,2],'c':['1','2','3']})
@@ -53,7 +54,7 @@ def test_varReport():
 
     res=varReport({'a':[1],'c':['1','2','3']},n_jobs=1).fit(X,y)
     res=varReport({'a':[1],'c':['1','2','3']},sample_weight=ws,n_jobs=1).fit(X,y)
-    res=varReport({'a':[1],'c':['1','2','3']},out_path='tmp.xlsx',n_jobs=1).fit(X,y)
+    res=varReport({'a':[1],'c':['1','2','3']},out_path='tmp',n_jobs=1).fit(X,y)
     
     assert hasattr(res,'var_report_dict')
     assert hasattr(res,'breaks_list_dict')
@@ -72,10 +73,11 @@ def test_businessReport():
     
     businessReport('y',['g'],None,rename_index=['group']).report(X)
     
-    businessReport('y',['g'],None,out_path='tmp.xlsx').report(X)
-    
+    businessReport('y',['g'],None,out_path='tmp').report(X)
 
-def test_varGroupsReport():  
+    
+@mock.patch('matplotlib.pyplot.show')
+def test_varGroupsReport(mock_show):  
     
     X=pd.DataFrame(
         {'a':[1,2,2],'c':['1','2','3'],'g':['g1','g1','g2'],'y':[0,1,1]})
@@ -85,7 +87,7 @@ def test_varGroupsReport():
     res=varGroupsReport({'a':[1],'c':['1','2','3']},sample_weight=ws,columns=['g'],target='y',n_jobs=1).fit(X)
     res=varGroupsReport({'a':[1],'c':['1','2','3']},columns=['g'],row_limit=1,target='y',n_jobs=1).fit(X)
     res=varGroupsReport({'a':[1],'c':['1','2','3']},columns=['g'],sort_columns={'g':['g1','g2']},target='y',n_jobs=1).fit(X)   
-    res=varGroupsReport({'a':[1],'c':['1','2','3']},out_path='tmp.xlsx',columns=['g'],target='y',n_jobs=1).fit(X)
+    res=varGroupsReport({'a':[1],'c':['1','2','3']},out_path='tmp',columns=['g'],target='y',n_jobs=1).fit(X)
     
     assert hasattr(res,'report_dict')
     assert not len(set(res.report_dict.keys())-set(['report_all','report_brief','report_count',

@@ -53,8 +53,8 @@ def test_binSelector():
     binSelector(method='pretty',n_jobs=1,iv_limit=0,sample_weight=ws,keep=['a','c']).fit_transform(X,y)      
     binSelector(method='pretty',n_jobs=1,iv_limit=0,special_values=[1,2,3,4,'a']).fit_transform(X,y)        
     
-
-def test_binAdjuster():
+@mock.patch('matplotlib.pyplot.show')
+def test_binAdjuster(mock_show):
 
     X=pd.DataFrame(
         {
@@ -96,8 +96,8 @@ def test_binAdjuster():
         assert hasattr(adj,'vtabs_dict_adj')
         assert all(np.equal(res.columns,['a','c']))
     
-   
-def test_faSelector():
+@mock.patch('matplotlib.pyplot.show')   
+def test_faSelector(mock_show):
 
     X=pd.DataFrame(
         {'a':[1,2,2,4,5],'b':[1,2,3,4,5],'c':[1,1,1,2,1]}
@@ -163,7 +163,7 @@ def test_preSelector():
     res=preSelector().fit(X,y,sample_weight=ws).transform(X)   
     res=preSelector(keep=['a']).fit_transform(X,y)  
     assert 'a' in res.columns
-    res=preSelector(out_path='tmp.xlsx').fit_transform(X,y) 
+    res=preSelector(out_path='tmp').fit_transform(X,y) 
 
 def test_lassoSelector():
     

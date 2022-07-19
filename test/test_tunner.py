@@ -15,6 +15,7 @@ from catboost import CatBoostClassifier
 from scipy.stats import randint as sp_randint
 from scipy.stats import uniform as sp_uniform 
 import pandas as pd
+import mock
 
 
 def test_gridTuner_xgb():    
@@ -318,7 +319,8 @@ def test_BayesianCVTuner():
     res.predict_proba(X);res.predict_score(X)
     
 
-def test_shapcheck():
+@mock.patch('matplotlib.pyplot.show')
+def test_shapcheck(mock_show):
     
     X=pd.DataFrame(
         {
