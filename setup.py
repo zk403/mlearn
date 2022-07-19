@@ -37,6 +37,7 @@ dev_dep = [
     "pytest>=6.0.0",
     "pytest-cov>=2.10.0",
     "IPython",
+    "mock"
     
 ]
 

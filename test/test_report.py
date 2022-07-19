@@ -26,7 +26,8 @@ def test_EDAReport():
     assert hasattr(res,'char_report')
     assert hasattr(res,'na_report')
     assert hasattr(res,'nacorr_report')
-    
+
+
 def test_varReportSinge():
     
     X=pd.DataFrame(

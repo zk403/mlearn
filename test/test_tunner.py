@@ -317,7 +317,7 @@ def test_BayesianCVTuner():
                     validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)      
     res.predict_proba(X);res.predict_score(X)
     
-    
+
 def test_shapcheck():
     
     X=pd.DataFrame(

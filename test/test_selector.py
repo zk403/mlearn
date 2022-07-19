@@ -52,6 +52,7 @@ def test_binSelector():
     binSelector(method='pretty',n_jobs=1,iv_limit=0,coerce_monotonic=True).fit_transform(X,y)         
     binSelector(method='pretty',n_jobs=1,iv_limit=0,sample_weight=ws,keep=['a','c']).fit_transform(X,y)      
     binSelector(method='pretty',n_jobs=1,iv_limit=0,special_values=[1,2,3,4,'a']).fit_transform(X,y)        
+
     
 
 def test_binAdjuster():
@@ -96,7 +97,7 @@ def test_binAdjuster():
         assert hasattr(adj,'vtabs_dict_adj')
         assert all(np.equal(res.columns,['a','c']))
     
-    
+   
 def test_faSelector():
 
     X=pd.DataFrame(
@@ -174,7 +175,7 @@ def test_lassoSelector():
     
     lassoSelector().fit_transform(X,y)
     
-    
+
 def test_LgbmSeqSelector():
     
     X=pd.DataFrame(
@@ -190,7 +191,6 @@ def test_LgbmSeqSelector():
     
     seq = LgbmSeqSelector(k_features=1,n_jobs=1,cv=2,forward=False,floating=False).fit(X,y)
     seq.plot()
-    
     
 
 def test_LgbmShapRFECVSelector():
