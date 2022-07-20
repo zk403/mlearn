@@ -13,7 +13,7 @@ from sklearn.linear_model import LogisticRegression
 import pandas as pd
 import numpy as np
 import mock
-import builtins
+from io import StringIO
 
 def test_binSelector():
 
@@ -51,10 +51,11 @@ def test_binSelector():
     binSelector(method='pretty',n_jobs=1,iv_limit=0).fit_transform(X,y)               
     binSelector(method='pretty',n_jobs=1,iv_limit=0,coerce_monotonic=True).fit_transform(X,y)         
     binSelector(method='pretty',n_jobs=1,iv_limit=0,sample_weight=ws,keep=['a','c']).fit_transform(X,y)      
-    binSelector(method='pretty',n_jobs=1,iv_limit=0,special_values=[1,2,3,4,'a']).fit_transform(X,y)        
-    
+    binSelector(method='pretty',n_jobs=1,iv_limit=0,special_values=[1,2,3,4,'a']).fit_transform(X,y)   
+
+
 @mock.patch('matplotlib.pyplot.show')
-def test_binAdjuster(mock_show):
+def test_binAdjuster(mock_show,monkeypatch):
 
     X=pd.DataFrame(
         {
@@ -66,16 +67,36 @@ def test_binAdjuster(mock_show):
 
     br_raw={'a':[40,80],'c':['a','b']}  
     
-
-    with mock.patch.object(builtins, 'input', lambda _: '1'):
-
-        adj=binAdjuster(br_raw).fit(X,y)
-        res=adj.transform(X)
+    number_inputs = StringIO('1\n1')
+    monkeypatch.setattr('sys.stdin', number_inputs)
+    adj=binAdjuster(br_raw).fit(X,y)
+    res=adj.transform(X)
         
-        assert hasattr(adj,'breaks_list_adj')
-        assert hasattr(adj,'vtabs_dict_adj')
-        assert all(np.equal(res.columns,['a','c']))
+    assert hasattr(adj,'breaks_list_adj')
+    assert hasattr(adj,'vtabs_dict_adj')
+    assert all(np.equal(res.columns,['a','c']))
+    
+    
+    number_inputs = StringIO('2\n40,50\n1\n2\na%,%b\n1')
+    monkeypatch.setattr('sys.stdin', number_inputs)
+    adj=binAdjuster(br_raw).fit(X,y)
+    assert all(np.equal(adj.breaks_list_adj['a'],[40,50]))
+    assert adj.breaks_list_adj['c'][0]=='a%,%b'
+    
+    number_inputs = StringIO('1\n3\n2\n20,70\n1\n1')
+    monkeypatch.setattr('sys.stdin', number_inputs)
+    adj=binAdjuster(br_raw).fit(X,y)
+    assert all(np.equal(adj.breaks_list_adj['a'],[20,70]))
+    
+    number_inputs = StringIO('1\n4')
+    monkeypatch.setattr('sys.stdin', number_inputs)
+    adj=binAdjuster(br_raw).fit(X,y)
+    assert 'a' in adj.breaks_list_adj.keys() and 'c' not in adj.breaks_list_adj.keys()   
 
+    number_inputs = StringIO('0\ny')
+    monkeypatch.setattr('sys.stdin', number_inputs)
+    adj=binAdjuster(br_raw).fit(X,y)
+        
     X=pd.DataFrame(
         {
          'a':np.arange(100),
@@ -87,14 +108,34 @@ def test_binAdjuster(mock_show):
 
     br_raw={'a':[40,80],'c':['a','b']}   
     
-    with mock.patch.object(builtins, 'input', lambda _: '1'):
+    number_inputs = StringIO('1\n1')
+    monkeypatch.setattr('sys.stdin', number_inputs)
+    adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
+    res=adj.transform(X)  
+    assert hasattr(adj,'breaks_list_adj')
+    assert hasattr(adj,'vtabs_dict_adj')
+    assert all(np.equal(res.columns,['a','c']))
+    
+    number_inputs = StringIO('2\n40,50\n1\n2\na%,%b\n1')
+    monkeypatch.setattr('sys.stdin', number_inputs)
+    adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
+    assert all(np.equal(adj.breaks_list_adj['a'],[40,50]))
+    assert adj.breaks_list_adj['c'][0]=='a%,%b'
+    
+    number_inputs = StringIO('1\n3\n2\n20,70\n1\n1')
+    monkeypatch.setattr('sys.stdin', number_inputs)
+    adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
+    assert all(np.equal(adj.breaks_list_adj['a'],[20,70]))
+    
+    number_inputs = StringIO('1\n4')
+    monkeypatch.setattr('sys.stdin', number_inputs)
+    adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
+    assert 'a' in adj.breaks_list_adj.keys() and 'c' not in adj.breaks_list_adj.keys()   
+
+    number_inputs = StringIO('0\ny')
+    monkeypatch.setattr('sys.stdin', number_inputs)
+    adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
         
-        adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
-        res=adj.transform(X)
-        
-        assert hasattr(adj,'breaks_list_adj')
-        assert hasattr(adj,'vtabs_dict_adj')
-        assert all(np.equal(res.columns,['a','c']))
     
 @mock.patch('matplotlib.pyplot.show')   
 def test_faSelector(mock_show):

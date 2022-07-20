@@ -206,10 +206,8 @@ class preSelector(Base,Specials,TransformerMixin):
     Step 2.唯一值(所有):唯一值占比高于用户定义值列将被筛除
     Step 3.方差(数值特征):方差低于用户定义值列的列将被筛除
     Step 4.卡方独立性检验p值(字符)/方差分析p值(数值):p值大于用户定义值的列将被剔除(不支持样本权重)
-    Step 5.PI重要性筛选(所有):使用Permutation Importance进行特征筛选,具体上使用LightGBM为基模型,roc_auc为评估指标,小于等于0代表特征不重要
-    Step 6.LOFO重要性筛选(所有):根据Leave One Feature Out Importance筛选不重要特征，具体上使用LightGBM为基模型，roc_auc为评估指标，cv=5计算的特征重要性,小于0代表特征不重要
-    Step 7.Lightgbm筛选(所有):split重要性低于用户定义值的列将被剔除
-    Step 8.Iv值筛选(所有):等频30箱后iv值低于用户定义值的列将被剔除
+    Step 5.Lightgbm筛选(所有):split重要性低于用户定义值的列将被剔除
+    Step 6.Iv值筛选(所有):等频30箱后iv值低于用户定义值的列将被剔除
     
     目前Step 4不支持sample weight(样本权重)
     
@@ -220,12 +218,8 @@ class preSelector(Base,Specials,TransformerMixin):
         variance:float or None,默认0,方差低于variance的列将被筛除,将忽略缺失值,unique_pct与variance需同时输入，任一设定为None将跳过此步骤
         chif_pvalue:float or None,(0,1),默认0.05,大于chif_pvalue的列将被剔除,该步骤不支持样本权重。为None将跳过此步骤
                     + 卡方计算中，缺失值将被视为单独一类,
-                    + f值计算中，缺失值将被填补为接近+inf和-inf，计算两次，两次结果都不显著的列都将被剔除                   
-        lofo_imp:float or None,默认None,Leave One Feature Out Importance，使用LightGBM为基模型，neglogloss为评估指标，cv=5计算的特征重要性,小于0代表特征不重要,
-                详情请见lofo.LOFOImportance:https://github.com/aerdem4/lofo-importance               
-        pi_limit:float or None,使用Permutation Importance进行特征筛选,将保留大于pi_limit的特征,详情请见bm.LgbmPISelector
-                Permutation importance介绍:https://scikit-learn.org/stable/modules/permutation_importance.html
-                Permutation importance源码:https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/inspection/_permutation_importance.py
+                    + f值计算中，缺失值将被填补为接近+inf和-inf，计算两次，两次结果都不显著的列都将被剔除   
+                    + 不支持样本权重
         tree_imps:int or None,lightgbm树的split_gan小于等于tree_imps的列将被剔除,默认1，设定为None将跳过此步骤
         tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
         iv_limit:float or None使用进行iv快速筛选的iv阈值(数值等频30箱，分类则按照类别分箱)
@@ -244,18 +238,16 @@ class preSelector(Base,Specials,TransformerMixin):
     """    
     
     
-    def __init__(self,na_pct=0.99,unique_pct=0.99,variance=0,chif_pvalue=0.05,tree_imps=1,lofoi_limit=None,random_state=123,
-                 tree_size=250,pi_limit=None,iv_limit=0.02,out_path=None,missing_values=None,keep=None
+    def __init__(self,na_pct=0.99,unique_pct=0.99,variance=0,chif_pvalue=0.05,tree_imps=1,random_state=123,
+                 tree_size=250,iv_limit=0.02,out_path=None,missing_values=None,keep=None
                  ):
 
         self.na_pct=na_pct
         self.unique_pct=unique_pct #
         self.variance=variance
         self.chif_pvalue=chif_pvalue #
-        self.lofoi_limit=lofoi_limit
         self.tree_imps=tree_imps #
         self.tree_size=tree_size
-        self.pi_limit=pi_limit
         self.iv_limit=iv_limit
         self.out_path=out_path
         self.missing_values=missing_values

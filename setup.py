@@ -20,7 +20,7 @@ base_pkgs=[       'numpy>=1.18,<=1.22',#https://github.com/numpy/numpy
                   #'lofo-importance>=0.3.1',#https://github.com/aerdem4/lofo-importance
                   'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
                   'pandas>=1.3.5',#https://github.com/pandas-dev/pandas
-                  'statsmodels>=0.13.0',#https://github.com/statsmodels/statsmodels
+                  #'statsmodels>=0.13.2',#https://github.com/statsmodels/statsmodels
                   'plotnine>=0.9.0',#https://github.com/has2k1/plotnine
                   'scikit-learn>=1.0',#https://github.com/scikit-learn/scikit-learn
                   'xgboost>=1.4.2',#https://github.com/dmlc/xgboost
