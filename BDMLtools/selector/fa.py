@@ -126,7 +126,7 @@ class faSelector(Base,BaseEstimator,TransformerMixin):
             
         elif self.n_clusters=='auto':
             
-            self.n_clusters=self.get_clusternum(X,threshold=self.corr_limit)
+            self.n_clusters=self._get_clusternum(X,threshold=self.corr_limit)
             
             print('n_clusters set to '+str(self.n_clusters))
             
@@ -157,7 +157,7 @@ class faSelector(Base,BaseEstimator,TransformerMixin):
         
         return self        
     
-    def get_clusternum(self,X,threshold = 0.7):
+    def _get_clusternum(self,X,threshold = 0.7):
         
         """
         get columns number by correlation,rewrite from toad 0.1.0

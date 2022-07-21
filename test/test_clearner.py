@@ -115,7 +115,6 @@ def test_nanTransformer():
     assert res['a'].dtype==np.dtype('float32')
     
     
-
 def test_outliersTransformer():
     
     dt=pd.DataFrame(
@@ -138,7 +137,5 @@ def test_outliersTransformer():
     res=outliersTransformer(method='fill').fit_transform(dt)
     
     assert(res.loc[0,'a']==-123.75)
-    assert(res.loc[99,'a']==222.75)
-    
-    
+    assert(res.loc[99,'a']==222.75)    
     

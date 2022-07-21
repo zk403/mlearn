@@ -15,6 +15,7 @@ import numpy as np
 import mock
 from io import StringIO
 
+
 def test_binSelector():
 
     X=pd.DataFrame(
@@ -71,7 +72,6 @@ def test_binAdjuster(mock_show,monkeypatch):
     monkeypatch.setattr('sys.stdin', number_inputs)
     adj=binAdjuster(br_raw).fit(X,y)
     res=adj.transform(X)
-        
     assert hasattr(adj,'breaks_list_adj')
     assert hasattr(adj,'vtabs_dict_adj')
     assert all(np.equal(res.columns,['a','c']))
