@@ -17,8 +17,6 @@ import matplotlib.pyplot as plt
 from pandas.api.types import is_string_dtype,is_numeric_dtype
 from BDMLtools.plotter.base import BaseWoePlotter
 
-#from joblib import Parallel,delayed
-#from pandas.api.types import is_numeric_dtype
 
 
 class binSelector(Base,BaseEstimator,TransformerMixin):    
@@ -26,8 +24,6 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
     """ 
     自动分箱
     本模块提供自动分箱方法包括等频、kmeans，pretty，决策树、卡方等
-    由于numpy部分计算函数的结果的最低精度类型为float64，
-    因此数值类数据的精度类型最好为float64，不支持inf,若为float32则为近似结果且可能会有精度问题
     此外字符类数据的levels不要为'','missing','special',None等特殊字符
 
     Parameters:
@@ -88,7 +84,7 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
     """
     
     def __init__(self,method='freq',max_bin=50,distr_limit=0.05,bin_num_limit=8,special_values=None,
-                 iv_limit=0.02,keep=None,sample_weight=None,coerce_monotonic=False,b_dtype='float64',n_jobs=-1,verbose=0):
+                 iv_limit=0.02,keep=None,sample_weight=None,coerce_monotonic=False,n_jobs=-1,verbose=0):
         
         self.method=method
         self.max_bin=max_bin
@@ -98,7 +94,6 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
         self.keep=keep
         self.special_values=special_values
         self.coerce_monotonic=coerce_monotonic
-        self.b_dtype=b_dtype
         self.sample_weight=sample_weight
         self.n_jobs=n_jobs
         self.verbose=verbose
@@ -253,10 +248,6 @@ class binAdjuster(Base,BaseWoePlotter):
         + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
         + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
     sample_weight:numpy.array or pd.Series(...,index=X.index) or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标以还原抽样对分析影响
-    b_dtype:可选float32与float64,breaks的数据精度类型，breaks与x的数据精度类型应保持一致，否则会导致在极端条件下的分箱出现错误结果
-        + 若x的数据为np.float32类型,请设定为float32以保证breaks和x的精度类型一致
-        + 若x的数据为np.float64类型,请保持默认
-        + 请不要在原始数据中共用不同的数值精度格式，例如float32与float64并存..，请使用bm.dtypeAllocator统一数据的精度格式
     figure_size:tuple,特征分析图的图形大小
     
     Attribute:
@@ -291,14 +282,13 @@ class binAdjuster(Base,BaseWoePlotter):
     
     
     def __init__(self,breaks_list_dict,column=None,sort_column=None,psi_base='all',
-                 special_values=None,sample_weight=None,b_dtype='float64',figure_size=None):
+                 special_values=None,sample_weight=None,figure_size=None):
         
         self.breaks_list_dict=breaks_list_dict
         self.column=column
         self.sort_column=sort_column
         self.psi_base=psi_base
         self.special_values=special_values
-        self.b_dtype=b_dtype
         self.sample_weight=sample_weight  
         self.figure_size=figure_size
 
@@ -306,7 +296,6 @@ class binAdjuster(Base,BaseWoePlotter):
         
     def fit(self,X,y):
         
-        self._check_param_dtype(self.b_dtype)
         self._check_data(X,y)                
         self._check_colname(X)  
             
@@ -321,7 +310,6 @@ class binAdjuster(Base,BaseWoePlotter):
                                                                 X,y,
                                                                 sample_weight=self.sample_weight,
                                                                 special_values=self.special_values,
-                                                                b_dtype=self.b_dtype,
                                                                 figure_size=self.figure_size)
             
         else:
@@ -333,7 +321,6 @@ class binAdjuster(Base,BaseWoePlotter):
                                                                 psi_base=self.psi_base,
                                                                 sample_weight=self.sample_weight,
                                                                 special_values=self.special_values,
-                                                                b_dtype=self.b_dtype,
                                                                 figure_size=self.figure_size)           
             
             
@@ -406,7 +393,7 @@ class binAdjuster(Base,BaseWoePlotter):
             return False
     
     def _get_breaks_adj(self,br_adj,X,y,
-                        sample_weight=None,special_values=None,b_dtype='float64',
+                        sample_weight=None,special_values=None,
                         figure_size=None):
     
         global breaks_list_adj,vtabs_dict_adj
@@ -438,7 +425,7 @@ class binAdjuster(Base,BaseWoePlotter):
             print('Current breaks: {}...'.format(breaks))
             
             binx=varReportSinge().report(X[colname],y,breaks,sample_weight=sample_weight,
-                                            special_values=special_values,b_dtype=b_dtype) 
+                                            special_values=special_values) 
     
             fig,_=self._get_plot_single(binx,figure_size=None,show_plot=True)
     
@@ -480,7 +467,7 @@ class binAdjuster(Base,BaseWoePlotter):
     
                         elif all([self._is_numeric(i) for i in breaks]):
                             
-                            breaks=sorted(breaks)
+                            breaks=sorted(np.float64(breaks).tolist())
     
                             break
     
@@ -491,15 +478,6 @@ class binAdjuster(Base,BaseWoePlotter):
                             breaks = input(">>> Enter modified breaks: ")
     
                             breaks = re.sub("^[,\.]+|[,\.]+$|\s", "", breaks).split(',')  
-    
-                    #check break dtype 
-                    if b_dtype=='float64':
-    
-                        breaks = np.float64(breaks).tolist()
-    
-                    else:
-    
-                        breaks = np.float32(breaks).tolist()
                                 
     
                 elif is_string_dtype(X[colname]):
@@ -588,7 +566,7 @@ class binAdjuster(Base,BaseWoePlotter):
 
 
     def _get_breaks_adj_g(self,br_adj,X,y,column,sort_column=None,psi_base='all',
-                    sample_weight=None,special_values=None,b_dtype='float64',
+                    sample_weight=None,special_values=None,
                     figure_size=None):
 
         global breaks_list_adj,vtabs_dict_adj
@@ -616,6 +594,7 @@ class binAdjuster(Base,BaseWoePlotter):
     
             print('----Adjusting {}...----'.format(colname))
             print('Current breaks: {}...'.format(breaks))
+            print(breaks)
             
             bins=varGroupsReport({colname:breaks},target=y.name,
                                       columns=[column],
@@ -623,7 +602,6 @@ class binAdjuster(Base,BaseWoePlotter):
                                       output_psi=True,
                                       psi_base=psi_base,
                                       sample_weight=sample_weight,
-                                      b_dtype=b_dtype,
                                       row_limit=0,n_jobs=1).fit(X[[colname]+[column]].join(y))            
             
             binx_psi=bins.report_dict['report_psi']
@@ -677,7 +655,7 @@ class binAdjuster(Base,BaseWoePlotter):
     
                         elif all([self._is_numeric(i) for i in breaks]):
                             
-                            breaks=sorted(breaks)
+                            breaks = sorted(np.float64(breaks).tolist())
     
                             break
     
@@ -688,15 +666,6 @@ class binAdjuster(Base,BaseWoePlotter):
                             breaks = input(">>> Enter modified breaks: ")
     
                             breaks = re.sub("^[,\.]+|[,\.]+$|\s", "", breaks).split(',')
-    
-                    #check break dtype 
-                    if b_dtype=='float64':
-    
-                        breaks = np.float64(breaks).tolist()
-    
-                    else:
-    
-                        breaks = np.float32(breaks).tolist()
                                 
     
                 elif is_string_dtype(X[colname]):

@@ -27,10 +27,6 @@ def test_dtStandardization():
     res=dtStandardization(id_col=['a'],col_rm='b').fit_transform(dt)
     assert res.columns.size==0
     
-    res=dtStandardization(col_rm='b',downcast=True).fit_transform(dt)
-    assert all(np.equal(res.columns,['a'])) 
-    assert res.dtypes['a']==np.dtype('float32')
-    
     res=dtStandardization(id_col=['a'],drop_dup=False).fit_transform(dt)
     assert all(np.equal(res.columns,['b','b'])) 
     assert all(np.equal(res.index,[1,2,2])) 
@@ -66,14 +62,7 @@ def test_dtypeAllocator():
                                              np.dtype('O'),
                                              np.dtype('float64')]))   
     
-    res=dtypeAllocator({'int':['f'],'float':['a','d'],'str':['b'],'date':['c'],'tdiff':['e']},dtype_num='32',drop_date=True,precision=3).fit_transform(dt)
-    
-    assert all(np.equal(res.dtypes.tolist(),[np.dtype('int32'),
-                                             np.dtype('float32'),
-                                             np.dtype('float32'), 
-                                             np.dtype('O'),
-                                             np.dtype('float32')]))
-    
+    res=dtypeAllocator({'int':['f'],'float':['a','d'],'str':['b'],'date':['c'],'tdiff':['e']},drop_date=True).fit_transform(dt)
     assert 'c' not in res.columns
     
     
@@ -108,11 +97,6 @@ def test_nanTransformer():
     assert all(np.equal(res.columns,['a','b','a_isnan','b_isnan']))
     assert all(np.equal(res['a_isnan'],[1,1,1,0]))
     assert all(np.equal(res['b_isnan'],[1,1,1,0]))
-    
-    
-    res=nanTransformer(method=('knn','most_frequent'),fill_value=(np.nan, 'missing'),dtype_num='float32').fit_transform(dt)  
-    assert all(np.equal(res['a'],[1.,1.,1.,1.]))
-    assert res['a'].dtype==np.dtype('float32')
     
     
 def test_outliersTransformer():

@@ -1,4 +1,4 @@
-# BDMLtools-0.2.6
+# BDMLtools-0.2.7
 
 [![PyPI version](https://img.shields.io/pypi/pyversions/BDMLtools.svg)](https://pypi.python.org/pypi/BDMLtools)
 [![License](https://img.shields.io/github/license/zk403/mlearn)](https://github.com/zk403/mlearn/blob/master/LICENSE)
@@ -24,7 +24,7 @@ BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数�
 
 + 数据清洗与数据预处理
 
-    - BDMLtools.dtStandardization:数据规范化，解决实体重复、内存占用,索引等问题
+    - BDMLtools.dtStandardization:数据规范化，解决实体重复,索引等问题
     - BDMLtools.dtypeAllocator:特征类型分配，将原始数据中的列类型转换为适合进行分析与建模的数据类型
     - BDMLtools.nanTransformer:缺失值处理，缺失值填补
     - BDMLtools.outliersTransformer:异常值处理
@@ -94,13 +94,11 @@ pip uninstall BDMLtools
 更新
 
 ```
-v0.2.6
-1.更新单元测试脚本
-2.现在preSelector中若存在任何步骤筛选掉所有特征，将停止下一步筛选并输出结果
-3.移除preSelector中特征筛选方法Permutation Importance和Leave One Feature Out Importance
-4.修复EDAReport的bug,删除了参数category_col与numeric_col参数，加入参数missing_values
-4.修复了nanTransformer中indicator为True时产生的缺失值指代列列名重复的bug
-5.修复了preSelector,dtypeAllocator中object类型问题，生成方式由astype('object')变为astype('str')
-6.修复了LgbmPISelector中选择贝叶斯优化且样本权重为None时会报错的bug
-7.在varGroupsReport中加入因rowlimit设定过高而导致无法产生报告的错误提示
+v0.2.7
+1.重新修复了binAdjust中数值分箱输入乱序情况下报错的问题
+2.为避免因浮点数据类型混乱而造成bug,全局加入对数值浮点数据dtype类型的校验,要求所有输入数据的浮点类型必须为float64
+3.移除了多个模块中的浮点型数类型控制参数
+4.修复了base中参数校验与变量值校验的部分bug
+5.更新单元测试脚本,更新部分代码说明
+6.更新example
 ```

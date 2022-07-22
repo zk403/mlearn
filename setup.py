@@ -34,12 +34,10 @@ base_pkgs=[       'numpy>=1.18,<=1.22',#https://github.com/numpy/numpy
                  ]
 
 dev_dep = [
-    
     "pytest>=6.0.0",
     "pytest-cov>=2.10.0",
     "IPython",
     "mock"
-    
 ]
 
 here = path.abspath(path.dirname(__file__))

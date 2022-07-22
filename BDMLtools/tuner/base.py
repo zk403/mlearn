@@ -5,30 +5,11 @@ import numpy as np
 import pandas as pd
 from lightgbm import LGBMClassifier
 import warnings
-from BDMLtools.base import DataTypeError,XyIndexError
 from catboost.core import CatBoostClassifier
 from xgboost import XGBClassifier
 
 
 class BaseTunner:
-    
-    def _check_params_dup(self,para_space,fixed_params):
-        
-        if len(set(para_space.keys()) & set(fixed_params.keys())) > 0:
-            
-            raise ValueError('duplicated params found in fixed_params and para_space')
-            
-    def _check_params(self,y,sample_weight):
-        
-        if sample_weight is not None:
-            
-            if not isinstance(sample_weight,pd.Series):
-                
-                raise DataTypeError("sample_weight is not pandas.Series.") 
-                
-            if not y.index.equals(sample_weight.index):
-                
-                raise XyIndexError("index of sample_weight not equal to y's index") 
     
     @property
     def _get_scorer(self):
@@ -115,76 +96,6 @@ class BaseTunner:
     def _cvresult_to_df(self,cv_results_):
     
         return pd.DataFrame(cv_results_)   
-    
-    
-    
-    def _get_fit_params(self,Estimator,X_train,y_train,X_val,y_val,sample_weight=None,train_index=None,val_index=None):
-        
-        
-        if Estimator is XGBClassifier:
-            
-            fit_params = {
-                "X":X_train,
-                "y":y_train,
-                "eval_set": [(X_val, y_val)],
-                "eval_metric": self.eval_metric,
-                "early_stopping_rounds": self.early_stopping_rounds,
-            }
-            
-            if sample_weight is not None:
-                
-                fit_params["sample_weight"] = sample_weight.loc[train_index]
-                fit_params["sample_weight_eval_set"] = [sample_weight.loc[val_index]]
-        
-            
-        elif Estimator is LGBMClassifier:
-            
-            from lightgbm import early_stopping, log_evaluation
-
-            fit_params = {
-                "X":X_train,
-                "y":y_train,
-                "eval_set": [(X_val, y_val)],
-                "eval_metric": self.eval_metric,
-                "callbacks": [early_stopping(self.early_stopping_rounds, first_metric_only=True)],
-            }
-            
-            if self.verbose >= 100:
-                
-                fit_params["callbacks"].append(log_evaluation(1))
-                
-            else:
-                
-                fit_params["callbacks"].append(log_evaluation(0))
-                
-            if sample_weight is not None:
-                
-                fit_params["sample_weight"] = sample_weight.loc[train_index]
-                fit_params["eval_sample_weight"] = [sample_weight.loc[val_index]]
-            
-        
-        elif Estimator is CatBoostClassifier:
-            
-            from catboost import Pool
-            
-            fit_params = {
-                "X": Pool(X_train, y_train, cat_features=self.cat_features),
-                "eval_set": Pool(X_val, y_val, cat_features=self.cat_features),
-                "early_stopping_rounds": self.early_stopping_rounds,
-                # Evaluation metric should be passed during initialization
-            }
-            
-            if sample_weight is not None:
-                fit_params["X"].set_weight(sample_weight.loc[train_index])
-                fit_params["eval_set"].set_weight(sample_weight.loc[val_index])
-            
-        else:
-            
-            raise ValueError('Estimator in (XGBClassifier,LGBMClassifier,CatBoostClassifier)')
-        
-            
-        return fit_params
-
 
 
 class sLGBMClassifier(LGBMClassifier):

@@ -79,7 +79,7 @@ class prefitModel(Base,BaseEstimator):
             
             X_numeric=pd.DataFrame(self.imputer.transform(X_numeric),
                                    columns=self.imputer.feature_names_in_,
-                                   index=X_numeric.index,dtype='float32') 
+                                   index=X_numeric.index,dtype='float32') #downcast to save memory
             
 
         if self.encoder:
@@ -92,7 +92,7 @@ class prefitModel(Base,BaseEstimator):
         if self.method=='floor':
             
             X_new=pd.DataFrame(self._scaler.transform(X_new),columns=self._scaler.feature_names_in_,
-                                       index=X_new.index,dtype='float32')
+                                       index=X_new.index,dtype='float32') #downcast to save memory
         
         return X_new
     
@@ -159,7 +159,7 @@ class prefitModel(Base,BaseEstimator):
 
         X_new=pd.DataFrame(self._scaler.transform(X_new),
                        columns=X_new.columns,
-                       index=X_numeric.index,dtype='float32')
+                       index=X_numeric.index,dtype='float32') #downcast to save memory
 
         logit=LogisticRegression(C=0.1,penalty='l2',solver='saga',max_iter=max_iter).fit(X_new,y,
                                                                                          sample_weight=sample_weight)  
@@ -179,7 +179,7 @@ class prefitModel(Base,BaseEstimator):
             
             X_numeric=pd.DataFrame(self.imputer.transform(X_numeric),
                                             columns=self.imputer.feature_names_in_,
-                                            index=X_numeric.index,dtype='float32') 
+                                            index=X_numeric.index,dtype='float32') #downcast to save memory
         
         if X_categoty.columns.size:
                 
@@ -287,7 +287,7 @@ class preSelector(Base,Specials,TransformerMixin):
         X=X.drop(self.keep,axis=1) if self.keep else X
         
         #sp values
-        X=self._sp_replace(X,self.missing_values,fill_num=np.nan,fill_str=np.nan)
+        X=self._sp_replace(X,self.missing_values,fill_num=np.nan,fill_str=np.nan) #_sp_replace(None) will return raw data
         
         self.features_info={}
     
@@ -629,7 +629,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             sn_mask=base_selector(f_classif,alpha=alpha).fit(X_numeric.fillna(-np.finfo(np.float32).max),y).get_support() #fillna with -inf
 
-            num_cols=X_numeric.columns[sp_mask+sm_mask+sn_mask].tolist() #drop features with False among all three data
+            num_cols=X_numeric.columns[sp_mask+sm_mask+sn_mask].tolist() #drop features with False among all data
             
         else:
                 

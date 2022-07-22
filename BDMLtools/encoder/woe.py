@@ -33,10 +33,6 @@ class woeTransformer(Base,Specials,TransformerMixin):
             + 某箱样本量太少，且该列是字符列的可能性极高    
             + test或oot数据相应列的取值超出了train的范围，且该列是字符列的可能性极高  
             + special_value设定前后不一致(产生varbin的speical value与本模块的speical value要一致)
-    dtype,可选'float32'与'float64',转换woe数据为np.float32/np.float64格式，breaks也会以np.float32/np.float64格式分段数据
-        + 模块会使用varbin中的breaks分段数据，其本身为np.float64，因此fit中的数据的number列也必须为float64,否则会因为格式不一致产生精度问题
-        + 若fit中的数据的number列为float32型，则请设定为float32以保证不因格式不一致而产生精度问题
-        + 请不要在原始数据中共用不同的数值精度格式，例如float32与float64共用，int32与int64共用...，请使用bm.dtypeAllocator统一建模数据的格式
     n_jobs,int,并行数量,默认1(所有core),在数据量非常大，列非常多的情况下可提升效率但会增加内存占用，若数据量较少可设定为1
     verbose,int,并行信息输出等级 
             
@@ -45,7 +41,7 @@ class woeTransformer(Base,Specials,TransformerMixin):
     
     """        
     
-    def __init__(self,varbin,n_jobs=1,verbose=0,special_values=None,woe_special=None,check_na=True,woe_missing=None,distr_limit=0.01,dtype='float64'):
+    def __init__(self,varbin,n_jobs=1,verbose=0,special_values=None,woe_special=None,check_na=True,woe_missing=None,distr_limit=0.01):
         
         self.varbin=varbin
         self.n_jobs=n_jobs
@@ -55,13 +51,11 @@ class woeTransformer(Base,Specials,TransformerMixin):
         self.woe_missing=woe_missing
         self.woe_special=woe_special
         self.distr_limit=distr_limit
-        self.dtype=dtype
         
     def transform(self,X,y=None):
         """ 
         WOE转换
         """
-        self._check_param_dtype(self.dtype)
         
         self._check_X(X)
 
@@ -106,7 +100,7 @@ class woeTransformer(Base,Specials,TransformerMixin):
                               
         p=Parallel(n_jobs=n_jobs,verbose=self.verbose)
         
-        res=p(delayed(self._woe_map)(X[key],self.varbin[key],self.check_na,self.special_values,self.dtype) 
+        res=p(delayed(self._woe_map)(X[key],self.varbin[key],self.check_na,self.special_values) 
                               for key in self.varbin)
             
         X_woe=pd.concat({col:col_woe for col,col_woe in res},axis=1)
@@ -118,7 +112,7 @@ class woeTransformer(Base,Specials,TransformerMixin):
    
         return self      
     
-    def _woe_map(self,col,bin_df,check_na=True,special_values=None,dtype='float64'):
+    def _woe_map(self,col,bin_df,check_na=True,special_values=None):
         
         col=self._sp_replace_single(col,self._check_spvalues(col.name,special_values),fill_num=np.finfo(np.float32).max,fill_str='special')
             
@@ -136,17 +130,17 @@ class woeTransformer(Base,Specials,TransformerMixin):
 
             if special_values:
                 
-                breaks_cut=breaks+[np.finfo(np.float32).max] if dtype=='float64' else np.float32(breaks+[np.finfo(np.float32).max]).tolist()
+                breaks_cut=breaks+[np.finfo(np.float32).max]
     
-                col_woe=pd.cut(col,[-np.inf]+breaks_cut+[np.inf],labels=woe+[woe_sp],right=False,ordered=False).astype(dtype)
+                col_woe=pd.cut(col,[-np.inf]+breaks_cut+[np.inf],labels=woe+[woe_sp],right=False,ordered=False).astype('float64')
       
                 col_woe=col_woe.fillna(woe_nan)
                 
             else:
                 
-                breaks_cut=breaks if dtype=='float64' else np.float32(breaks).tolist()
+                breaks_cut=breaks
                 
-                col_woe=pd.cut(col,[-np.inf]+breaks_cut+[np.inf],labels=woe,right=False,ordered=False).astype(dtype)
+                col_woe=pd.cut(col,[-np.inf]+breaks_cut+[np.inf],labels=woe,right=False,ordered=False).astype('float64')
 
                 col_woe=col_woe.fillna(woe_nan)
                 
@@ -175,7 +169,7 @@ class woeTransformer(Base,Specials,TransformerMixin):
             
             breaks_to_woe=dict(zip(breaks,woe))
             
-            col_woe=col.map(raw_to_breaks).map(breaks_to_woe).astype(dtype)            
+            col_woe=col.map(raw_to_breaks).map(breaks_to_woe).astype('float64')            
             
         else:
             

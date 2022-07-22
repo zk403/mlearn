@@ -271,7 +271,7 @@ class businessReport(Base,TransformerMixin):
 
 class varReportSinge(Base,Specials,BaseWoePlotter):
     
-    def report(self, X, y,breaks,sample_weight=None,special_values=None,b_dtype='float64'):
+    def report(self, X, y,breaks,sample_weight=None,special_values=None):
         """ 
         分箱并产生特征分析报告、特征分析绘图报告  
         Params:
@@ -284,27 +284,22 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
             请特别注意若使用binSelector产生breaks_list,special_values必须与binSelector的special_values一致,否则报告的special行会产生错误结果
             + None,保证数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan          
-        b_dtype:可选float32与float64,breaks的数据精度类型，breaks与x的数据精度类型应保持一致，否则会导致在极端条件下的分箱将出现错误结果
-            + 若x的数据为np.float32类型,请设定为float32以保证breaks和x的精度类型一致
-            + 若x的数据为np.float64类型,请保持默认
-            + 请不要在原始数据中共用不同的数值精度格式，例如float32与float64并存..，请使用bm.dtypeAllocator统一数据的精度格式
-        
         Return:
         ------
         report_var,pd.DataFrame:单特征分析报告       
         """       
         
-        self._check_param_dtype(b_dtype)
+        self._check_x(X)
         self._check_yname(y)
                 
-        X=self._sp_replace_single(X,self._check_spvalues(X.name,special_values),fill_num=2**63,fill_str='special')
+        X=self._sp_replace_single(X,self._check_spvalues(X.name,special_values),fill_num=np.finfo(np.float32).max,fill_str='special')
                
-        report_var=self.getReport_Single(X,y,breaks,sample_weight,special_values,b_dtype)
+        report_var=self.getReport_Single(X,y,breaks,sample_weight,special_values)
         
         return report_var 
     
     
-    def woe_plot(self,X, y,breaks,sample_weight=None,special_values=None,b_dtype='float64',figure_size=None,show_plot=True):        
+    def woe_plot(self,X, y,breaks,sample_weight=None,special_values=None,figure_size=None,show_plot=True):        
         """ 
         分箱并产生特征分析报告、特征分析绘图报告  
         Params:
@@ -317,10 +312,6 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
             请特别注意若使用binSelector产生breaks_list,special_values必须与binSelector的special_values一致,否则报告的special行会产生错误结果
             + None,保证数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan          
-        b_dtype:可选float32与float64,breaks的数据精度类型，breaks与x的数据精度类型应保持一致，否则会导致在极端条件下的分箱将出现错误结果
-            + 若x的数据为np.float32类型,请设定为float32以保证breaks和x的精度类型一致
-            + 若x的数据为np.float64类型,请保持默认
-            + 请不要在原始数据中共用不同的数值精度格式，例如float32与float64并存..，请使用bm.dtypeAllocator统一数据的精度格式
         figure_size=None:matplotlib的画布大小
         show_plot=True:程序运行后打印绘图报告结果
         
@@ -332,14 +323,14 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
             
         """        
         
-        report_var=self.report(X,y,breaks,sample_weight,special_values,b_dtype)
+        report_var=self.report(X,y,breaks,sample_weight,special_values)
         
         figure=self. _get_plot_single(report_var,figure_size,show_plot)
     
         return report_var,figure,breaks
    
         
-    def getReport_Single(self,X,y,breakslist_var,sample_weight,special_values,b_dtype):         
+    def getReport_Single(self,X,y,breakslist_var,sample_weight,special_values):         
 
          col=X.name
 
@@ -355,7 +346,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
              if special_values:
                  
                  
-                 breaks=breakslist_var+[2**63] if b_dtype=='float64' else np.float32(breakslist_var+[2**63]).tolist()
+                 breaks=breakslist_var+[np.finfo(np.float32).max]
                  
                  #按照分箱sc的breaklist的区间进行分箱
                  var_cut=pd.cut(var_fillna,[-np.inf]+breaks+[np.inf],duplicates='drop',right=False).cat.add_categories('missing')                 
@@ -365,7 +356,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
              
                  #add speical codes
                  var_bin=var_bin.cat.rename_categories(
-                                {pd.Interval(left=2**63, right=np.inf,closed='left'):'special'}
+                                {pd.Interval(left=np.finfo(np.float32).max, right=np.inf,closed='left'):'special'}
                             )             
                  
                  var_bin=var_bin.cat.rename_categories({
@@ -375,7 +366,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
                      
              else:
                  
-                 breaks=breakslist_var if b_dtype=='float64' else np.float32(breakslist_var).tolist()
+                 breaks=breakslist_var
                  
                  var_cut=pd.cut(var_fillna,[-np.inf]+breaks+[np.inf],duplicates='drop',right=False).cat.add_categories(['special','missing'])                 
                  
@@ -478,10 +469,6 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
         sample_weight:numpy.array or pd.Series or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标
-        b_dtype:可选float32与float64,breaks的数据精度类型，breaks与x的数据精度类型应保持一致，否则会导致在极端条件下的分箱出现错误结果
-            + 若x的数据为np.float32类型,请设定为float32以保证breaks和x的精度类型一致
-            + 若x的数据为np.float64类型,请保持默认
-            + 请不要在原始数据中共用不同的数值精度格式，例如float32与float64并存..，请使用bm.dtypeAllocator统一数据的精度格式
         out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
         tab_suffix:本地excel报告名后缀
         n_jobs:int,并行计算job数
@@ -499,12 +486,11 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
         
     """
     
-    def __init__(self,breaks_list_dict,special_values=None,sample_weight=None,out_path=None,tab_suffix='',n_jobs=-1,verbose=0,b_dtype='float64'):
+    def __init__(self,breaks_list_dict,special_values=None,sample_weight=None,out_path=None,tab_suffix='',n_jobs=-1,verbose=0):
 
         self.breaks_list_dict = breaks_list_dict
         self.special_values = special_values
         self.sample_weight = sample_weight
-        self.b_dtype=b_dtype
         self.n_jobs = n_jobs
         self.verbose = verbose
         self.out_path = out_path
@@ -513,7 +499,7 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
         self._is_fitted=False
         
     def fit(self, X, y):
-        
+
         self._check_data(X,y)
         self._check_yname(y)
         
@@ -521,7 +507,7 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
         
         parallel=Parallel(n_jobs=n_jobs,verbose=self.verbose,batch_size=100)
         
-        out_list=parallel(delayed(self._get_report_single)(X,y,col,self.breaks_list_dict[col],self.sample_weight,self.special_values,self.b_dtype)
+        out_list=parallel(delayed(self._get_report_single)(X,y,col,self.breaks_list_dict[col],self.sample_weight,self.special_values)
                           for col in self.breaks_list_dict)
         
         self.var_report_dict={col:total for col,total in out_list}
@@ -563,9 +549,9 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
         return fig_out
         
         
-    def _get_report_single(self,X,y,col_name,breaks,sample_weight,special_values,b_dtype):
+    def _get_report_single(self,X,y,col_name,breaks,sample_weight,special_values):
            
-        vtabs=varReportSinge().report(X[col_name],y,breaks,sample_weight,special_values,b_dtype)
+        vtabs=varReportSinge().report(X[col_name],y,breaks,sample_weight,special_values)
         
         return col_name,vtabs
 
@@ -610,10 +596,6 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
             + 可使用X[key].astype('str').unique()去查看组变量的所有值并根据其值进行排序
         + sort_columns中某列的排序值[value1,value2,...]必须与原始数据X的中改列的唯一值一致,即set([value1,value2,...])==set(X[col_name1].unique)
     target:目标变量名
-    b_dtype:可选float32与float64,breaks的数据精度类型，breaks与x的数据精度类型应保持一致，否则会导致在极端条件下的分箱出现错误结果
-        + 若x的数据为np.float32类型,请设定为float32以保证breaks和x的精度类型一致
-        + 若x的数据为np.float64类型,请保持默认
-        + 请不要在原始数据中共用不同的数值精度格式，例如float32与float64并存..，请使用bm.dtypeAllocator统一数据的精度格式
     output_psi:bool,是否输出群组psi报告
     psi_base:str,psi计算的基准,可选all，也可用户自定义
         + 'all':以特征在全量数据的分布为基准
@@ -638,8 +620,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
     """        
     
     def __init__(self,breaks_list_dict,columns,sort_columns=None,target='target',row_limit=0,output_psi=False,psi_base='all',
-                 special_values=None,sample_weight=None,b_dtype='float64',
-                 n_jobs=-1,verbose=0,out_path=None,tab_suffix='_group'):
+                 special_values=None,sample_weight=None,n_jobs=-1,verbose=0,out_path=None,tab_suffix='_group'):
 
         self.breaks_list_dict=breaks_list_dict
         self.target=target
@@ -650,7 +631,6 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
         self.psi_base=psi_base
         self.special_values=special_values
         self.sample_weight=sample_weight
-        self.b_dtype=b_dtype
         self.n_jobs=n_jobs
         self.verbose=verbose
         self.out_path=out_path
@@ -691,7 +671,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
         
         out_list=parallel(delayed(self._group_parallel)(X_g_gen,g,self.target,self.columns,
                                                        self.breaks_list_dict,self.row_limit,
-                                                       self.special_values,self.b_dtype) for g in X_g_gen.groups)
+                                                       self.special_values) for g in X_g_gen.groups)
         
         self.report_dict_raw={columns:vtabs for columns,vtabs in out_list}
         
@@ -710,7 +690,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
             report=self._vtab_column_sort(sort_columns_list,report)                
                   
         self.report_dict=self._getReport(X,report,self.breaks_list_dict,self.special_values,self.n_jobs,self.verbose,
-                                        self.target,self.output_psi,self.psi_base,self.b_dtype)                    
+                                        self.target,self.output_psi,self.psi_base)                    
 
         if self.out_path:
                 
@@ -724,7 +704,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
      
         return X
 
-    def _group_parallel(self,X_g_gen,g,target,columns,breaks_list_dict,row_limit,special_values,b_dtype):
+    def _group_parallel(self,X_g_gen,g,target,columns,breaks_list_dict,row_limit,special_values):
     
         group_dt=X_g_gen.get_group(g)
         X_g=group_dt.drop([target]+columns,axis=1)
@@ -748,7 +728,6 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
             res=varReport(breaks_list_dict=breaks_list_dict,
                           special_values=special_values,
                           sample_weight=w_g,
-                          b_dtype=b_dtype,
                           n_jobs=1,                                  
                           verbose=0).fit(X_g,y_g)
         
@@ -759,7 +738,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
     
    
     def _getReport(self,X,report,breaks_list_dict,special_values,n_jobs,verbose,target,
-                  output_psi=True,psi_base='all',b_dtype='float64'):
+                  output_psi=True,psi_base='all'):
         
         report_out={}
             
@@ -787,7 +766,6 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
                 
                 all_var=varReport(breaks_list_dict=breaks_list_dict,
                                   special_values=special_values,
-                                  b_dtype=b_dtype,
                                   n_jobs=n_jobs,                                  
                                   verbose=verbose).fit(X.drop(target,axis=1),X[target])
                 base=pd.concat(all_var.var_report_dict)['count_distr']
@@ -818,7 +796,6 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
                 
                 all_var=varReport(breaks_list_dict=breaks_list_dict,
                                   special_values=special_values,
-                                  b_dtype=b_dtype,
                                   n_jobs=n_jobs,                                  
                                   verbose=verbose).fit(X_q.drop(target,axis=1),X_q[target])
                 base=pd.concat(all_var.var_report_dict)['count_distr']
@@ -942,7 +919,7 @@ class varGroupsPlot(Base,BaseWoePlotter):
     
     
     def __init__(self,breaks_list,column,target='target',psi_base='all',sort_column=None,special_values=None,
-                       sample_weight=None,b_dtype='float64',n_jobs=-1,verbose=0):
+                       sample_weight=None,n_jobs=-1,verbose=0):
         
         self.breaks_list = breaks_list
         self.column=column
@@ -951,7 +928,6 @@ class varGroupsPlot(Base,BaseWoePlotter):
         self.sort_column=sort_column
         self.special_values=special_values
         self.sample_weight=sample_weight
-        self.b_dtype=b_dtype
         self.n_jobs=n_jobs
         self.verbose=verbose
         
@@ -961,7 +937,7 @@ class varGroupsPlot(Base,BaseWoePlotter):
         self._check_X(X)
             
         fig_out=self._woe_plot_group(X,self.breaks_list,self.target,self.column,self.psi_base,
-                             self.sort_column,figure_size,self.special_values,self.sample_weight,self.b_dtype,
+                             self.sort_column,figure_size,self.special_values,self.sample_weight,
                              self.n_jobs,self.verbose)  
         
         self.fig_out=fig_out
@@ -970,7 +946,7 @@ class varGroupsPlot(Base,BaseWoePlotter):
 
     
     def _woe_plot_group(self,X,breaks_list,target,column,psi_base,sort_column=None,figure_size=None,special_values=None,
-                       sample_weight=None,b_dtype='float64',n_jobs=-1,verbose=0):
+                       sample_weight=None,n_jobs=-1,verbose=0):
                  
         """ 
         根据组特征分析报告批量绘图并输出          
@@ -998,7 +974,7 @@ class varGroupsPlot(Base,BaseWoePlotter):
         p=Parallel(n_jobs=n_jobs,verbose=verbose)
         
         res=p(delayed(self._woe_plot_group_single)(X,breaks_list,colname,target,column,psi_base,sort_column,
-                                                   figure_size,special_values,sample_weight,b_dtype) for colname in breaks_list)
+                                                   figure_size,special_values,sample_weight) for colname in breaks_list)
         
         fig_out={colname:fig for fig,colname in res}             
 
@@ -1015,7 +991,7 @@ class varGroupsPlot(Base,BaseWoePlotter):
             raise ValueError('".woe_plot_group" only support single grouper,reset param "columns" in varGroupsReport instance')  
             
     def _woe_plot_group_single(self,X,breaks_list,colname,target,column,psi_base='all',sort_column=None,figure_size=None,
-                               special_values=None,sample_weight=None,b_dtype='float64'):
+                               special_values=None,sample_weight=None):
     
         varbin_g=varGroupsReport({colname:breaks_list[colname]},
                        n_jobs=1,target=target,
@@ -1024,7 +1000,6 @@ class varGroupsPlot(Base,BaseWoePlotter):
                        psi_base=psi_base,
                        special_values=special_values,
                        sample_weight=sample_weight,
-                       b_dtype=b_dtype,
                        row_limit=0,
                       ).fit(X[[colname]+[column]+[target]]).report_dict_raw
         

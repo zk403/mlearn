@@ -212,6 +212,9 @@ class Specials:
             raise ValueError('special_values is list,dict or None')    
         
         return special_values_single
+        
+    
+    
 
 
 

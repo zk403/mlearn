@@ -12,26 +12,21 @@ import pandas as pd
 from sklearn.base import TransformerMixin
 from sklearn.impute import SimpleImputer,KNNImputer,MissingIndicator
 import numpy as np
-from pandas.api.types import is_numeric_dtype
 import warnings
 from BDMLtools.fun import Specials
 from BDMLtools.base import Base
 from BDMLtools.exception import DataTypeError
-#import time
 
 
 class dtStandardization(TransformerMixin):
     
     """ 
-    数据规范化：处理原始数据中实体重复,内存占用,索引等问题
+    数据规范化：处理原始数据中实体重复,索引等问题
     
     Params:
     ------
     id_col:id列list
     col_rm:需删除的列名list
-    downcast:是否对数据中的numeric类型数据进行降级处理(float64->float32),降级后数据的内存占用将减少但会损失精度。存在id_col时,其将不进行降级处理
-        + np.float64能够提供较好的精度(小数点后16位)但会占用更多内存,若数据不存在内存问题请将downcast设定为False
-        + np.float32在对精度要求较高的场景中表现不佳(比如使用bm.binSeletor进行最优分箱)但会大大减少内存占用,若后续分析对数据精度要求不高则可设定为True 
     set_index:是否将id_col设定为pandas索引
     drop_dup:是否执行去重处理,
         + 列:重复列名的列将被剔除并保留第一个出现的列,
@@ -42,11 +37,10 @@ class dtStandardization(TransformerMixin):
     ------    
     """ 
     
-    def __init__(self,id_col=None,col_rm=None,downcast=False,set_index=True,drop_dup=True):       
+    def __init__(self,id_col=None,col_rm=None,set_index=True,drop_dup=True):       
         
         self.id_col=id_col
         self.col_rm=col_rm
-        self.downcast=downcast
         self.drop_dup=drop_dup
         self.set_index=set_index
         
@@ -75,30 +69,14 @@ class dtStandardization(TransformerMixin):
             #remove columns if exists
             X=X.drop(np.unique(self.col_rm),axis=1) if self.col_rm else X
             
-            #downcast and drop dups
+            #drop dups
             if self.id_col:
-                
-                if self.downcast:
-                
-                    X=X.apply(lambda x:pd.to_numeric(x,'ignore','float') if x.name not in self.id_col and is_numeric_dtype(x) else x)
-                        
-                    X=X.loc[~X[self.id_col].duplicated(),~X.columns.duplicated()] if self.drop_dup else X
                     
-                else:
-                    
-                    X=X.loc[~X[self.id_col].duplicated(),~X.columns.duplicated()] if self.drop_dup else X
+                X=X.loc[~X[self.id_col].duplicated(),~X.columns.duplicated()] if self.drop_dup else X
             
-            elif not self.id_col:
-                
-                if self.downcast:
-                
-                    X=X.apply(lambda x:pd.to_numeric(x,'ignore','float') if is_numeric_dtype(x) else x)                
-                        
-                    X=X.loc[~X.index.duplicated(),~X.columns.duplicated()] if self.drop_dup else X                    
+            elif not self.id_col:                
                     
-                else:
-                    
-                    X=X.loc[~X.index.duplicated(),~X.columns.duplicated()] if self.drop_dup else X
+                X=X.loc[~X.index.duplicated(),~X.columns.duplicated()] if self.drop_dup else X
                     
             else:
                 
@@ -136,9 +114,9 @@ class dtypeAllocator(Base,TransformerMixin):
     ------
         dtypes_dict={}
             + dtypes_dict=dict():自动处理输入数据并最终转换为object、number(float,int)、date三种类型
-                + 初始数据中的浮点数值类型数据(float)将被全部转换为float64或float32类型数据(用户自定义)
-                + 初始数据中的整型类型数据(int)将被全部转换为int64或int32类型数据(用户自定义),注意int类型列不允许出现缺失值nan,否则会转换为float
-                + 初始数据中的布尔数值类型数据(bool)将被全部转换为int64或int32类型数据(用户自定义)               
+                + 初始数据中的浮点数值类型数据(float)将被全部转换为float64类型
+                + 初始数据中的整型类型数据(int)将被全部转换为int64类型,注意int类型列若出现缺失值nan时将被转换为float
+                + 初始数据中的布尔数值类型数据(bool)将被全部转换为int64类型          
                 + 初始数据中的字符类型数据(str)将被全部转换为object类型数据 
                 + 初始数据中的无序分类类型数据(category-unordered)将被全部转换为object类型数据
                 + 初始数据中的有序分类类型数据(category-ordered)将顺序被全部转换为int类型数据,其与原始数据的对应关系将被保存在self.order_info中
@@ -155,10 +133,6 @@ class dtypeAllocator(Base,TransformerMixin):
                 + 若所有colname_list的特征只是数据所有列的一部分，则剩下部分的列将不做转换
                 + colname_list不能含有col_rm中的列,否则会报错终止
         col_rm=None or list,不参与转换的列的列名列表，其不会参与任何转换且最终会保留在输出数据中        
-        dtype_num='64',数值类型列转换方式，默认为64，可以选择32，请注意数据中的数值id列,建议不进行32转换
-                + np.float64/np.int64能够提供较好的精度但会占用更多内存,若数据不存在内存问题请将dtype_num设定为float64
-                + np.float32/np.int32在对精度要求较高的场景中会出现精度问题(比如使用bm.binSeletor进行最优分箱)但会大大减少内存占用,若后续分析对数据精度要求不高则可设定为32
-                + 在建模分析任务中，建议设定为64,这是因为numpy的一些数值计算函数结果最低精度类型为64
         t_unit=‘1 D’,timedelta类列处理为数值的时间单位，默认天
         drop_date=False,是否剔除原始数据中的日期列，默认False
         precision=3,数值类数据的精度,precision=3代表保留小数点后3位小数，设定好设定此值以获得数值的近似结果。
@@ -171,10 +145,9 @@ class dtypeAllocator(Base,TransformerMixin):
     """    
 
     
-    def __init__(self,dtypes_dict={},col_rm=None,t_unit='1 D',dtype_num='64',drop_date=False,precision=3):
+    def __init__(self,dtypes_dict={},col_rm=None,t_unit='1 D',drop_date=False,precision=3):
 
         self.dtypes_dict=dtypes_dict
-        self.dtype_num = dtype_num
         self.col_rm = col_rm
         self.drop_date=drop_date
         self.t_unit=t_unit
@@ -195,7 +168,7 @@ class dtypeAllocator(Base,TransformerMixin):
 
         """ 
         
-        self._check_X(X)
+        self._check_X(X,check_dtype=False)
         
         X = X.copy()
         
@@ -273,12 +246,12 @@ class dtypeAllocator(Base,TransformerMixin):
                     
             X_keep=X.drop(columns,axis=1)
             
-            X_tdiff=X[col_tdiff].div(pd.to_timedelta(self.t_unit)).astype("float"+self.dtype_num).apply(np.round,args=(self.precision,))
+            X_tdiff=X[col_tdiff].div(pd.to_timedelta(self.t_unit)).astype("float64").apply(np.round,args=(self.precision,))
             
             #if nan in col_int            
-            X_int=X[col_int].apply(lambda x: x.astype('float'+self.dtype_num) if np.any(np.isnan(x)) else x.astype('int'+self.dtype_num))
+            X_int=X[col_int].apply(lambda x: x.astype('float64') if np.any(np.isnan(x)) else x.astype('int64'))
             
-            X_float=X[col_float].astype("float"+self.dtype_num).apply(np.round,args=(self.precision,))
+            X_float=X[col_float].astype("float64").apply(np.round,args=(self.precision,))
             
             X_obj=X[col_obj].astype('str')
             
@@ -301,7 +274,7 @@ class dtypeAllocator(Base,TransformerMixin):
       
         if X.select_dtypes(include=['timedelta']).size:
             
-            X_tdiff=X.select_dtypes(include=['timedelta']).div(pd.to_timedelta(self.t_unit)).astype("float"+self.dtype_num).apply(np.round,args=(self.precision,))
+            X_tdiff=X.select_dtypes(include=['timedelta']).div(pd.to_timedelta(self.t_unit)).astype("float64").apply(np.round,args=(self.precision,))
             
             X=X.select_dtypes(exclude=['timedelta'])
             
@@ -311,11 +284,11 @@ class dtypeAllocator(Base,TransformerMixin):
             
   
         #数值
-        X_bool=X.select_dtypes(include=['bool']).astype('int'+self.dtype_num)
+        X_bool=X.select_dtypes(include=['bool']).astype('int64')
         
-        X_int=X.select_dtypes(include=['int']).astype('int'+self.dtype_num)
+        X_int=X.select_dtypes(include=['int']).astype('int64')
     
-        X_float=X.select_dtypes(include=['float']).astype('float'+self.dtype_num).apply(np.round,args=(self.precision,))        
+        X_float=X.select_dtypes(include=['float']).astype('float64').apply(np.round,args=(self.precision,))        
          
         #字符
         X_obj=X.select_dtypes(include=['object']).astype('str')
@@ -334,7 +307,7 @@ class dtypeAllocator(Base,TransformerMixin):
         self.order_info={col:dict(zip(X_cat_ordered[col].cat.categories,
                                       [i for i in range(X_cat_ordered[col].cat.categories.size)])) for col in X_cat_ordered.columns}
         
-        X_cat_ordered=X_cat_ordered.apply(lambda col:col.cat.codes).astype('int'+self.dtype_num)                
+        X_cat_ordered=X_cat_ordered.apply(lambda col:col.cat.codes).astype('int64')                
         
         #日期
         X_date=None if self.drop_date else X.select_dtypes(include=['datetime','datetimetz'])
@@ -493,10 +466,6 @@ class nanTransformer(Base,Specials,TransformerMixin):
     indicator:bool,是否生成缺失值指代特征
     n_neighbors:knn算法中的邻近个数k
     weights_knn:str,knn算法中的预测权重，可选‘uniform’, ‘distance’
-    dtype_num:str,填补后数值类型列的dtype,可选float64/float32
-        + np.float64能够提供较好的精度(小数点后16位)但会占用更多内存,若数据不存在内存问题请将dtype_num设定为float64
-        + np.float32在对精度要求较高的场景中表现不佳(比如使用bm.binSeletor进行最优分箱)但会大大减少内存占用,若后续分析对数据精度要求不高则可设定为float32
-        + 在建模分析任务中，建议设定为float64，设定为float32会产生精度问题
     
     Attributes
     ------
@@ -510,7 +479,7 @@ class nanTransformer(Base,Specials,TransformerMixin):
                       fill_value=(np.nan,'missing'),  
                       n_neighbors=10,
                       weights_knn='uniform',
-                      indicator=False,dtype_num='float64'):
+                      indicator=False):
 
         self.missing_values=missing_values
         self.method=method
@@ -518,7 +487,6 @@ class nanTransformer(Base,Specials,TransformerMixin):
         self.indicator=indicator
         self.weights_knn=weights_knn
         self.n_neighbors=n_neighbors
-        self.dtype_num=dtype_num
 
         self._is_fitted=False
         
@@ -533,7 +501,6 @@ class nanTransformer(Base,Specials,TransformerMixin):
         """       
         
         self._check_X(X)
-        self._check_param_dtype(self.dtype_num)
 
         X=self._sp_replace(X,self.missing_values,fill_num=np.nan,fill_str=np.nan)
         
@@ -617,7 +584,6 @@ class nanTransformer(Base,Specials,TransformerMixin):
 
         """
         
-        self._check_param_dtype(self.dtype_num)
         self._check_X(X)
         self._check_is_fitted()
         
@@ -636,7 +602,7 @@ class nanTransformer(Base,Specials,TransformerMixin):
             
             X_num_fill=pd.DataFrame(self.imputer_num.transform(X_num),
                                     columns=self.imputer_num.feature_names_in_,
-                                    index=X.index,dtype=self.dtype_num                                       
+                                    index=X.index,dtype='float64'                                       
                                     ) 
         else:
             
@@ -656,7 +622,7 @@ class nanTransformer(Base,Specials,TransformerMixin):
         if self.indicator:                       
 
             X_na=pd.DataFrame(self.indicator_na.transform(X[self.na_cols]),
-                              columns=[n+'_isnan' for n in self.indicator_na.feature_names_in_],dtype='int8',
+                              columns=[n+'_isnan' for n in self.indicator_na.feature_names_in_],dtype='int64',
                               index=X.index)
         else:
             

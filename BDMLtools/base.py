@@ -30,6 +30,10 @@ class Base:
             
             raise DataTypeError("x is pd.core.frame.Series")
             
+        if x.dtype in [np.dtype(np.float32),np.dtype(np.float16),np.dtype(np.float128)]:
+            
+            raise DataTypeError("x's float dtype must be float64")
+            
 
     def _check_ind(self,lst):
         
@@ -42,7 +46,7 @@ class Base:
             raise XyIndexError("All data's index must be unique")      
             
             
-    def _check_X(self,X):
+    def _check_X(self,X,check_dtype=True):
  
         if not isinstance(X,pd.core.frame.DataFrame):
                 
@@ -51,6 +55,13 @@ class Base:
         if not X.index.is_unique:
                 
             raise XyIndexError("X.index is not unique")
+            
+        if check_dtype:    
+            
+            if X.dtypes.isin([np.dtype(np.float32),np.dtype(np.float16),np.dtype(np.float128)]).any():
+                
+                raise DataTypeError("X's float dtype must be float64")
+            
             
     def _check_colname(self,X):
         
@@ -81,9 +92,13 @@ class Base:
         
             raise XyIndexError("X's index not equal to y")            
 
-        if not np.isin(y.unique(),[0,1]).any():
+        if not np.isin(y.unique(),[0,1]).all():
         
-            raise yValueError("vals of y in [0,1] and 0(no-event),1(event)")    
+            raise yValueError("vals of y in [0,1] and 0(no-event),1(event)")  
+            
+        if X.dtypes.isin([np.dtype(np.float32),np.dtype(np.float16),np.dtype(np.float128)]).any():
+            
+            raise DataTypeError("X's float dtype must be float64")
 
 
     def _check_ws(self,y,sample_weight):
@@ -94,18 +109,15 @@ class Base:
                 
                 raise DataTypeError("sample_weight is not pandas.Series.") 
                 
+            if sample_weight.dtypes in [np.dtype(np.float32),np.dtype(np.float16),np.dtype(np.float128)]:
+                
+                raise DataTypeError("sample_weight's float dtype must be float64")
+                
             if not y.index.equals(sample_weight.index):
                 
-                raise XyIndexError("index of sample_weight not equal to y_pred or y_true")             
+                raise XyIndexError("index of sample_weight not equal to y_pred or y_true")          
 
-    
-    def _check_param_dtype(self,dtype):
-        
-        if not dtype in ('float32','float64'):
-            
-            raise ValueError("dtype in ('float32','float64')")
-            
-            
+
     def _check_yname(self,y):
         
         if y.name is None:
@@ -122,7 +134,7 @@ class BaseEval:
             
             raise ValueError("show_plot is tuple")  
             
-        if not np.isin(show_plot,('ks', 'lift', 'gain', 'roc', 'lz', 'pr', 'f1', 'density')).any() :
+        if not np.isin(show_plot,('ks', 'lift', 'gain', 'roc', 'lz', 'pr', 'f1', 'density')).all() :
             
             raise ValueError("show_plot in ('ks', 'lift', 'gain', 'roc', 'lz', 'pr', 'f1', 'density')")  
             
@@ -147,6 +159,16 @@ class BaseEval:
             
             raise XyIndexError("index of y_true not equal to y_pred")  
             
+        if group is not None:    
+            
+            if not isinstance(group,pd.Series):
+                
+                raise DataTypeError("group is is not pandas.Series.")      
+                
+            if not y_pred.index.equals(group.index):
+                    
+                raise XyIndexError("index of group not equal to y_pred or y_true")     
+            
         if sample_weight is not None:
             
             if not isinstance(sample_weight,pd.Series):
@@ -157,11 +179,7 @@ class BaseEval:
                 
                 raise XyIndexError("index of sample_weight not equal to y_pred or y_true") 
             
-        if group is not None:    
-            
-            if not is_array_like(group):
-                
-                raise DataTypeError("group is not array.")              
+
 
 
     def _check_values(self,y_pred,y_true,group,sample_weight):   
@@ -184,7 +202,7 @@ class BaseEval:
             
                 raise ValueError("group contains NAN")  
 
-        if not np.isin(y_true.unique(),[0,1]).any():
+        if not np.isin(y_true.unique(),[0,1]).all():
         
             raise yValueError("vals of y in [0,1] and 0(no-event),1(event).")   
             
