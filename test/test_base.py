@@ -318,19 +318,19 @@ def test_specials():
 
     res=Specials()    
     
-    X=pd.DataFrame({'a':[1,2,2],'b':['1','2','3']})
-    X_1=res._sp_replace_df(X,[1,'1'],fill_num=123)
-    assert X_1.loc[0,'a']==123
+    X=pd.DataFrame({'a':[1.,2.,2.],'b':['1','2','3']})
+    X_1=res._sp_replace_df(X,[1,'1'])
+    assert X_1.loc[0,'a']==np.finfo(np.float32).max
     assert X_1.loc[0,'b']=='special'
     
-    X=pd.DataFrame({'a':[1,2,2],'b':['1','2','3']})
-    X_1=res._sp_replace(X,[1,'1'],fill_num=123)
-    assert X_1.loc[0,'a']==123
+    X=pd.DataFrame({'a':[1.,2.,2.],'b':['1','2','3']})
+    X_1=res._sp_replace(X,[1,'1'])
+    assert X_1.loc[0,'a']==np.finfo(np.float32).max
     assert X_1.loc[0,'b']=='special'
     
-    X=pd.DataFrame({'a':[1,2,2],'b':['1','2','3']})
-    X_1=res._sp_replace(X,{'a':[1],'b':['1']},fill_num=123)
-    assert X_1.loc[0,'a']==123
+    X=pd.DataFrame({'a':[1.,2.,2.],'b':['1','2','3']})
+    X_1=res._sp_replace(X,{'a':[1],'b':['1']})
+    assert X_1.loc[0,'a']==np.finfo(np.float32).max
     assert X_1.loc[0,'b']=='special'
     
     assert res._check_spvalues('a',None) is None    

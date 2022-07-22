@@ -36,7 +36,7 @@ def test_dtStandardization():
 def test_dtypeAllocator():
     
     dt=pd.DataFrame(
-        {'a':[1,2,3],'b':[1,2,3],
+        {'a':[1,2,3],'b':[1.,2.,3.],
          'c':['2021-09-01','2022-08-01','2011-12-11'],
          'd':[True,True,False],
          'e':[pd.to_timedelta('4 days'),pd.to_timedelta('5 days'),pd.to_timedelta('6 days')],
@@ -44,9 +44,9 @@ def test_dtypeAllocator():
          }
         )
     
-    res=dtypeAllocator({'int':['f'],'float':['a','d'],'str':['b'],'date':['c'],'tdiff':['e']}).fit_transform(dt)
+    res=dtypeAllocator({'float':['a','d','f'],'str':['b'],'date':['c'],'tdiff':['e']}).fit_transform(dt)
     
-    assert all(np.equal(res.dtypes.tolist(),[np.dtype('int64'),
+    assert all(np.equal(res.dtypes.tolist(),[np.dtype('float64'),
                                              np.dtype('float64'),
                                              np.dtype('float64'), 
                                              np.dtype('O'),
@@ -55,10 +55,10 @@ def test_dtypeAllocator():
     
     res=dtypeAllocator().fit_transform(dt)
     
-    assert all(np.equal(res.dtypes.tolist(),[np.dtype('int64'),
-                                             np.dtype('int64'),
-                                             np.dtype('int64'), 
-                                             np.dtype('int64'),
+    assert all(np.equal(res.dtypes.tolist(),[np.dtype('float64'),
+                                             np.dtype('float64'),
+                                             np.dtype('float64'), 
+                                             np.dtype('float64'),
                                              np.dtype('O'),
                                              np.dtype('float64')]))   
     

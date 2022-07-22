@@ -99,6 +99,7 @@ v0.2.7
 2.为避免因浮点数据类型混乱而造成bug,全局加入对数值浮点数据dtype类型的校验,要求所有输入数据的浮点类型必须为float64
 3.移除了多个模块中的浮点型数类型控制参数
 4.修复了base中参数校验与变量值校验的部分bug
-5.更新单元测试脚本,更新部分代码说明
-6.更新example
+5.int及bool类型数据在dtypeAllocator中将被转换为float64类型,dtypeAllocator的参数dtype_dict中移除了键'int'
+6.更新单元测试脚本,更新部分代码说明
+7.更新example
 ```

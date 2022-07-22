@@ -115,20 +115,19 @@ class dtypeAllocator(Base,TransformerMixin):
         dtypes_dict={}
             + dtypes_dict=dict():自动处理输入数据并最终转换为object、number(float,int)、date三种类型
                 + 初始数据中的浮点数值类型数据(float)将被全部转换为float64类型
-                + 初始数据中的整型类型数据(int)将被全部转换为int64类型,注意int类型列若出现缺失值nan时将被转换为float
-                + 初始数据中的布尔数值类型数据(bool)将被全部转换为int64类型          
+                + 初始数据中的整型类型数据(int)将被全部转换为float64类型
+                + 初始数据中的布尔数值类型数据(bool)将被全部转换为float64类型          
                 + 初始数据中的字符类型数据(str)将被全部转换为object类型数据 
                 + 初始数据中的无序分类类型数据(category-unordered)将被全部转换为object类型数据
-                + 初始数据中的有序分类类型数据(category-ordered)将顺序被全部转换为int类型数据,其与原始数据的对应关系将被保存在self.order_info中
+                + 初始数据中的有序分类类型数据(category-ordered)将顺序被全部转换为float64类型数据,其与原始数据的对应关系将被保存在self.order_info中
                 + 初始数据中的时间类型数据(datetime,datetimetz)将保持默认,可通过参数选择是否剔除掉日期型数据
                 + 初始数据中的时间差类型数据(timedelta)将被转换为float,时间单位需自行指定,且作用于全部的timedelta类型
                 + 其他类型的列与col_rm列将不进行转换直接输出
-            + dtypes_dict={'int':colname_list,'float':colname_list,'str':colname_list,'date':colname_list,'tdiff':colname_list}:手动处理输入数据的数据类型，通过dtypes_dict对列的类型进行分配转换
-                + dtypes_dict['float']中的所有列将转换为float类型,
-                  dtypes_dict['int']中的所有列将转换为int类型,
-                  dtypes_dict['str']中的所有列将转换为object类型,
+            + dtypes_dict={'float':colname_list,'str':colname_list,'date':colname_list,'tdiff':colname_list}:手动处理输入数据的数据类型，通过dtypes_dict对列的类型进行分配转换
+                + dtypes_dict['float']中的所有列将转换为float64类型,
+                  dtypes_dict['str']中的所有列将转换为string object类型,
                   dtypes_dict['date']列将转换为datetime类型,
-                  dtypes_dict['tdiff']列将转换为float类型，参数t_unit控制时间差单位       
+                  dtypes_dict['tdiff']列将转换为float64类型，参数t_unit控制时间差单位       
                 + colname_list是列名列表,可以为[],代表无此类特征,注意各个类的列名列表不能出现交集与重复,否则将报错终止
                 + 若所有colname_list的特征只是数据所有列的一部分，则剩下部分的列将不做转换
                 + colname_list不能含有col_rm中的列,否则会报错终止
@@ -216,15 +215,13 @@ class dtypeAllocator(Base,TransformerMixin):
         
         col_float=np.unique(dtypes_dict['float']).tolist() if 'float' in dtypes_dict.keys() else []
         
-        col_int=np.unique(dtypes_dict['int']).tolist() if 'int' in dtypes_dict.keys() else []
-  
         col_obj=np.unique(dtypes_dict['str']).tolist() if 'str' in dtypes_dict.keys() else []
                      
         col_date=np.unique(dtypes_dict['date']).tolist() if 'date' in dtypes_dict.keys() else []
         
         col_tdiff=np.unique(dtypes_dict['tdiff']).tolist() if 'tdiff' in dtypes_dict.keys() else []
                     
-        columns=pd.Series(col_float+col_int+col_obj+col_date+col_tdiff,dtype='str')
+        columns=pd.Series(col_float+col_obj+col_date+col_tdiff,dtype='str')
         
         if np.isin(col_rm,columns).any():
                        
@@ -234,30 +231,27 @@ class dtypeAllocator(Base,TransformerMixin):
         
             raise ValueError("duplicated colnames")
             
-        return col_float,col_int,col_obj,col_date,col_tdiff,columns
+        return col_float,col_obj,col_date,col_tdiff,columns
         
     
     
     def _getX(self,X,dtypes_dict,col_rm):
         
-        col_float,col_int,col_obj,col_date,col_tdiff,columns=self._check_dtypeAllocator_param(dtypes_dict,col_rm)
+        col_float,col_obj,col_date,col_tdiff,columns=self._check_dtypeAllocator_param(dtypes_dict,col_rm)
 
         if columns.size:
                     
             X_keep=X.drop(columns,axis=1)
             
             X_tdiff=X[col_tdiff].div(pd.to_timedelta(self.t_unit)).astype("float64").apply(np.round,args=(self.precision,))
-            
-            #if nan in col_int            
-            X_int=X[col_int].apply(lambda x: x.astype('float64') if np.any(np.isnan(x)) else x.astype('int64'))
-            
+       
             X_float=X[col_float].astype("float64").apply(np.round,args=(self.precision,))
             
             X_obj=X[col_obj].astype('str')
             
             X_date=None if self.drop_date else X[col_date].replace('[^0-9]','',regex=True).astype('datetime64')
             
-            X_out=pd.concat([X_keep,X_int,X_float,X_obj,X_date,X_tdiff],axis=1)
+            X_out=pd.concat([X_keep,X_float,X_obj,X_date,X_tdiff],axis=1)
             
         elif not columns.size:
             
@@ -284,11 +278,7 @@ class dtypeAllocator(Base,TransformerMixin):
             
   
         #数值
-        X_bool=X.select_dtypes(include=['bool']).astype('int64')
-        
-        X_int=X.select_dtypes(include=['int']).astype('int64')
-    
-        X_float=X.select_dtypes(include=['float']).astype('float64').apply(np.round,args=(self.precision,))        
+        X_float=X.select_dtypes(include=['float','bool','int']).astype('float64').apply(np.round,args=(self.precision,))        
          
         #字符
         X_obj=X.select_dtypes(include=['object']).astype('str')
@@ -307,7 +297,7 @@ class dtypeAllocator(Base,TransformerMixin):
         self.order_info={col:dict(zip(X_cat_ordered[col].cat.categories,
                                       [i for i in range(X_cat_ordered[col].cat.categories.size)])) for col in X_cat_ordered.columns}
         
-        X_cat_ordered=X_cat_ordered.apply(lambda col:col.cat.codes).astype('int64')                
+        X_cat_ordered=X_cat_ordered.apply(lambda col:col.cat.codes).astype('float64')                
         
         #日期
         X_date=None if self.drop_date else X.select_dtypes(include=['datetime','datetimetz'])
@@ -317,7 +307,7 @@ class dtypeAllocator(Base,TransformerMixin):
         X_oth=X.select_dtypes(exclude=['int','float','bool','object','category','timedelta','datetime','datetimetz'])
         
         #合并
-        X_all=pd.concat([X_bool,X_int,X_float,X_obj,X_cat_ordered,X_cat_unordered,X_date,X_tdiff,X_oth],axis=1)
+        X_all=pd.concat([X_float,X_obj,X_cat_ordered,X_cat_unordered,X_date,X_tdiff,X_oth],axis=1)
         
         return  X_all
 

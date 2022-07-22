@@ -9,7 +9,6 @@ Created on Tue Jan 11 22:12:51 2022
 
 from sklearn.exceptions import NotFittedError
 from BDMLtools.exception import DataTypeError,XyIndexError,yValueError
-from pandas.api.types import is_array_like
 import pandas as pd
 import numpy as np
 from itertools import combinations
@@ -30,7 +29,7 @@ class Base:
             
             raise DataTypeError("x is pd.core.frame.Series")
             
-        if x.dtype in [np.dtype(np.float32),np.dtype(np.float16),np.dtype(np.float128)]:
+        if x.dtype in [np.dtype(np.float32),np.dtype(np.float16)]:
             
             raise DataTypeError("x's float dtype must be float64")
             
@@ -58,7 +57,7 @@ class Base:
             
         if check_dtype:    
             
-            if X.dtypes.isin([np.dtype(np.float32),np.dtype(np.float16),np.dtype(np.float128)]).any():
+            if X.dtypes.isin([np.dtype(np.float32),np.dtype(np.float16)]).any():
                 
                 raise DataTypeError("X's float dtype must be float64")
             
@@ -96,7 +95,7 @@ class Base:
         
             raise yValueError("vals of y in [0,1] and 0(no-event),1(event)")  
             
-        if X.dtypes.isin([np.dtype(np.float32),np.dtype(np.float16),np.dtype(np.float128)]).any():
+        if X.dtypes.isin([np.dtype(np.float32),np.dtype(np.float16)]).any():
             
             raise DataTypeError("X's float dtype must be float64")
 
@@ -109,7 +108,7 @@ class Base:
                 
                 raise DataTypeError("sample_weight is not pandas.Series.") 
                 
-            if sample_weight.dtypes in [np.dtype(np.float32),np.dtype(np.float16),np.dtype(np.float128)]:
+            if sample_weight.dtypes in [np.dtype(np.float32),np.dtype(np.float16)]:
                 
                 raise DataTypeError("sample_weight's float dtype must be float64")
                 
