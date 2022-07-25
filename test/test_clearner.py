@@ -66,6 +66,15 @@ def test_dtypeAllocator():
     assert 'c' not in res.columns
     
     
+    res=dtypeAllocator(col_rm=['a','b','c','d','e','f']).fit_transform(dt)
+    assert all(np.equal(res.dtypes.tolist(),[np.dtype('int64'),
+                                             np.dtype('float64'),
+                                             np.dtype('O'), 
+                                             np.dtype('bool'),
+                                             np.dtype('<m8[ns]'),
+                                             np.dtype('int64')]))   
+    
+    
 def test_nanTransformer():
     
     dt=pd.DataFrame(

@@ -134,8 +134,7 @@ class dtypeAllocator(Base,TransformerMixin):
         col_rm=None or list,不参与转换的列的列名列表，其不会参与任何转换且最终会保留在输出数据中        
         t_unit=‘1 D’,timedelta类列处理为数值的时间单位，默认天
         drop_date=False,是否剔除原始数据中的日期列，默认False
-        precision=3,数值类数据的精度,precision=3代表保留小数点后3位小数，设定好设定此值以获得数值的近似结果。
-                建议与生产环境的数据精度一致，否则在极端情况下生产环境与分析环境的数据分箱与woe编码会出现错误结果        
+        precision=3,数值类数据小数点位数,precision=3代表保留小数点后3位小数
 
     Attributes:
     ------
