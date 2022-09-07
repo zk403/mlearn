@@ -73,6 +73,7 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
         logit_model:逐步回归的statsmodel结果对象,须先使用方法fit
         model_info: 回归结果报告,须先使用方法fit
         vif_info:pd.DataFrame,筛选后特征的方差膨胀系数,须先使用方法fit
+        coefficients_sd: 标准化回归系数(b_i_std=b_i*sd_i),须先使用方法fit
     '''        
     
     def __init__(self,custom_column=None,
@@ -162,15 +163,15 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
             
             elif self.method=='forward':
             
-                self.logit_model=self._stepwise_forward(X[self.custom_column].join(y),y.name,criterion=self.criterion,show_step=self.show_step,max_iter=self.max_iter) 
+                self.logit_model=self._stepwise_forward(X[self.custom_column].join(y),y.name,criterion=self.criterion,show_step=self.show_step,max_iter=self.max_iter,sample_weight=sample_weight) 
             
             elif self.method=='backward':
             
-                self.logit_model=self._stepwise_backward(X[self.custom_column].join(y),y.name,criterion=self.criterion,show_step=self.show_step,max_iter=self.max_iter)               
+                self.logit_model=self._stepwise_backward(X[self.custom_column].join(y),y.name,criterion=self.criterion,show_step=self.show_step,max_iter=self.max_iter,sample_weight=sample_weight)               
                 
             elif self.method=='both':
             
-                self.logit_model=self._stepwise_both(X[self.custom_column].join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,show_step=self.show_step,max_iter=self.max_iter) 
+                self.logit_model=self._stepwise_both(X[self.custom_column].join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,show_step=self.show_step,max_iter=self.max_iter,sample_weight=sample_weight) 
                 
             else:
                 
@@ -188,15 +189,15 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
 
             elif self.method=='forward':
             
-                self.logit_model=self._stepwise_forward(X.join(y),y.name,criterion=self.criterion,show_step=self.show_step,max_iter=self.max_iter) 
+                self.logit_model=self._stepwise_forward(X.join(y),y.name,criterion=self.criterion,show_step=self.show_step,max_iter=self.max_iter,sample_weight=sample_weight) 
             
             elif self.method=='backward':
             
-                self.logit_model=self._stepwise_backward(X.join(y),y.name,criterion=self.criterion,show_step=self.show_step,max_iter=self.max_iter) 
+                self.logit_model=self._stepwise_backward(X.join(y),y.name,criterion=self.criterion,show_step=self.show_step,max_iter=self.max_iter,sample_weight=sample_weight) 
             
             elif self.method=='both':
                 
-                self.logit_model=self._stepwise_both(X.join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,show_step=self.show_step,max_iter=self.max_iter) 
+                self.logit_model=self._stepwise_both(X.join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,show_step=self.show_step,max_iter=self.max_iter,sample_weight=sample_weight) 
                                  
             else:
                 
