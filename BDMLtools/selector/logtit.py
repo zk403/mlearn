@@ -11,7 +11,6 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 import statsmodels.formula.api as smf
 import statsmodels.api as sm
 from statsmodels.genmod.generalized_linear_model import SET_USE_BIC_LLF
-from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import numpy as np
 from statsmodels.discrete.discrete_model import BinaryResultsWrapper
@@ -21,20 +20,35 @@ from pandas.api.types import is_numeric_dtype,is_string_dtype
 from BDMLtools.fun import raw_to_bin_sc,Specials
 from joblib import Parallel,delayed,effective_n_jobs
 from BDMLtools.base import Base
+import warnings
 
 
 class stepLogit(Base,BaseEstimator,TransformerMixin):
     
     '''
-    逐步回归,请注意column name需能够被pasty识别
+    逐步回归,仅支持数值变量、有截距的逐步法logistic,列名应能够被pasty识别
     
     逐步回归过程:
-        
-        逐步回归过程:
-            +首先尝试加入:
-                +从潜在特征中尝试所有特征并选择出使指标(aic,bic)优化的特征进入
-            +再进行剔除:
-                +剔除模型中p值最高的特征(大于p_value_enter)
+    向前法(forward):      
+        首先尝试加入:
+            +从潜在特征中尝试所有特征并选择出使指标(aic,bic)优化的特征进入
+        循环上述步骤直到
+            +无潜在特征可用
+            +无潜在特征可使aic或bic优化 
+            +迭代次数达到最大            
+    向后法(backward):       
+        首先尝试剔除:
+            +从潜在特征中尝试移除某个特征并选择出使指标(aic,bic)优化的特征进入
+
+        循环上述步骤直到
+            +无潜在特征可用
+            +无潜在特征可使aic或bic优化 
+            +迭代次数达到最大        
+    向前向后法(both):
+        首先尝试加入:
+            +从潜在特征中尝试所有特征并选择出使指标(aic,bic)优化的特征进入
+        再进行剔除:
+            +剔除模型中p值最高的特征(大于p_value_enter)
         循环上述步骤直到
             +无潜在特征可用
             +无潜在特征可使aic或bic优化 
@@ -43,13 +57,15 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
     Parameters:
     --
         custom_column=None:list,自定义列名,调整回归模型时使用,默认为None表示所有特征都会进行筛选
-        no_stepwise=False,True时直接回归(不支持normalize=True)，不进行逐步回归筛选
+        method='no_stepwise',str
+            no_stepwise:不进行逐步回归直接以custom_column或全部变量进行回归
+            forward:向前法逐步回归
+            backward:向后法逐步回归
+            both:向前向后法
         p_value_enter=.05:逐步法中特征进入的pvalue限制,默认0.05
         criterion='aic':逐步法筛选变量的准则,默认aic,可选bic
-        normalize=False:是否进行数据标准化,默认False,若为True,则数据将先进行标准化,且不会拟合截距
         show_step=False:是否打印逐步回归过程
         max_iter=200,逐步回归最大迭代次数
-        sample_weight=None,样本权重
         show_high_vif_only=False:True时仅输出vif大于10的特征,False时将输出所有特征的vif
     
     Attribute:    
@@ -59,18 +75,20 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
         vif_info:pd.DataFrame,筛选后特征的方差膨胀系数,须先使用方法fit
     '''        
     
-    def __init__(self,custom_column=None,no_stepwise=False,p_value_enter=.05,criterion='aic',
-                 normalize=False,show_step=False,max_iter=200,sample_weight=None,
+    def __init__(self,custom_column=None,
+                 method='no_stepwise',
+                 p_value_enter=.05,
+                 criterion='aic',
+                 show_step=False,
+                 max_iter=200,
                  show_high_vif_only=False):
       
         self.custom_column=custom_column
-        self.no_stepwise=no_stepwise
+        self.method=method
         self.p_value_enter=p_value_enter
         self.criterion=criterion
-        self.normalize=normalize
         self.show_step=show_step
         self.max_iter=max_iter
-        self.sample_weight=sample_weight
         self.show_high_vif_only=show_high_vif_only
         
         self._is_fitted=False
@@ -101,9 +119,27 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
         self._check_X(X)
         
         return X[self.logit_model.params.index.tolist()[1:]]
+    
+    def _check_colnum(self,X):
+        
+        if self.custom_column:
+            
+            if len(set(self.custom_column))<3:
+                
+                warnings.warn('at least 3 features required in stepwise,method will be reset to “no_stepwise”')
+                
+                self.method='no_stepwise'
+                
+        else:
+            
+            if X.columns.size<3:
+                
+                warnings.warn('at least 3 features required in stepwise,method will be reset to “no_stepwise”')
+                
+                self.method='no_stepwise'
 
           
-    def fit(self,X,y):
+    def fit(self,X,y,sample_weight=None):
         '''
         拟合逐步回归
         Parameters:
@@ -111,35 +147,60 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
         X:woe编码训练数据,pd.DataFrame对象
         y:目标变量,pd.Series对象
         '''        
-        self._check_data(X, y)        
+        self._check_data(X, y)     
+        self._check_colnum(X)
         
         if self.custom_column:
             
-            if self.no_stepwise:
+            if self.method=='no_stepwise':
                 
                 formula = "{} ~ {} + 1".format(y.name,' + '.join(self.custom_column))
                 
                 self.logit_model=smf.glm(formula, data=X[self.custom_column].join(y),
                                          family=sm.families.Binomial(),
-                                         freq_weights=self.sample_weight).fit(disp=0)
+                                         freq_weights=sample_weight).fit(disp=0)
+            
+            elif self.method=='forward':
+            
+                self.logit_model=self._stepwise_forward(X[self.custom_column].join(y),y.name,criterion=self.criterion,show_step=self.show_step,max_iter=self.max_iter) 
+            
+            elif self.method=='backward':
+            
+                self.logit_model=self._stepwise_backward(X[self.custom_column].join(y),y.name,criterion=self.criterion,show_step=self.show_step,max_iter=self.max_iter)               
+                
+            elif self.method=='both':
+            
+                self.logit_model=self._stepwise_both(X[self.custom_column].join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,show_step=self.show_step,max_iter=self.max_iter) 
                 
             else:
-            
-                self.logit_model=self._stepwise(X[self.custom_column].join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,normalize=self.normalize,show_step=self.show_step,max_iter=self.max_iter) 
+                
+                raise ValueError("method in ('no_stepwise','forward','backward','both')")
             
         else:
             
-            if self.no_stepwise:
+            if self.method=='no_stepwise':
                 
                 formula = "{} ~ {} + 1".format(y.name,' + '.join(X.columns.tolist()))
                 
                 self.logit_model=smf.glm(formula, data=X.join(y),
                                          family=sm.families.Binomial(),
-                                         freq_weights=self.sample_weight).fit(disp=0)                                                
+                                         freq_weights=sample_weight).fit(disp=0)                                                
+
+            elif self.method=='forward':
             
+                self.logit_model=self._stepwise_forward(X.join(y),y.name,criterion=self.criterion,show_step=self.show_step,max_iter=self.max_iter) 
+            
+            elif self.method=='backward':
+            
+                self.logit_model=self._stepwise_backward(X.join(y),y.name,criterion=self.criterion,show_step=self.show_step,max_iter=self.max_iter) 
+            
+            elif self.method=='both':
+                
+                self.logit_model=self._stepwise_both(X.join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,show_step=self.show_step,max_iter=self.max_iter) 
+                                 
             else:
                 
-                self.logit_model=self._stepwise(X.join(y),y.name,criterion=self.criterion,p_value_enter=self.p_value_enter,normalize=self.normalize,show_step=self.show_step,max_iter=self.max_iter) 
+                raise ValueError("method in ('no_stepwise','forward','backward','both')")                     
                     
         self.model_info=self.logit_model.summary()
         self.vif_info=self._vif(self.logit_model,X,show_high_vif_only=self.show_high_vif_only)
@@ -149,163 +210,230 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
         
         return self
     
-    def _stepwise(self,df,response,intercept=True, normalize=False, criterion='aic', 
-                      p_value_enter=.05, show_step=True,max_iter=200):
-            '''
-            逐步回归
-            Parameters:
-            --
-                X:特征数据,pd.DataFrame
-                y:目标变量列,pd.Series,必须与X索引一致
-                df : dataframe
-                    分析用数据框，response为第一列。
-                response : str
-                    回归分析相应变量。
-                intercept : bool, 默认是True
-                    模型是否有截距项。
-                criterion : str, 默认是'aic',可选bic
-                    逐步回归优化规则。
-                p_value_enter : float, 默认是.05
-                    移除变量的pvalue阈值。
-                direction : str, 默认是'both'
-                    逐步回归方向。
-                show_step : bool, 默认是True
-                    是否显示逐步回归过程。
-                max_iter : int, 默认是200
-                    逐步法最大迭代次数。
-            '''
-            SET_USE_BIC_LLF(True)
+    def _stepwise_forward(self,df,response,criterion='aic',show_step=True,max_iter=200,sample_weight=None):
+        
+        SET_USE_BIC_LLF(True)
+
+        criterion_list = ['bic', 'aic']
+        remaining = df.columns.tolist()
+        remaining.remove(response)
+        selected = []
+        iter_times=0
+        
+        if criterion not in criterion_list:
+        
+            raise ValueError('criterion must in', '\n', criterion_list)
+        
+        current_score = np.inf
+        best_new_score = np.inf
+        
+        if show_step:       
             
-            criterion_list = ['bic', 'aic']
+            print('\nstepwise-foward starting:\n')
+                
+        while remaining and current_score==best_new_score and (iter_times<max_iter):
             
-            if criterion not in criterion_list:
+            scores_with_candidates = []
+        
+            for candidate in remaining:
                 
-                raise ValueError('criterion must in', '\n', criterion_list)
-
-
-            if normalize: #normalize data if normalize=True
-                intercept = False  # no intercept
-                df_std = StandardScaler().fit_transform(df)
-                df = pd.DataFrame(df_std, columns=df.columns, index=df.index)  
-
-            remaining = list(df.columns)  # variables set
-            remaining.remove(response)
-            selected = []  # selected variables set
-            # initializing
-            if intercept: 
+                formula = "{} ~ {} + 1".format(response,' + '.join(selected + [candidate]))
+                result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=sample_weight).fit(disp=0)
+                score = eval('result.'+criterion)
+                scores_with_candidates.append((score, candidate))
                 
-                formula = "{} ~ {} + 1".format(response, remaining[0])
-                
-            else:
-                
-                formula = "{} ~ {} - 1".format(response, remaining[0])
-
-            result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0) # logit          
-            current_score = eval('result.' + criterion)
-            best_new_score = eval('result.' + criterion)
-
-            if show_step:    
-                print('\nstepwise starting:\n')
-                
-            # loop when current_score keeps updating 
-            iter_times = 0
+            scores_with_candidates.sort(reverse=True) #the lower aic/bic the better
+            best_new_score, best_candidate = scores_with_candidates.pop()
             
-            while remaining and (current_score == best_new_score) and (iter_times<max_iter):
+            if current_score > best_new_score:
+                remaining.remove(best_candidate)
+                selected.append(best_candidate)
+                current_score = best_new_score
                 
-                scores_with_candidates = []  
+                if show_step:    
+                    
+                    print('Adding %s, %s = %.3f' % (best_candidate, criterion, best_new_score))
+                    
+            iter_times+=1
+        
                 
-                for candidate in remaining:  
+        formula = "{} ~ {} + 1".format(response,' + '.join(selected))
+        stepwise_model = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=sample_weight).fit(disp=0)
+        
+        if show_step:         
+            
+            print('\nLinear regression model:', '\n  ', stepwise_model.model.formula)
+            print('\n', stepwise_model.summary()) 
+            
+        return stepwise_model
+    
+    
+    def _stepwise_backward(self,df,response,criterion='aic',show_step=True,max_iter=200,sample_weight=None):
+    
+        SET_USE_BIC_LLF(True)
+    
+        criterion_list = ['bic', 'aic']
+        remaining = df.columns.tolist()
+        remaining.remove(response)
+        selected = []
+        iter_times=0
+    
+        if criterion not in criterion_list:
+    
+            raise ValueError('criterion must in', '\n', criterion_list)
+    
+        current_score = np.inf
+        best_new_score = np.inf
+        
+        if show_step: 
+            
+            print('\nstepwise-backward starting:\n')
+        
+        
+        while remaining and current_score==best_new_score and (iter_times<max_iter):
+            
+            scores_with_candidates = []
+    
+            for candidate in remaining:
+    
+                selected=remaining.copy()
+                selected.remove(candidate)
+                formula = "{} ~ {} + 1".format(response,' + '.join(selected))
+                result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=sample_weight).fit(disp=0)
+                score = eval('result.'+criterion)
+                scores_with_candidates.append((score, candidate))
+                
+            scores_with_candidates.sort(reverse=True) #the lower aic/bic the better
+            best_new_score, best_candidate = scores_with_candidates.pop()
+            
+            if current_score > best_new_score:
+                remaining.remove(best_candidate)
+                selected=remaining.copy()
+                current_score = best_new_score
+                
+                if show_step:    
                     
-                    if intercept: # 是否有截距
+                    print('Removing %s, %s = %.3f' % (best_candidate, criterion, best_new_score))
                     
-                        formula = "{} ~ {} + 1".format(response, ' + '.join(selected + [candidate]))
-                        
-                    else:
-                        
-                        formula = "{} ~ {} - 1".format(response, ' + '.join(selected + [candidate]))
+            iter_times+=1
+    
+        
+        formula = "{} ~ {} + 1".format(response,' + '.join(selected))
+        stepwise_model = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=sample_weight).fit(disp=0)
+        
+        if show_step:         
+            
+            print('\nLinear regression model:', '\n  ', stepwise_model.model.formula)
+            print('\n', stepwise_model.summary()) 
+            
+        return stepwise_model
+        
+    
+    def _stepwise_both(self,df,response,criterion='aic',p_value_enter=.05,show_step=True,max_iter=200,sample_weight=None):
 
-                    result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0) 
-                    llf = result.llf
-                         
-                    score = eval('result.' + criterion)                    
-                    scores_with_candidates.append((score, candidate, llf))
-                    
-                
-                if criterion in ['bic', 'aic']:  
-                    
-                    #sort aic/bic decscending and pop the minimal aic/bic element(the best score)
-                    scores_with_candidates.sort(key=lambda x:x[0],reverse=True)                      
-                    best_new_score, best_candidate, best_new_llf = scores_with_candidates.pop() 
-                    
-                    #print(current_score,best_new_score)
-                    
-                    if (current_score - best_new_score) > 0:  
-                    
-                        remaining.remove(best_candidate)  
-                        
-                        selected.append(best_candidate) 
-                        
-                        current_score = best_new_score  
-                        
-                        if show_step: 
-                        
-                            print('Adding %s, %s = %.3f' % (best_candidate, criterion, best_new_score))
+        SET_USE_BIC_LLF(True)
+        
+        criterion_list = ['bic', 'aic']
+        
+        if criterion not in criterion_list:
+            
+            raise ValueError('criterion must in', '\n', criterion_list)
 
-                    #when no aic/bic updating at first selection then continuing the process        
-                    elif iter_times == 0:  
-                    
-                        selected.append(remaining[0])
-                        
-                        remaining.remove(remaining[0])
-                        
-                        if show_step:       
-                        
-                            print('Adding %s, %s = %.3f' % (remaining[0], criterion, best_new_score))
+
+
+        remaining = list(df.columns)  # variables set
+        remaining.remove(response)
+        selected = []  # selected variables set
+        # initializing
+            
+        current_score = np.inf
+        best_new_score = np.inf
+
+        if show_step:    
+            print('\nstepwise-both starting:\n')
+            
+        # loop when current_score keeps updating 
+        iter_times = 0
+        
+        while remaining and (current_score == best_new_score) and (iter_times<max_iter):
+            
+            scores_with_candidates = []  
+            
+            for candidate in remaining:  
+                
+                formula = "{} ~ {} + 1".format(response, ' + '.join(selected + [candidate]))
+                result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=sample_weight).fit(disp=0) 
+                llf = result.llf
+                     
+                score = eval('result.' + criterion)                    
+                scores_with_candidates.append((score, candidate, llf))
+                
+            
+            if criterion in ['bic', 'aic']:  
+                
+                #sort aic/bic decscending and pop the minimal aic/bic element(the best score)
+                scores_with_candidates.sort(key=lambda x:x[0],reverse=True)                      
+                best_new_score, best_candidate, best_new_llf = scores_with_candidates.pop() 
                 
                 #print(current_score,best_new_score)
                 
-                if intercept: 
+                if (current_score - best_new_score) > 0:  
                 
-                    formula = "{} ~ {} + 1".format(response, ' + '.join(selected))
+                    remaining.remove(best_candidate)  
                     
-                else:
+                    selected.append(best_candidate) 
                     
-                    formula = "{} ~ {} - 1".format(response, ' + '.join(selected))                    
-
-                result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0)  
-                   
-                if iter_times >= 1: #remove variables i selected set when its pvalue too high 
-                
-                    if result.pvalues.max() > p_value_enter:
-                        
-                        var_removed = result.pvalues[result.pvalues == result.pvalues.max()].index[0]
-                        
-                        p_value_removed = result.pvalues[result.pvalues == result.pvalues.max()].values[0]
-                        
-                        selected.remove(result.pvalues[result.pvalues == result.pvalues.max()].index[0])
-                        
-                        if show_step:          
-                        
-                            print('Removing %s, Pvalue = %.3f' % (var_removed, p_value_removed))                            
+                    current_score = best_new_score  
                     
-                iter_times += 1
+                    if show_step: 
+                    
+                        print('Adding %s, %s = %.3f' % (best_candidate, criterion, best_new_score))
 
-            if intercept: 
-            
-                formula = "{} ~ {} + 1".format(response, ' + '.join(selected))
+                #when no aic/bic updating at first selection then continuing the process        
+                elif iter_times == 0:  
                 
-            else:
+                    selected.append(remaining[0])
+                    
+                    remaining.remove(remaining[0])
+                    
+                    if show_step:       
+                    
+                        print('Adding %s, %s = %.3f' % (remaining[0], criterion, best_new_score))
+            
+            #print(current_score,best_new_score)
+            
+  
+            formula = "{} ~ {} + 1".format(response, ' + '.join(selected))                
+            result = smf.glm(formula, data=df,family=sm.families.Binomial(),freq_weights=sample_weight).fit(disp=0)  
+               
+            if iter_times >= 1: #remove variables i selected set when its pvalue too high 
+            
+                if result.pvalues.max() > p_value_enter:
+                    
+                    var_removed = result.pvalues[result.pvalues == result.pvalues.max()].index[0]
+                    
+                    p_value_removed = result.pvalues[result.pvalues == result.pvalues.max()].values[0]
+                    
+                    selected.remove(result.pvalues[result.pvalues == result.pvalues.max()].index[0])
+                    
+                    if show_step:          
+                    
+                        print('Removing %s, Pvalue = %.3f' % (var_removed, p_value_removed))                            
                 
-                formula = "{} ~ {} - 1".format(response, ' + '.join(selected))
-            
-            #modeling with selected vars    
-            stepwise_model = smf.glm(formula,data=df,family=sm.families.Binomial(),freq_weights=self.sample_weight).fit(disp=0)  
-            
-            if show_step:                 
-                print('\nLinear regression model:', '\n  ', stepwise_model.model.formula)
-                print('\n', stepwise_model.summary())                
+            iter_times += 1
 
-            return stepwise_model
+
+        formula = "{} ~ {} + 1".format(response, ' + '.join(selected))
+
+        
+        #modeling with selected vars    
+        stepwise_model = smf.glm(formula,data=df,family=sm.families.Binomial(),freq_weights=sample_weight).fit(disp=0)  
+        
+        if show_step:                 
+            print('\nLinear regression model:', '\n  ', stepwise_model.model.formula)
+            print('\n', stepwise_model.summary())                
+
+        return stepwise_model
         
 
     def _vif(self,logit_model,X,show_high_vif_only=False):

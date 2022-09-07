@@ -401,13 +401,8 @@ class BaseEvalData:
     
     def _get_df(self,y_pred,y_true,group):
         
-        y_pred=np.asarray(y_pred,dtype=float)
-        y_true=np.asarray(y_true,dtype=float)
-        
         
         if group is not None:
-            
-            group=np.asarray(group,dtype=object)
             
             dt_df=pd.concat(
                  [

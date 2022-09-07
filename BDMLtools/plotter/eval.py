@@ -72,7 +72,7 @@ class perfEval(BaseEval,BaseEvalPlotter):
             y_pred:pandas.Series,预测值,可以是预测概率也可以是预测评分
             y_true:pandas.Series,实际值,包含0,1的实际值Series,其index必须与y_pred一致
             group=None:pandas.Series,组变量,用于指代预测值与实际值的组，其index必须与y_pred一致，默认None即无组变量
-            sample_weight=None:pandas.Series,样本权重(注意暂不可用,请保持默认None),用于标识样本点的权重,非负非0，默认None即每个样本点权重都是1,其index必须与y_pred或y_true的index一致
+            sample_weight=None:pandas.Series,样本权重,用于标识样本点的权重,非负非0，默认None即每个样本点权重都是1,其index必须与y_pred或y_true的index一致
             figure_size=(4,4),图的大小
             
         Return:

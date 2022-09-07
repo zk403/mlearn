@@ -63,38 +63,32 @@ class dtStandardization(TransformerMixin):
             raise DataTypeError("X is pd.core.frame.DataFrame")
             
         X = X.copy()  
-        
-        if X.size:
-            
-            #remove columns if exists
-            X=X.drop(np.unique(self.col_rm),axis=1) if self.col_rm else X
-            
-            #drop dups
-            if self.id_col:
-                    
-                X=X.loc[~X[self.id_col].duplicated(),~X.columns.duplicated()] if self.drop_dup else X
-            
-            elif not self.id_col:                
-                    
-                X=X.loc[~X.index.duplicated(),~X.columns.duplicated()] if self.drop_dup else X
-                    
-            else:
-                
-                raise ValueError('params setting error.')
 
-                
-            #set index if id exists
-            if self.id_col and self.set_index:
-                
-                X=X.set_index(self.id_col)
-                
-            return X
+            
+        #remove columns if exists
+        X=X.drop(np.unique(self.col_rm),axis=1) if self.col_rm else X
         
+        #drop dups
+        if self.id_col:
+                
+            X=X.loc[~X[self.id_col].duplicated(),~X.columns.duplicated()] if self.drop_dup else X
+        
+        elif not self.id_col:                
+                
+            X=X.loc[~X.index.duplicated(),~X.columns.duplicated()] if self.drop_dup else X
+                
         else:
             
-            warnings.warn('0 rows in input X,return None')  
+            raise ValueError('params setting error.')
+
             
-            return pd.DataFrame(None)     
+        #set index if id exists
+        if self.id_col and self.set_index:
+            
+            X=X.set_index(self.id_col)
+            
+        return X
+        
     
 
     def fit(self,X,y=None):       
@@ -169,41 +163,32 @@ class dtypeAllocator(Base,TransformerMixin):
         self._check_X(X,check_dtype=False)
         
         X = X.copy()
+            
+        if self.col_rm:
         
-        if X.size:
+            X_rm=X[self.col_rm]
             
-            if self.col_rm:
+            X=X.drop(self.col_rm,axis=1)
             
-                X_rm=X[self.col_rm]
-                
-                X=X.drop(self.col_rm,axis=1)
-                
-            else:
-                
-                X_rm=None      
+        else:
             
+            X_rm=None      
+        
+        
+        if isinstance(self.dtypes_dict,dict) and not len(self.dtypes_dict):
             
-            if isinstance(self.dtypes_dict,dict) and not len(self.dtypes_dict):
-                
-                X_out=self._getXAuto(X)
-                
-            elif isinstance(self.dtypes_dict,dict) and len(self.dtypes_dict):
-     
-                X_out=self._getX(X,self.dtypes_dict,self.col_rm)
+            X_out=self._getXAuto(X)
             
-            else:
-                
-                raise ValueError("dtypes_dict={'num':colname_list,'str':colname_list,'date':colname_list} or {}")
+        elif isinstance(self.dtypes_dict,dict) and len(self.dtypes_dict):
  
-            return(pd.concat([X_rm,X_out],axis=1))  
-       
+            X_out=self._getX(X,self.dtypes_dict,self.col_rm)
         
         else:
             
-            warnings.warn('0 rows in input X,return None')  
-            
-            return pd.DataFrame(None)     
-    
+            raise ValueError("dtypes_dict={'num':colname_list,'str':colname_list,'date':colname_list} or {}")
+ 
+        return(pd.concat([X_rm,X_out],axis=1))  
+       
 
     def fit(self,X,y=None):    
         

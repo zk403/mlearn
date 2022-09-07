@@ -31,6 +31,9 @@ def test_dtStandardization():
     assert all(np.equal(res.columns,['b','b'])) 
     assert all(np.equal(res.index,[1,2,2])) 
     
+    res=dtStandardization().fit_transform(dt)
+    assert all(np.equal(res.columns,['a','b'])) 
+    
     
     
 def test_dtypeAllocator():
@@ -73,7 +76,6 @@ def test_dtypeAllocator():
                                              np.dtype('bool'),
                                              np.dtype('<m8[ns]'),
                                              np.dtype('int64')]))   
-    
     
 def test_nanTransformer():
     

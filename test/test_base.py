@@ -313,6 +313,15 @@ def test_baseeval():
     except ValueError:
         pass      
     
+    try:
+        pred=pd.Series([100,70,150,160],name='pred',dtype='float')
+        true=pd.Series([0,0,1,1,1],name='true',dtype='int')
+        group=pd.Series([1,1,1,1,1],name='group')
+        ws=pd.Series([-1,0.34,0.78,0.13,0.54],name='pred',dtype='float')
+        res._check_values(pred,true,group,ws)
+    except ValueError:
+        pass      
+    
     
 def test_specials():
 

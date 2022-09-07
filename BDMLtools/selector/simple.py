@@ -110,6 +110,12 @@ class prefitModel(Base,BaseEstimator):
         
         X=X.drop(self.col_rm,axis=1) if self.col_rm else X
         
+        X=X.dropna(how='all',axis=1)
+        
+        if X.columns.size==0:
+            
+            raise ValueError('All columns in X are nan.')
+        
         if self.method=='ceiling':
             
             self.model=self._fit_lgbm(X,y,self.tree_params,self.sample_weight)
@@ -125,6 +131,7 @@ class prefitModel(Base,BaseEstimator):
         self._is_fitted=True
         
         return self
+        
     
     def _fit_lgbm(self,X,y,params,sample_weight):
         

@@ -265,18 +265,62 @@ def test_LgbmPISelector():
     
 def test_stepLogit():
     
+    from sklearn.datasets import load_breast_cancer
+    
     X=pd.DataFrame(
-        {'a':[1,2,2,4,5],'b':[1,2,3,4,5],'c':[1,1,1,2,1]}
-        )
-    y=pd.Series([1,0,1,0,1],name='y')
+        load_breast_cancer()['data'],columns=['v'+str(i) for i in range(30)]
+        )[['v22','v24','v21','v28','v15','v6','v11','v13','v27','v14']]
+    y=pd.Series(load_breast_cancer()['target'],name='y')
+    cols=['v22','v24','v21','v28','v15','v6','v11','v13','v27','v14']
     
-    res=stepLogit(no_stepwise=True,show_step=True).fit_transform(X,y)
-    res=stepLogit(no_stepwise=False,show_step=True).fit_transform(X,y)
-    res=stepLogit(no_stepwise=False,custom_column=['a']).fit_transform(X,y)
-    assert 'a' in res.columns
+    res=stepLogit(method='no_stepwise',show_step=True).fit_transform(X,y)
+    assert set(res.columns)==set(res)
+    res=stepLogit(method='forward',show_step=True).fit_transform(X,y)
+    assert set(res.columns)==set(['v22','v24','v21','v28','v15','v6','v11','v13','v27'])
+    res=stepLogit(method='backward',show_step=True).fit_transform(X,y)
+    assert set(res.columns)==set(['v22','v24','v21','v28','v15','v6','v11','v13'])
+    res=stepLogit(method='both',show_step=True).fit_transform(X,y)
+    assert set(res.columns)==set(['v22','v24','v21','v28','v15','v6','v11','v13'])
     
-    res=stepLogit(no_stepwise=False,custom_column=['a']).fit(X,y).predict_proba(X)
-
+    res=stepLogit(method='forward',show_step=True,criterion='bic').fit_transform(X,y)
+    assert set(res.columns)==set(['v22','v24','v21','v21','v13','v28'])
+    res=stepLogit(method='backward',show_step=True,criterion='bic').fit_transform(X,y)
+    assert set(res.columns)==set(['v22','v24','v21','v28','v15','v6'])
+    res=stepLogit(method='both',show_step=True,criterion='bic').fit_transform(X,y)
+    assert set(res.columns)==set(['v22','v24','v21','v28','v13'])
+    
+    res=stepLogit(custom_column=cols,method='no_stepwise',show_step=True).fit_transform(X,y)
+    assert set(res.columns)==set(res)
+    res=stepLogit(custom_column=cols,method='forward',show_step=True).fit_transform(X,y)
+    assert set(res.columns)==set(['v22','v24','v21','v28','v15','v6','v11','v13','v27'])
+    res=stepLogit(custom_column=cols,method='backward',show_step=True).fit_transform(X,y)
+    assert set(res.columns)==set(['v22','v24','v21','v28','v15','v6','v11','v13'])
+    res=stepLogit(custom_column=cols,method='both',show_step=True).fit_transform(X,y)
+    assert set(res.columns)==set(['v22','v24','v21','v28','v15','v6','v11','v13'])
+    
+    res=stepLogit(custom_column=cols,method='forward',show_step=True,criterion='bic').fit_transform(X,y)
+    assert set(res.columns)==set(['v22','v24','v21','v21','v13','v28'])
+    res=stepLogit(custom_column=cols,method='backward',show_step=True,criterion='bic').fit_transform(X,y)
+    assert set(res.columns)==set(['v22','v24','v21','v28','v15','v6'])
+    res=stepLogit(custom_column=cols,method='both',show_step=True,criterion='bic').fit_transform(X,y)
+    assert set(res.columns)==set(['v22','v24','v21','v28','v13'])
+    
+    res=stepLogit(custom_column=['v22','v24'],method='forward',show_step=True,criterion='bic').fit_transform(X,y)
+    res=stepLogit(custom_column=['v22','v24'],method='backward',show_step=True,criterion='bic').fit_transform(X,y)
+    res=stepLogit(custom_column=['v22','v24'],method='both',show_step=True,criterion='bic').fit_transform(X,y)
+    
+    ws=pd.Series(np.ones(y.size),index=y.index)
+    res=stepLogit(method='no_stepwise',show_step=True).fit(X,y,ws).transform(X)
+    assert set(res.columns)==set(res)
+    res=stepLogit(method='forward',show_step=True).fit(X,y,ws).transform(X)
+    assert set(res.columns)==set(['v22','v24','v21','v28','v15','v6','v11','v13','v27'])
+    res=stepLogit(method='backward',show_step=True).fit(X,y,ws).transform(X)
+    assert set(res.columns)==set(['v22','v24','v21','v28','v15','v6','v11','v13'])
+    res=stepLogit(method='both',show_step=True).fit(X,y,ws).transform(X)
+    assert set(res.columns)==set(['v22','v24','v21','v28','v15','v6','v11','v13'])
+    
+    stepLogit(method='no_stepwise',show_step=True).fit(X,y,ws).predict_proba(X)
+    
     
 def test_cardScorer():
     
@@ -294,7 +338,7 @@ def test_cardScorer():
     
     X_woe=woeTransformer(bins).fit_transform(X,y)
     
-    lm=stepLogit(no_stepwise=True,show_step=True).fit(X_woe,y) 
+    lm=stepLogit(method='no_stepwise',show_step=True).fit(X_woe,y) 
     
     res=cardScorer(lm.logit_model,bins,check_na=False).fit(X)
     res=cardScorer(lm.logit_model,bins).fit(X)

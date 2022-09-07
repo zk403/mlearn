@@ -31,7 +31,7 @@ class hgridTuner(Base,BaseTunner,BaseEstimator):
         para_space:dict,参数空间,注意随机搜索与网格搜索对应不同的dict结构,参数空间写法见后                       
         n_candidates:int or 'exhaust',halving random_search的抽样候选参数个数,当method="h_grid"时该参数会被忽略
         factor:int,halving search中，1/factor的候选参数将被用于下一次迭代
-        scoring:str,寻优准则,可选'auc','ks','lift'
+        scoring:str,寻优准则,可选'auc','ks','lift',目前不支持sample_weight
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
         cv:int,交叉验证的折数
         early_stopping_rounds=10,int,训练数据中validation_fraction比例的数据被作为验证数据进行early_stopping
@@ -250,7 +250,7 @@ class hgridTuner(Base,BaseTunner,BaseEstimator):
         X:pd.DataFrame对象
         y:目标变量,pd.Series对象
         cat_features:list,分类特征列名列表,None是数据中的object,category类列将被识别为cat_features，当Estimator为Xgboost时将忽略该参数        
-        sample_weight:pd.Series,样本权重,index必须与X,y一致
+        sample_weight:pd.Series,样本权重,index必须与X,y一致,注意目前不支持样本权重应用于交叉验证寻优指标(scorer)
         '''   
         
         self._check_data(X, y)

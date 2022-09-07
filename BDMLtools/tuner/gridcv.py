@@ -28,7 +28,7 @@ class gridTuner(Base,BaseTunner,BaseEstimator):
         method:str,可选"grid"或"random_grid"
         para_space:dict,参数空间,注意随机搜索与网格搜索对应不同的dict结构,参数空间写法见后                        
         n_iter:随机网格搜索迭代次数,当method="grid"时该参数会被忽略
-        scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
+        scoring:str,寻优准则,可选'auc','ks','lift','neglogloss',目前不支持sample_weight
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
         cv:int,交叉验证的折数
         early_stopping_rounds=10,int,训练数据中validation_fraction比例的数据被作为验证数据进行early_stopping
@@ -239,7 +239,7 @@ class gridTuner(Base,BaseTunner,BaseEstimator):
         X:pd.DataFrame对象
         y:目标变量,pd.Series对象
         cat_features:list,分类特征列名列表,None是数据中的object,category类列将被识别为cat_features，当Estimator为Xgboost时将忽略该参数        
-        sample_weight:pd.Series,样本权重,index必须与X,y一致
+        sample_weight:pd.Series,样本权重,index必须与X,y一致,注意目前不支持样本权重应用于交叉验证寻优指标(scorer)
         '''   
         
         self._check_data(X, y)     
