@@ -54,7 +54,7 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
             + method='chi2':卡方,代表分箱数限制,实际分箱数将小于等于改值
         coerce_monotonic=False,是否强制数值特征的bad_prob单调，默认否
             强制bad_prob单调适用于所有本模块所支持的分箱算法
-            若分箱后的x与y本身有单调关系,则强制单调能够取得理想的结果,若分箱后x的woe与y无关系非单调相关,则强制单调效果将不佳
+            若分箱后x与y本身有理想的单调关系,则强制单调能够取得理想的结果,若分箱后x的woe与y无关或非单调相关(例如U型),则强制单调后的分箱效果不佳
             +  method='freq'时，将先强制freq cut单调，此时分箱结果将可能低于bin_num_limit,分箱占比也将发生变化  
             +  method='freq-kmeans'时，将先强制freq cut单调，在适用keamns算法进行合并            
             +  method='pretty'时，将强制pretty cut的预分箱单调，再根据条件合并分箱
@@ -67,8 +67,8 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
             + 当method in ('tree','chi2')时若sample_weight非空，则算法会计算加权后的iv_gain,ks_gain或卡方值
         special_values,特殊值指代值,若数据中某些值或某列某些值需特殊对待(这些值不是np.nan)时设定
             + None,保证数据默认
-            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
-            + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
+            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换为special箱
+            + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换为special箱
         iv_limit=0.02:float,IV阈值,IV低于该阈值特征将被剔除
         keep=None,list or None,保留列的列名list,其将保留于self.keep_col中但不会产生特征分析报告，通过transform筛选后的数据将保留这些特征 
         n_jobs:int,列并行计算job数,默认-1,并行在数据量较大，特征较多时能够提升效率，但会增加内存消耗
@@ -195,7 +195,7 @@ class binSelector(Base,BaseEstimator,TransformerMixin):
                                             
         else:
             
-            raise ValueError("method in ('freq','pretty','pretty-kmeans','chi2','tree')")                              
+            raise ValueError("method in ('freq','pretty','freq-kmeans','chi2','tree')")                              
         
         
         #get iv and ks 
@@ -297,7 +297,8 @@ class binAdjuster(Base,BaseWoePlotter):
     def fit(self,X,y):
         
         self._check_data(X,y)                
-        self._check_colname(X)  
+        self._check_colname(X) 
+        self.breaks_list_dict=self._check_breaks(self.breaks_list_dict)
             
         if not np.all(np.isin(list(self.breaks_list_dict),X.columns)):
             
@@ -324,7 +325,7 @@ class binAdjuster(Base,BaseWoePlotter):
                                                                 figure_size=self.figure_size)           
             
             
-        self.breaks_list_adj=breaks_list_adj
+        self.breaks_list_adj=self._check_breaks(breaks_list_adj)
             
         self.vtabs_dict_adj=vtabs_dict_adj
 

@@ -62,7 +62,7 @@ class stepLogit(Base,BaseEstimator,TransformerMixin):
             forward:向前法逐步回归
             backward:向后法逐步回归
             both:向前向后法
-        p_value_enter=.05:逐步法中特征进入的pvalue限制,默认0.05
+        p_value_enter=.05:向前向后法中特征进入的pvalue限制,默认0.05
         criterion='aic':逐步法筛选变量的准则,默认aic,可选bic
         show_step=False:是否打印逐步回归过程
         max_iter=200,逐步回归最大迭代次数
@@ -528,8 +528,8 @@ class cardScorer(Base,Specials,TransformerMixin):
         special_values,特殊值指代值,若数据中某些值或某列某些值需特殊对待(这些值不是np.nan)时设定
             请特别注意,special_values必须与binSelector的special_values一致,否则score的special行会产生错误结果
             + None,保证数据默认
-            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
-            + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
+            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换为special
+            + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换为special
         n_jobs=1,并行数量 
         verbose=0,并行信息输出等级  
             
@@ -555,9 +555,7 @@ class cardScorer(Base,Specials,TransformerMixin):
         
         self._is_fitted=False
 
-    def fit(self,X,y=None):     
-        
-        self._check_X(X)
+    def fit(self,X=None,y=None):     
                 
         if isinstance(self.logit_model,(BinaryResultsWrapper,GLMResultsWrapper)):
             

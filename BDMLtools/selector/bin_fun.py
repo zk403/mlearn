@@ -175,8 +175,7 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
         special_values
     """
   
-    def get_breaks(col,y,bin_num_limit=bin_num_limit,ws=ws,special_values=special_values,coerce_monotonic=coerce_monotonic):
-        
+    def get_breaks(col,y,bin_num_limit=bin_num_limit,ws=ws,special_values=special_values,coerce_monotonic=coerce_monotonic):       
         
         col=Specials()._sp_replace_single(col,Specials()._check_spvalues(col.name,special_values),fill_num=np.nan,fill_str='special')
 
@@ -243,6 +242,8 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
 
     breaks_list={name_value[0]:get_breaks(name_value[1],y) 
                  for name_value in X.iteritems()}
+    
+    breaks_list=Base()._check_breaks(breaks_list)
     
     bins={col:varReportSinge().report(X[col],y,breaks_list[col],ws,special_values) for col in X.columns}
    
@@ -313,7 +314,7 @@ class binKmeans(Base,Specials,BaseEstimator):
                                                                 self.seed)
                            for col in list(breaks_list.keys()))     
         
-        self.breaks_list={col:breaks for col,breaks,_ in col_break}
+        self.breaks_list=self._check_breaks({col:breaks for col,breaks,_ in col_break})
         
         self.bins={col:vtab for col,_,vtab in col_break}
                                     
@@ -571,7 +572,6 @@ class binKmeans(Base,Specials,BaseEstimator):
         return ll
 
     
-
 class binTree(Base,Specials,BaseEstimator):
     
     """ 
@@ -646,7 +646,7 @@ class binTree(Base,Specials,BaseEstimator):
                                         self.coerce_monotonic,
                                         self.special_values) for col in X.iteritems())
         
-        self.breaks_list={col_name:breaks for col_name,breaks,_ in res}
+        self.breaks_list=self._check_breaks({col_name:breaks for col_name,breaks,_ in res})        
         self.bins={col_name:vtab for col_name,_,vtab in res}
                                     
         return self
@@ -1022,7 +1022,7 @@ class binChi2(Base,Specials,BaseEstimator):
                                         self.coerce_monotonic,
                                         self.special_values) for col in X.iteritems())
         
-        self.breaks_list={col_name:breaks for col_name,breaks,_ in res}
+        self.breaks_list=self._check_breaks({col_name:breaks for col_name,breaks,_ in res})
         self.bins={col_name:vtab for col_name,_,vtab in res}            
                                 
         return self   
@@ -1384,7 +1384,7 @@ class binPretty(Base,Specials,BaseEstimator):
                                         self.coerce_monotonic,
                                         self.special_values) for col in X.iteritems())
         
-        self.breaks_list={col_name:breaks for col_name,breaks,_ in res}
+        self.breaks_list=self._check_breaks({col_name:breaks for col_name,breaks,_ in res})
         self.bins={col_name:vtab for col_name,_,vtab in res}            
                                     
         return self   

@@ -6,8 +6,9 @@ Created on Wed Jan 12 18:29:30 2022
 @author: zengke
 """
 
-from BDMLtools.encoder.woe import woeTransformer
+from BDMLtools.encoder.woe import woeTransformer,binTransformer
 
 __all__ = (    
-    woeTransformer
+    woeTransformer,
+    binTransformer
 )

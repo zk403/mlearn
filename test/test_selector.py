@@ -8,7 +8,7 @@ Created on Tue Jul 12 13:34:22 2022
 
 from BDMLtools.selector import binSelector,faSelector,preSelector,prefitModel,lassoSelector,binAdjuster
 from BDMLtools.selector import stepLogit,cardScorer,LgbmSeqSelector,LgbmShapRFECVSelector,LgbmPISelector
-from BDMLtools.encoder import woeTransformer
+from BDMLtools.encoder import woeTransformer,binTransformer
 from sklearn.linear_model import LogisticRegression
 import pandas as pd
 import numpy as np
@@ -320,6 +320,46 @@ def test_stepLogit():
     assert set(res.columns)==set(['v22','v24','v21','v28','v15','v6','v11','v13'])
     
     stepLogit(method='no_stepwise',show_step=True).fit(X,y,ws).predict_proba(X)
+
+
+def test_woeTransformer():   
+    
+    from sklearn.datasets import load_breast_cancer
+    import numpy as np
+    
+    X=pd.DataFrame(load_breast_cancer()['data'],columns=['var_'+str(i) for i in range(30)])
+    y=pd.Series(load_breast_cancer()['target'],name='y')
+    X['var_31']=pd.Series(np.random.randint(0,5,y.size),name='var_31',dtype='str')
+    X['var_32']=pd.Series(np.random.randint(0,5,y.size-20).tolist()+np.repeat(np.nan,20).tolist(),name='var_32')
+
+    bins=binSelector(n_jobs=1,iv_limit=0,bin_num_limit=10).fit(X,y).bins
+    
+    X_bin=binTransformer(bins).fit_transform(X,y) 
+    
+    X_woe=woeTransformer(bins,woe_missing=0,distr_limit=0).fit_transform(X,y)    
+    
+    from category_encoders.woe import WOEEncoder
+    
+    X_woe1=WOEEncoder(regularization=1e-10).fit_transform(X_bin,y)
+    
+    for col in X_woe.columns:
+        
+        assert X_woe[col].round(4).equals(X_woe1[col].round(4))
+        
+    X_woe=woeTransformer(bins,woe_missing=0,distr_limit=0.05).fit_transform(X,y)  
+    assert all(X_woe['var_32'][X['var_32'].isnull()]==0)
+    
+    X=pd.DataFrame({'var_num':[0,1,1,3,np.nan,4,5,1,0,1],
+                    'var_char':['a','a','a','b','b','missing','c','c','d','d']})
+    y=pd.Series([1,0,1,1,1,0,0,0,1,1],name='y')
+    bins=binSelector(n_jobs=1,iv_limit=0,bin_num_limit=5,
+                     special_values={'var_num':[1],'var_char':['a']}).fit(X,y).bins
+    
+    X_bin=binTransformer(bins,special_values={'var_num':[1],'var_char':['a']}).fit_transform(X,y) 
+    assert all(X_bin['var_num'][X['var_num']==1]=='special')
+    assert all(X_bin['var_num'][X['var_num'].isnull()]=='missing')
+    assert all(X_bin['var_char'][X['var_char']=='a']=='special')
+    assert all(X_bin['var_char'][X['var_char'].isnull()]=='missing')
     
     
 def test_cardScorer():

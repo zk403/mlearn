@@ -291,6 +291,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
         
         self._check_x(X)
         self._check_yname(y)
+        breaks=self._check_breaks(breaks)
                 
         X=self._sp_replace_single(X,self._check_spvalues(X.name,special_values),fill_num=np.finfo(np.float32).max,fill_str='special')
                
@@ -321,7 +322,8 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
         figure,matplotlib.figure.Figure:单特征分析报告-绘图
         breaks,list:x的分箱点
             
-        """        
+        """ 
+        breaks=self._check_breaks(breaks)
         
         report_var=self.report(X,y,breaks,sample_weight,special_values)
         
@@ -432,18 +434,18 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
              
              breaks=var_tab.index.categories.map(lambda x:x if isinstance(x,str) else x.right))
             
-    def _getVarReport_ks(self,var_ptable,col):
+    def _getVarReport_ks(self,var_ptable,col,regularization=1e-10):
         
         var_ptable['badprob']=var_ptable['bad'].div(var_ptable['count'])
         var_ptable['count_distr']=var_ptable['count'].div(var_ptable['count'].sum())
         var_ptable['good']=var_ptable['count'].sub(var_ptable['bad'])
-        var_ptable['good_dis']=var_ptable['good'].div(var_ptable['good'].sum())
-        var_ptable['bad_dis']=var_ptable['bad'].div(var_ptable['bad'].sum())
+        var_ptable['good_dis']=var_ptable['good'].add(regularization).div(var_ptable['good'].sum()+2*regularization)
+        var_ptable['bad_dis']=var_ptable['bad'].add(regularization).div(var_ptable['bad'].sum()+2*regularization)
         var_ptable['bin_iv']=var_ptable['bad_dis'].sub(var_ptable['good_dis']).mul(
-            (var_ptable["bad_dis"]+1e-10).div((var_ptable["good_dis"]+1e-10)).apply(np.log)
+            (var_ptable["bad_dis"]).div((var_ptable["good_dis"])).apply(np.log)
         )
         var_ptable['total_iv']=var_ptable['bin_iv'].sum()
-        var_ptable['woe']=(var_ptable["bad_dis"]+1e-10).div((var_ptable["good_dis"]+1e-10)).apply(np.log)
+        var_ptable['woe']=(var_ptable["bad_dis"]).div((var_ptable["good_dis"])).apply(np.log)
         var_ptable['ks']=var_ptable['good_dis'].cumsum().sub(var_ptable['bad_dis'].cumsum()).abs()
         var_ptable['ks_max']=var_ptable['ks'].max()
         var_ptable['variable']=col
@@ -502,6 +504,7 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
 
         self._check_data(X,y)
         self._check_yname(y)
+        self.breaks_list_dict=self._check_breaks(self.breaks_list_dict)
         
         n_jobs=effective_n_jobs(self.n_jobs)
         
@@ -645,8 +648,11 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
         if self.row_limit>0 and len(X)<=self.row_limit:
             
             raise ValueError('row_limit should less than len(X)')
+            
+        self.breaks_list_dict=self._check_breaks(self.breaks_list_dict)
      
         self.breaks_list_dict={key:self.breaks_list_dict[key] for key in self.breaks_list_dict if key in X.drop(self.columns,axis=1).columns}   
+        
         
         if len(self.breaks_list_dict)==0:
             
@@ -935,7 +941,8 @@ class varGroupsPlot(Base,BaseWoePlotter):
     def plot(self,X,figure_size=None):
         
         self._check_X(X)
-            
+        self.breaks_list=self._check_breaks(self.breaks_list)
+        
         fig_out=self._woe_plot_group(X,self.breaks_list,self.target,self.column,self.psi_base,
                              self.sort_column,figure_size,self.special_values,self.sample_weight,
                              self.n_jobs,self.verbose)  

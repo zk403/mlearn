@@ -123,6 +123,35 @@ class Base:
             
             raise ValueError("Series y must have a name!")
             
+            
+    def _check_breaks(self,breaks_list,digit=3):
+                   
+        def is_numeric_list(breaks):
+            
+            return all(np.isreal(i) for i in breaks)
+        
+        def get_breaks(breaks,digit=digit):
+        
+            if is_numeric_list(breaks):
+        
+                return np.round(breaks,digit).tolist()
+        
+            else:
+                
+                return breaks       
+        
+        if isinstance(breaks_list,dict):
+            
+            return {key:get_breaks(breaks_list[key]) for key in breaks_list}
+        
+        elif isinstance(breaks_list,list):
+            
+            return get_breaks(breaks_list)
+        
+        else:
+            
+            raise ValueError("breaks_list is dict or list")
+                
         
 class BaseEval:    
     
