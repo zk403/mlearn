@@ -94,12 +94,11 @@ pip uninstall BDMLtools
 更新
 
 ```
-v0.2.8
-1.stepLogit中加入向前逐步法、向后逐步法
-2.修改了stepLogit的部分入参名与含义
-3.修复了stepLogit在变量过少情况下无法进行逐步法的bug
-4.修复了prefitModel中部分列全部缺失后可能产生的bug
-5.修复了perfEval中加入样本权重后产生的索引报错的bug
-6.补充了部分文档与单元测试脚本
-7.更新example
+v0.2.9
+1.加入数据离散化函数binTransformer
+2.在分箱算法\报告的诸多模块中加入对breaks_list的浮点数分箱点的长度限制(小数点后三位)以防止个别错误(临界点)的分箱结果
+3.修复了stepLogit中无法使用样本权重的bug
+4.补充了部分文档与单元测试脚本
+5.更新单元测试脚本,更新部分代码说明
+6.更新example
 ```
