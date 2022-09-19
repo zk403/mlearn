@@ -17,6 +17,7 @@ from os import path
 import re
 
 base_pkgs=[       'numpy>=1.18,<=1.22',#https://github.com/numpy/numpy
+                  'matplotlib>=3.5.0,<=3.5.3'
                   #'lofo-importance>=0.3.1',#https://github.com/aerdem4/lofo-importance
                   'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
                   'pandas>=1.3.5',#https://github.com/pandas-dev/pandas
