@@ -163,9 +163,9 @@ class woeTransformer(Base,Specials,TransformerMixin):
             + None,保证数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换为'special'
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换为'special'
-    woe_missing=None,float,缺失值的woe调整值，默认None即不调整.当missing箱样本量极少时，woe值可能不具备代表性，此时可调整varbin中的woe替换值至合理水平，例如设定为0
+    woe_missing=None,float,缺失值的woe调整值，None即不调整.当missing箱样本量极少时，woe值可能不具备代表性，此时可调整varbin中的woe替换值至合理水平，例如设定为0
             经过替换后的varbin=保存在self.varbin中.本模块暂不支持对不同特征的woe调整值做区别处理，所有特征的woe调整值均为woe_missing            
-    woe_special=None,float,特殊值的woe调整值,默认None即不调整.当special箱样本量极少时，woe值可能不具备代表性，此时可调整varbin中的woe替换值至合理水平，例如设定为0  
+    woe_special=None,float,特殊值的woe调整值,None即不调整.当special箱样本量极少时，woe值可能不具备代表性，此时可调整varbin中的woe替换值至合理水平，例如设定为0  
             经过替换后的varbin=保存在self.varbin中.本模块暂不支持对不同特征的woe调整值做区别处理，所有特征的woe调整值均为woe_special
     distr_limit=0.01,float,当woe_missing或woe_special不为None时,若missing或special箱占比低于distr_limit时才执行替换
     check_na:bool,为True时,若经woe编码后编码数据出现了缺失值，程序将报错终止，可能的错误原因:   
@@ -223,7 +223,7 @@ class woeTransformer(Base,Specials,TransformerMixin):
             
             for key in self.varbin:
             
-                if 'missing' in self.varbin[key].index.tolist() and self.varbin[key].loc['missing','count_distr']<self.distr_limit:
+                if 'special' in self.varbin[key].index.tolist() and self.varbin[key].loc['special','count_distr']<self.distr_limit:
                     
                     self.varbin[key].loc['special','woe'] = self.woe_special
 

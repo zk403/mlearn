@@ -14,14 +14,14 @@ from scipy.cluster.hierarchy import dendrogram
 from sklearn.cluster import FeatureAgglomeration
 from sklearn.metrics.pairwise import pairwise_distances
 from scipy.stats import pearsonr,spearmanr
-from sklearn.base import BaseEstimator,TransformerMixin
+from sklearn.base import TransformerMixin
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import warnings
 from BDMLtools.base import Base
 
 
-class faSelector(Base,BaseEstimator,TransformerMixin):
+class faSelector(Base,TransformerMixin):
     
     """
     变量聚类:基于sklearn.cluster.FeatureAgglomeration

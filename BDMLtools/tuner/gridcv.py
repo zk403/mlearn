@@ -6,7 +6,6 @@ Created on Fri Oct 15 09:32:09 2021
 @author: zengke
 """
 
-from sklearn.base import BaseEstimator
 from sklearn.model_selection import GridSearchCV,RandomizedSearchCV
 from sklearn.model_selection import RepeatedStratifiedKFold,train_test_split
 from sklearn.calibration import CalibratedClassifierCV
@@ -18,7 +17,7 @@ from catboost.core import CatBoostClassifier
 from xgboost import XGBClassifier
 
 
-class gridTuner(Base,BaseTunner,BaseEstimator):
+class gridTuner(Base,BaseTunner):
     
     '''
     Xgb与Lgbm的网格搜索与随机搜索

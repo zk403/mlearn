@@ -5,7 +5,6 @@ Created on Thu Oct 14 17:26:03 2021
 
 @author: zengke
 """
-from sklearn.base import BaseEstimator
 from BDMLtools.base import Base
 from BDMLtools.tuner.base import BaseTunner
 #from sklearn.model_selection import GridSearchCV
@@ -23,7 +22,7 @@ from lightgbm.sklearn import LGBMClassifier
 from skopt import BayesSearchCV
 
 
-class BayesianCVTuner(Base,BaseTunner,BaseEstimator):
+class BayesianCVTuner(Base,BaseTunner):
     
     '''
     使用scikit-optmize进行贝叶斯超参优化，可支持分类超参，能够提供对sklearn生态更好的兼容性且效率较高

@@ -428,7 +428,7 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
             'boosting_type':Categorical(['goss','gbdt']),
             'n_estimators': Integer(low=30, high=300, prior='uniform', transform='identity'),
             'learning_rate': Real(low=0.05, high=0.2, prior='uniform', transform='identity'),
-            'max_depth': Integer(low=2, high=4, prior='uniform', transform='identity')
+            'max_depth': Integer(low=1, high=4, prior='uniform', transform='identity')
         }
         
         return para_space

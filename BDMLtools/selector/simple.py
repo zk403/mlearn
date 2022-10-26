@@ -5,7 +5,7 @@ Created on Wed Oct 27 23:08:38 2021
 
 @author: zengke
 """
-from sklearn.base import TransformerMixin,BaseEstimator
+from sklearn.base import TransformerMixin
 from sklearn.feature_selection import f_classif,chi2
 from category_encoders.ordinal import OrdinalEncoder
 from category_encoders import WOEEncoder
@@ -26,7 +26,7 @@ from sklearn.feature_selection import SelectFpr,SelectFdr,SelectFwe
 
 
 
-class prefitModel(Base,BaseEstimator):
+class prefitModel(Base):
     """ 
     预拟合数据，在不进行任何特征工程的前提下，使用全量特征预拟合数据并输出模型指标
     此功能用于在建模之前预估现有取数范围下模型的最终的性能，为取数、y定义的合理性提供参考
@@ -43,8 +43,7 @@ class prefitModel(Base,BaseEstimator):
                 + 数值特征缺失值:不处理        
         max_iter:100,logit回归最大迭代次数
         tree_params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},method='ceiling'时lightgbm的参数设定        
-        col_rm=None or list,需要移除的列名list，例如id类
-        sample_weight=None or pd.Series,样本权重
+        col_rm=None or list,需要移除的列名list，例如id类       
         
     Attribute:
     ----------
@@ -53,13 +52,12 @@ class prefitModel(Base,BaseEstimator):
         model:sklearn.linear_model.LogisticRegression or lightgbm.LGBMClassifier object拟合的模型对象
     """      
     def __init__(self,method='ceiling',max_iter=100,tree_params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},
-                 col_rm=None,sample_weight=None):
+                 col_rm=None):
 
         self.method=method
         self.tree_params=tree_params
         self.max_iter=max_iter
-        self.col_rm=col_rm
-        self.sample_weight=sample_weight    
+        self.col_rm=col_rm 
         
         self._is_fitted=False
 
@@ -106,7 +104,7 @@ class prefitModel(Base,BaseEstimator):
         return pred
     
        
-    def fit(self,X,y):
+    def fit(self,X,y,sample_weight=None):
         
         X=X.drop(self.col_rm,axis=1) if self.col_rm else X
         
@@ -118,11 +116,11 @@ class prefitModel(Base,BaseEstimator):
         
         if self.method=='ceiling':
             
-            self.model=self._fit_lgbm(X,y,self.tree_params,self.sample_weight)
+            self.model=self._fit_lgbm(X,y,self.tree_params,sample_weight)
             
         elif self.method=='floor':
             
-            self.model=self._fit_reg(X,y,self.max_iter,self.sample_weight)
+            self.model=self._fit_reg(X,y,self.max_iter,sample_weight)
             
         else:
             
@@ -236,7 +234,6 @@ class preSelector(Base,Specials,TransformerMixin):
                 + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换
                 + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换且会被计入na_pct
         keep:list or None,需保留列的列名list
-        sample_weight:样本权重
         
     Attribute:
     ----------

@@ -22,7 +22,7 @@ def test_binSelector():
         {
          'a':np.arange(100,dtype='float'),
          'b':np.concatenate([[-999],np.ones(98),[999]]),
-         'c':np.concatenate([np.repeat('a',50),np.repeat('b',50)],dtype=object)}
+         'c':np.concatenate([np.repeat('a',30),np.repeat('b',30),np.repeat('c',30),np.repeat('d',10)],dtype=object)}
         )
     
     ws=pd.Series(np.ones(100),name='ws')
@@ -34,7 +34,7 @@ def test_binSelector():
     binSelector(method='freq',sample_weight=ws,keep=['a','c']).fit_transform(X,y)   
     binSelector(method='freq',special_values=[1,2,3,4,'a']).fit_transform(X,y)        
     
-    binSelector(method='freq-kmeans',n_jobs=1,iv_limit=0).fit_transform(X,y)        
+    binSelector(method='freq-kmeans',n_jobs=1,iv_limit=0,bin_num_limit=2).fit_transform(X,y)       
     binSelector(method='freq-kmeans',n_jobs=1,iv_limit=0,coerce_monotonic=True).fit_transform(X,y)   
     binSelector(method='freq-kmeans',n_jobs=1,iv_limit=0,sample_weight=ws,keep=['a','c']).fit_transform(X,y)   
     binSelector(method='freq-kmeans',n_jobs=1,iv_limit=0,special_values=[1,2,3,4,'a']).fit_transform(X,y)        
@@ -346,7 +346,7 @@ def test_woeTransformer():
         
         assert X_woe[col].round(4).equals(X_woe1[col].round(4))
         
-    X_woe=woeTransformer(bins,woe_missing=0,distr_limit=0.05).fit_transform(X,y)  
+    X_woe=woeTransformer(bins,woe_missing=0,distr_limit=0.05,woe_special=0).fit_transform(X,y)  
     assert all(X_woe['var_32'][X['var_32'].isnull()]==0)
     
     X=pd.DataFrame({'var_num':[0,1,1,3,np.nan,4,5,1,0,1],
@@ -360,6 +360,10 @@ def test_woeTransformer():
     assert all(X_bin['var_num'][X['var_num'].isnull()]=='missing')
     assert all(X_bin['var_char'][X['var_char']=='a']=='special')
     assert all(X_bin['var_char'][X['var_char'].isnull()]=='missing')
+    
+    
+    
+
     
     
 def test_cardScorer():

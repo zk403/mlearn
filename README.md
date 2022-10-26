@@ -1,4 +1,4 @@
-# BDMLtools-0.2.9
+# BDMLtools-0.3.0
 
 [![PyPI version](https://img.shields.io/pypi/pyversions/BDMLtools.svg)](https://pypi.python.org/pypi/BDMLtools)
 [![License](https://img.shields.io/github/license/zk403/mlearn)](https://github.com/zk403/mlearn/blob/master/LICENSE)
@@ -94,11 +94,12 @@ pip uninstall BDMLtools
 更新
 
 ```
-v0.2.9
-1.加入数据离散化函数binTransformer
-2.在分箱算法\报告的诸多模块中加入对breaks_list的浮点数分箱点的长度限制(小数点后三位)以防止个别错误(临界点)的分箱结果
-3.修复了stepLogit中无法使用样本权重的bug
-4.补充了部分文档与单元测试脚本
-5.更新单元测试脚本,更新部分代码说明
-6.更新example
+v0.3.0
+1.在特征报告模块中加入了lift指标
+2.调整了特征报告模块中的规则，若speical或missing频数为0时，其woe将被调整为0
+3.修复了woeTransform中特殊值woe调整的bug
+4.在多个类中移除了对Sklearn的基类BaseEstimator的继承以防止bug
+5.补充了部分文档与单元测试脚本
+6.更新单元测试脚本,更新部分代码说明
+7.更新example
 ```

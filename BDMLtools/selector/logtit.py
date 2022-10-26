@@ -6,7 +6,7 @@ Created on Tue Sep 15 16:19:07 2020
 @author: kezeng
 """
 
-from sklearn.base import TransformerMixin,BaseEstimator
+from sklearn.base import TransformerMixin
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import statsmodels.formula.api as smf
 import statsmodels.api as sm
@@ -23,7 +23,7 @@ from BDMLtools.base import Base
 import warnings
 
 
-class stepLogit(Base,BaseEstimator,TransformerMixin):
+class stepLogit(Base,TransformerMixin):
     
     '''
     逐步回归,仅支持数值变量、有截距的逐步法logistic,列名应能够被pasty识别

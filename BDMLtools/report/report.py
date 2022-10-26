@@ -448,11 +448,20 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
         var_ptable['woe']=(var_ptable["bad_dis"]).div((var_ptable["good_dis"])).apply(np.log)
         var_ptable['ks']=var_ptable['good_dis'].cumsum().sub(var_ptable['bad_dis'].cumsum()).abs()
         var_ptable['ks_max']=var_ptable['ks'].max()
+        var_ptable['lift']=var_ptable['badprob'].div(var_ptable['bad'].sum()/var_ptable['count'].sum())
         var_ptable['variable']=col
         var_ptable.index.name='bin'
         #var_ptable=var_ptable.reset_index()
         #var_ptable['bin']=var_ptable['bin'].astype('str')
-        var_ptable=var_ptable[['variable', 'count', 'count_distr', 'good', 'bad', 'badprob','woe', 'bin_iv', 'total_iv','ks','ks_max']]
+        var_ptable=var_ptable[['variable', 'count', 'count_distr', 'good', 'bad', 'badprob','woe', 'bin_iv', 'total_iv','ks','ks_max','lift']].copy()
+        
+        if var_ptable.loc['special','count'] == 0:
+            
+            var_ptable.loc['special','woe'] = 0
+            
+        if var_ptable.loc['missing','count'] == 0:
+            
+            var_ptable.loc['missing','woe'] = 0
         
         return var_ptable
     
@@ -752,7 +761,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
                                       ['variable']]].reset_index().rename(columns={'level_0':'variable'})
                 
         report_out['report_brief']=report[[i for i in report.columns.tolist() if i[-1] in \
-                                      ['count','badprob','woe','total_iv','ks_max']]].reset_index().rename(columns={'level_0':'variable'})   
+                                      ['count','badprob','total_iv','ks_max','lift']]].reset_index().rename(columns={'level_0':'variable'})   
                             
         report_out['report_count']=report[[i for i in report.columns.tolist() if i[-1] in \
                                       ['count']]].reset_index().rename(columns={'level_0':'variable'})  
@@ -765,6 +774,10 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
                 
         report_out['report_ks']=report[[i for i in report.columns.tolist() if i[-1] in \
                                    ['ks_max']]].droplevel(level=1).drop_duplicates().reset_index().rename(columns={'index':'variable'}) 
+        
+        report_out['report_lift']=report[[i for i in report.columns.tolist() if i[-1] in \
+                                   ['lift']]].droplevel(level=1).drop_duplicates().reset_index().rename(columns={'index':'variable'}) 
+        
         
         if output_psi:
             

@@ -5,7 +5,7 @@ Created on Wed Oct 27 23:08:38 2021
 
 @author: zengke
 """
-from sklearn.base import BaseEstimator,TransformerMixin
+from sklearn.base import TransformerMixin
 import numpy as np
 import pandas as pd
 import warnings
@@ -19,7 +19,7 @@ from BDMLtools.plotter.base import BaseWoePlotter
 
 
 
-class binSelector(Base,BaseEstimator,TransformerMixin):    
+class binSelector(Base,TransformerMixin):    
     
     """ 
     自动分箱

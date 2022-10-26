@@ -6,7 +6,7 @@ Created on Thu Jan 27 09:46:42 2022
 @author: zengke
 """
 
-from sklearn.base import BaseEstimator,TransformerMixin
+from sklearn.base import TransformerMixin
 #from sklearn import metrics
 #from sklearn.model_selection import GridSearchCV,RepeatedStratifiedKFold
 #from sklearn.preprocessing import StandardScaler
@@ -18,7 +18,7 @@ from BDMLtools.base import Base
 #import pandas as pd
 
 
-class lassoSelector(Base,BaseEstimator,TransformerMixin):    
+class lassoSelector(Base,TransformerMixin):    
     
     """
     Lasso进行特征筛选

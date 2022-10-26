@@ -6,7 +6,6 @@ Created on Fri Oct 15 09:32:09 2021
 @author: zengke
 """
 
-from sklearn.base import BaseEstimator
 from BDMLtools.base import Base
 from sklearn.experimental import enable_halving_search_cv
 from sklearn.model_selection import train_test_split
@@ -20,7 +19,7 @@ from xgboost import XGBClassifier
 from lightgbm import early_stopping as lgbm_early_stopping
 
 
-class hgridTuner(Base,BaseTunner,BaseEstimator):
+class hgridTuner(Base,BaseTunner):
     
     '''
     Xgb与Lgbm的sucessive halving搜索与sucessive halving搜索

@@ -9,7 +9,6 @@ Created on Wed Oct 27 23:08:38 2021
 import pandas as pd
 import numpy as np
 from pandas.api.types import is_numeric_dtype,is_string_dtype,is_array_like
-from sklearn.base import BaseEstimator
 from joblib import Parallel,delayed,effective_n_jobs
 import warnings
 from itertools import groupby
@@ -250,7 +249,7 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
     return breaks_list,bins
 
 
-class binKmeans(Base,Specials,BaseEstimator):
+class binKmeans(Base,Specials):
     
     """ 
     基于Kmeans的分箱调整算法:一种自动非优化分箱算法        
@@ -572,7 +571,7 @@ class binKmeans(Base,Specials,BaseEstimator):
         return ll
 
     
-class binTree(Base,Specials,BaseEstimator):
+class binTree(Base,Specials):
     
     """ 
     决策树递归最优分箱
@@ -956,7 +955,7 @@ class binTree(Base,Specials,BaseEstimator):
         return (sorted(cuts_tree))
 
             
-class binChi2(Base,Specials,BaseEstimator):            
+class binChi2(Base,Specials):            
             
     """ 
     卡方自动分箱,合并卡方值较低的分箱并调整分箱样本量，分箱数至用户定义水平    
@@ -1324,7 +1323,7 @@ class binChi2(Base,Specials,BaseEstimator):
         return np.array(idx),np.array(chi2_d),np.array(count_list),np.array(cut_bin)
 
 
-class binPretty(Base,Specials,BaseEstimator):            
+class binPretty(Base,Specials):            
             
     """ 
     pretty分箱,使用pretty cuts作为预分箱再调整分箱至用户定义水平    
