@@ -767,17 +767,16 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
                                       ['count']]].reset_index().rename(columns={'level_0':'variable'})  
                 
         report_out['report_badprob']=report[[i for i in report.columns.tolist() if i[-1] in \
-                                        ['badprob']]].reset_index().rename(columns={'level_0':'variable'})     
+                                        ['badprob']]].reset_index().rename(columns={'level_0':'variable'}) 
+            
+        report_out['report_lift']=report[[i for i in report.columns.tolist() if i[-1] in \
+                                            ['lift']]].reset_index().rename(columns={'level_0':'variable'})      
                 
         report_out['report_iv']=report[[i for i in report.columns.tolist() if i[-1] in \
                                    ['total_iv']]].droplevel(level=1).drop_duplicates().reset_index().rename(columns={'index':'variable'})  
                 
         report_out['report_ks']=report[[i for i in report.columns.tolist() if i[-1] in \
                                    ['ks_max']]].droplevel(level=1).drop_duplicates().reset_index().rename(columns={'index':'variable'}) 
-        
-        report_out['report_lift']=report[[i for i in report.columns.tolist() if i[-1] in \
-                                   ['lift']]].droplevel(level=1).drop_duplicates().reset_index().rename(columns={'index':'variable'}) 
-        
         
         if output_psi:
             
@@ -850,7 +849,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
         sort_columns=sort_columns.copy()
         
         vt_cols=['variable', 'count', 'count_distr', 'good', 'bad', 'badprob', 'woe',
-                 'bin_iv', 'total_iv', 'ks', 'ks_max', 'breaks']
+                 'bin_iv', 'total_iv', 'ks', 'ks_max','lift', 'breaks']
 
         sort_columns.append(vt_cols)
         
@@ -923,6 +922,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
         self.report_dict['report_badprob'].to_excel(writer,sheet_name='bin_badprob')     
         self.report_dict['report_iv'].to_excel(writer,sheet_name='bin_iv') 
         self.report_dict['report_ks'].to_excel(writer,sheet_name='bin_ks') 
+        self.report_dict['report_lift'].to_excel(writer,sheet_name='bin_lift') 
         
         if self.output_psi:
             
