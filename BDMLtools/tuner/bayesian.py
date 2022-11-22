@@ -36,7 +36,7 @@ class BayesianCVTuner(Base,BaseTunner):
         para_space:dict,lgb的参数空间
         n_iter:贝叶斯优化搜索迭代次数
         init_points:int,贝叶斯优化起始搜索点的个数
-        scoring:str,寻优准则,可选'auc','ks','lift','neglogloss',目前不支持sample_weight
+        scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
         early_stopping_rounds=10,int,训练数据中validation_fraction比例的数据被作为验证数据进行early_stopping,
         validation_fraction=0.1,float,进行early_stopping的验证集比例
         eval_metric=‘auc’,early_stopping的评价指标,为可被Estimator识别的格式,参考Estimator.fit中的eval_metric参数

@@ -1,4 +1,4 @@
-# BDMLtools-0.3.0
+# BDMLtools-0.3.1
 
 [![PyPI version](https://img.shields.io/pypi/pyversions/BDMLtools.svg)](https://pypi.python.org/pypi/BDMLtools)
 [![License](https://img.shields.io/github/license/zk403/mlearn)](https://github.com/zk403/mlearn/blob/master/LICENSE)
@@ -38,6 +38,7 @@ BDMLtools是适用于常见商业数据分析数据挖掘场景下，中小数�
     - BDMLtools.binSelector:分箱筛选器，提供等频、决策树、卡方、单调等分箱算法并依据分箱结果进行特征筛选
     - BDMLtools.binAdjuster:分箱调整器,支持单特征、组特征的交互式分箱及分箱调整
     - BDMLtools.stepLogit:统计逐步回归筛选器，提供基于aic/bic与statsmodel的logit-reg的逐步法进行筛选特征与模型构建
+    - BDMLtools.LassoLogit:Lasso-logit回归,加入L1正则、使用交叉验证、无统计检验的logit回归
     - BDMLtools.cardScorer:制作评分卡
     - BDMLtools.LgbmSeqSelector:Lgbm逐步式特征选择筛选器
     - BDMLtools.LgbmShapRFECVSelector:Lgbm递归式特征消除筛选器
@@ -94,12 +95,10 @@ pip uninstall BDMLtools
 更新
 
 ```
-v0.3.0
-1.在特征报告模块中加入了lift指标
-2.调整了特征报告模块中的规则，若speical或missing频数为0时，其woe将被调整为0
-3.修复了woeTransform中特殊值woe调整的bug
-4.在多个类中移除了对Sklearn的基类BaseEstimator的继承以防止bug
-5.补充了部分文档与单元测试脚本
-6.更新单元测试脚本,更新部分代码说明
-7.更新example
+v0.3.1
+1.加入L1正则logit回归
+2.在特征报告模块中加入了lift指标的特定报告
+3.补充了部分文档与单元测试脚本
+4.更新单元测试脚本,更新部分代码说明
+5.更新example
 ```

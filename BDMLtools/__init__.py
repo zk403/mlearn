@@ -8,7 +8,7 @@ from BDMLtools.selector import stepLogit,cardScorer
 from BDMLtools.selector import preSelector,prefitModel
 from BDMLtools.selector import LgbmSeqSelector,LgbmPISelector,LgbmShapRFECVSelector
 #from BDMLtools.selector import RFECVSelector
-from BDMLtools.selector import lassoSelector
+from BDMLtools.selector import LassoLogit
 from BDMLtools.plotter import BaseWoePlotter
 from BDMLtools.plotter import perfEval,perfEval2
 from BDMLtools.encoder import woeTransformer,binTransformer
@@ -16,7 +16,7 @@ from BDMLtools.tuner import gridTuner,hgridTuner
 from BDMLtools.tuner import BayesianCVTuner,shapCheck
 
 
-__version__ = '0.3.0'
+__version__ = '0.3.1'
 
 __all__ = (    
     dtStandardization,
@@ -38,7 +38,7 @@ __all__ = (
     stepLogit,
     cardScorer,
     preSelector,
-    lassoSelector,
+    LassoLogit,
     LgbmSeqSelector,
     LgbmPISelector,
     LgbmShapRFECVSelector,

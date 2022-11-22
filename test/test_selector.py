@@ -6,7 +6,7 @@ Created on Tue Jul 12 13:34:22 2022
 @author: zengke
 """
 
-from BDMLtools.selector import binSelector,faSelector,preSelector,prefitModel,lassoSelector,binAdjuster
+from BDMLtools.selector import binSelector,faSelector,preSelector,prefitModel,LassoLogit,binAdjuster
 from BDMLtools.selector import stepLogit,cardScorer,LgbmSeqSelector,LgbmShapRFECVSelector,LgbmPISelector
 from BDMLtools.encoder import woeTransformer,binTransformer
 from sklearn.linear_model import LogisticRegression
@@ -206,14 +206,57 @@ def test_preSelector():
     assert 'a' in res.columns
     res=preSelector(out_path='tmp').fit_transform(X,y) 
 
-def test_lassoSelector():
+def test_lassologit():
+    
+    from sklearn.datasets import load_breast_cancer
+    import matplotlib
     
     X=pd.DataFrame(
-        {'a':[1,2,2,4,5],'b':[1,2,3,4,5],'c':[1,1,1,2,1]}
-        )
-    y=pd.Series([0,0,1,1,1],name='y')
+        load_breast_cancer()['data'],columns=['v'+str(i) for i in range(30)]
+        )[['v22','v24','v21','v28','v15','v6','v11','v13','v27','v14']]
+    y=pd.Series(load_breast_cancer()['target'],name='y')
+    ws=pd.Series(np.ones(y.size),index=y.index)
     
-    lassoSelector().fit_transform(X,y)
+    X=X[['v22','v24','v21','v28']]
+    
+    res=LassoLogit(c_num=10,standard=True,metric='roc_auc',n_jobs=1).fit_plot(X,y)
+    
+    assert isinstance(res.plot_path,matplotlib.figure.Figure)
+    assert isinstance(res.plot_valscore,matplotlib.figure.Figure)
+    assert hasattr(res,'cv_path_')
+    assert hasattr(res,'cv_res_')
+    assert hasattr(res,'feature_names_')
+    assert hasattr(res,'model_refit')
+    
+    res.predict_proba(X)
+    res.transform(X)
+    
+    res=LassoLogit(c_num=10,standard=True,metric='neglogloss',n_jobs=1).fit_plot(X,y)
+    
+    assert isinstance(res.plot_path,matplotlib.figure.Figure)
+    assert isinstance(res.plot_valscore,matplotlib.figure.Figure)
+    assert hasattr(res,'cv_path_')
+    assert hasattr(res,'cv_res_')
+    assert hasattr(res,'feature_names_')
+    assert hasattr(res,'model_refit')
+    
+    res.predict_proba(X)
+    res.transform(X)    
+    
+    res.refit_with_C(X, y, C=1)
+    assert res.model_refit.C==1
+    
+    res=LassoLogit(c_num=10,standard=True,metric='neglogloss',n_jobs=1).fit_plot(X,y,ws)
+    
+    assert isinstance(res.plot_path,matplotlib.figure.Figure)
+    assert isinstance(res.plot_valscore,matplotlib.figure.Figure)
+    assert hasattr(res,'cv_path_')
+    assert hasattr(res,'cv_res_')
+    assert hasattr(res,'feature_names_')
+    assert hasattr(res,'model_refit')    
+    
+    res.predict_proba(X)
+    res.transform(X) 
     
 
 def test_LgbmSeqSelector():
@@ -360,10 +403,6 @@ def test_woeTransformer():
     assert all(X_bin['var_num'][X['var_num'].isnull()]=='missing')
     assert all(X_bin['var_char'][X['var_char']=='a']=='special')
     assert all(X_bin['var_char'][X['var_char'].isnull()]=='missing')
-    
-    
-    
-
     
     
 def test_cardScorer():

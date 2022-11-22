@@ -20,6 +20,7 @@ from BDMLtools.selector.bin_fun import R_pretty
 import warnings
 from mlxtend.feature_selection import SequentialFeatureSelector
 from sklearn.base import TransformerMixin
+import numpy as np
 
 
 class LgbmPISelector(TransformerMixin,Base,BaseTunner):
@@ -439,7 +440,9 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
         
         from plotnine import ggplot,theme,theme_bw,ggtitle,labs,geom_errorbar,aes,geom_line,geom_point,scale_x_reverse
         
-        dt=self.clf.report_df
+        dt=self.clf.report_df.copy()
+        
+        dt['val_metric_std_error']=dt['val_metric_std'].div(np.sqrt(self.cv*self.repeats-1))
     
         title="SHAP RFE using CV and Lightgbm"
         
@@ -456,7 +459,7 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
         p=(ggplot(dt,aes(x='num_features', y='val_metric_mean'))+
             geom_point(color='red',size=3)+
             geom_line()+
-            geom_errorbar(aes(ymin=dt['val_metric_mean']-dt['val_metric_std'],ymax=dt['val_metric_mean']+dt['val_metric_std']),width=.2)+
+            geom_errorbar(aes(ymin=dt['val_metric_mean']-dt['val_metric_std_error'],ymax=dt['val_metric_mean']+dt['val_metric_std_error']),width=.2)+
             ggtitle(title)+
             labs(x = "Num of features", y = "Val-Score") +
             theme_bw() +
@@ -597,6 +600,7 @@ class LgbmSeqSelector(TransformerMixin,Base,BaseTunner):
         dt=pd.DataFrame(self.clf.get_metric_dict()).T.apply(lambda x:pd.to_numeric(x,errors='ignore'))
         dt['num_features']=dt.index
         
+        
         title="Sequential Feature Selection using CV and Lightgbm"
         
         breaks=R_pretty(dt['num_features'].min(),dt['num_features'].max(),50 if dt['num_features'].size>50 else dt['num_features'].size)                
@@ -604,7 +608,7 @@ class LgbmSeqSelector(TransformerMixin,Base,BaseTunner):
         p=(ggplot(dt,aes(x='num_features', y='avg_score'))+
             geom_point(color='red',size=3)+
             geom_line()+
-            geom_errorbar(aes(ymin=dt['avg_score']-dt['std_dev'],ymax=dt['avg_score']+dt['std_dev']),width=.2)+
+            geom_errorbar(aes(ymin=dt['avg_score']-dt['std_err'],ymax=dt['avg_score']+dt['std_err']),width=.2)+
             ggtitle(title)+
             labs(x = "Num of features", y = "Val-Score") +
             theme_bw() +
