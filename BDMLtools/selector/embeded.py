@@ -18,7 +18,7 @@ from itertools import product
 import pandas as pd
 from sklearn.metrics import log_loss,roc_auc_score
 import matplotlib.pyplot as plt
-
+import os
 
 class LassoLogit(Base,TransformerMixin):    
     
@@ -296,9 +296,12 @@ class LassoLogit(Base,TransformerMixin):
         ax1.set_xticks(xticks)
         ax1.set_xscale('linear')
         ax1.set_xlim(min(xticks),max(xticks))
-        ax2=ax1.twiny()
-        ax2.set_xticks(xticks,labels)
-        ax2.set_xlabel('Num of non-zero coefficients')
+        
+        if os.name!='nt':
+        
+            ax2=ax1.twiny()
+            ax2.set_xticks(xticks,labels)
+            ax2.set_xlabel('Num of non-zero coefficients')
         
         return fig         
     
@@ -342,8 +345,11 @@ class LassoLogit(Base,TransformerMixin):
         ax1.set_xticks(xticks)
         ax1.set_xscale('linear')
         ax1.set_xlim(min(xticks),max(xticks))
-        ax2=ax1.twiny()
-        ax2.set_xticks(xticks,labels)
-        ax2.set_xlabel('Num of non-zero coefficients')
+        
+        if os.name!='nt':
+            
+            ax2=ax1.twiny()
+            ax2.set_xticks(xticks,labels)
+            ax2.set_xlabel('Num of non-zero coefficients')
 
         return fig
