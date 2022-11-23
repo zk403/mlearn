@@ -37,7 +37,6 @@ class LassoLogit(Base,TransformerMixin):
         method='1se':str,若c_num非None，LassoLogit进行重新拟合时的c值
             + '1se':一倍标准误差原则，同R的glmnet。交叉验证中最优指标(logloss或其他优化指标)下的c值对应一倍标准误差范围内的最小c值重拟合模型                    
         standard=True:bool,是否进行数据标准化
-        max_iter:sklearn.linear_model.LogisticRegression的最大迭代次数
         metric:str,交叉验证评估标准，可选'roc_auc','neg_log_loss'
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
         cv:int,交叉验证的折数
