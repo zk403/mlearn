@@ -183,51 +183,54 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
             warn('nan column:{},return blank breaks'.format(col.name))
             
             breaks=[]     
-
-        elif np.max(col) == np.min(col):
-            
-            warn('constant column:{},return blank breaks'.format(col.name))
-            
-            breaks=[]     
+  
             
         elif is_numeric_dtype(col):
             
-            y=y[~np.isnan(col)]    
-
-            if is_array_like(ws) and coerce_monotonic:                
+            if np.max(col) == np.min(col):
                 
-                ws=ws[~np.isnan(col)]
+                warn('constant column:{},return blank breaks'.format(col.name))
                 
-                if ws.size!=y.size:
+                breaks=[]   
                 
-                    raise ValueError('length of weight not equal to y')
+            else:
+            
+                y=y[~np.isnan(col)]    
+    
+                if is_array_like(ws) and coerce_monotonic:                
                     
-            else:
+                    ws=ws[~np.isnan(col)]
+                    
+                    if ws.size!=y.size:
+                    
+                        raise ValueError('length of weight not equal to y')
+                        
+                else:
+                    
+                    ws=np.ones(y.size)
                 
-                ws=np.ones(y.size)
-            
-            col=col[~np.isnan(col)]
-            
-            if np.unique(col).size<bin_num_limit:
+                col=col[~np.isnan(col)]
                 
-                n_bins_adj=np.unique(col).size
-            
-            else:
+                if np.unique(col).size<bin_num_limit:
+                    
+                    n_bins_adj=np.unique(col).size
                 
-                n_bins_adj=bin_num_limit
+                else:
+                    
+                    n_bins_adj=bin_num_limit
+                    
+                breaks=np.percentile(col,np.arange(n_bins_adj+1)/n_bins_adj*100)[1:-1]
                 
-            breaks=np.percentile(col,np.arange(n_bins_adj+1)/n_bins_adj*100)[1:-1]
-            
-            #adjust bin for extreamly unbalanced count distr
-            if ws[col<np.min(breaks)].sum()/ws.sum()<=min(1/n_bins_adj,0.01):
+                #adjust bin for extreamly unbalanced count distr
+                if ws[col<np.min(breaks)].sum()/ws.sum()<=min(1/n_bins_adj,0.01):
+                    
+                    breaks=breaks[breaks!=np.min(breaks)]                
                 
-                breaks=breaks[breaks!=np.min(breaks)]                
-            
-            breaks=np.unique(breaks).tolist()    
-            
-            if coerce_monotonic:
+                breaks=np.unique(breaks).tolist()    
                 
-                breaks=check_monotonirc(col,y,breaks,ws=ws).tolist()
+                if coerce_monotonic:
+                    
+                    breaks=check_monotonirc(col,y,breaks,ws=ws).tolist()
                
         elif is_string_dtype(col):
             

@@ -39,6 +39,7 @@ class shapCheck:
     Params:
     ------
         Estimator:训练好的二分类(binary loss function)的boosting模型(xgboost,lightgbm,catboost)
+        woe_raw:bool,woe编码后的数据是否作为原始输入数据，若为True将忽略bin_method与bin_num_limit参数
         bin_method:str,对训练好的数据进行woe编码时分箱方式的选择,默认'freq'
         bin_num_limit:int,设定的分箱个数
         plot:bool,
@@ -56,21 +57,29 @@ class shapCheck:
     
     """    
     
-    def __init__(self,Estimator,bin_method='freq',bin_num_limit=8,plot=True,n_jobs=1,verbose=0):
+    def __init__(self,Estimator,woe_raw=False,bin_method='freq',bin_num_limit=8,plot=True,n_jobs=1,verbose=0):
         
         self.Estimator=Estimator
+        self.woe_raw=woe_raw
         self.bin_method=bin_method
         self.bin_num_limit=bin_num_limit
         self.plot=plot
         self.n_jobs=n_jobs
         self.verbose=verbose       
           
-    def fit_plot(self,X,y,sample_weight=None,figure_size=None,plot=True):      
-
-        bins=binSelector(bin_num_limit=self.bin_num_limit,method=self.bin_method,
-                            iv_limit=0,sample_weight=sample_weight,n_jobs=self.n_jobs,verbose=self.verbose).fit(X,y)
+    def fit_plot(self,X,y,sample_weight=None,figure_size=None): 
         
-        X_woe=woeTransformer(bins.bins,woe_missing=0,distr_limit=0.05).fit_transform(X)        
+        if self.woe_raw:
+            
+            X_woe=X
+            
+        else:    
+
+            bins=binSelector(bin_num_limit=self.bin_num_limit,method=self.bin_method,
+                                iv_limit=0,sample_weight=sample_weight,n_jobs=self.n_jobs,verbose=self.verbose).fit(X,y)
+            
+            X_woe=woeTransformer(bins.bins,woe_missing=0,distr_limit=0.05).fit_transform(X)
+        
 
         explainer = shap.TreeExplainer(self.Estimator)        
             
@@ -99,7 +108,7 @@ class shapCheck:
         
         self.report=self._check(X_woe, X_shap)
         
-        if plot==True:
+        if self.plot==True:
             
             n_jobs=effective_n_jobs(self.n_jobs)
 

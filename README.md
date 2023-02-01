@@ -1,4 +1,4 @@
-# BDMLtools-0.3.1
+# BDMLtools-0.3.2
 
 [![PyPI version](https://img.shields.io/pypi/pyversions/BDMLtools.svg)](https://pypi.python.org/pypi/BDMLtools)
 [![License](https://img.shields.io/github/license/zk403/mlearn)](https://github.com/zk403/mlearn/blob/master/LICENSE)
@@ -95,10 +95,11 @@ pip uninstall BDMLtools
 更新
 
 ```
-v0.3.1
-1.加入L1正则logit回归
-2.在特征报告模块中加入了lift指标的特定报告
-3.补充了部分文档与单元测试脚本
+v0.3.2
+1.binSelector加入分类变量levels的检查，过高的levels可不进行分箱
+2.修复了binFreq中字符列处理的bug
+3.修复了shapCheck的bug并增加woe编码数据原始参数
 4.更新单元测试脚本,更新部分代码说明
 5.更新example
+
 ```

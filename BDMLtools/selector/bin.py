@@ -65,6 +65,7 @@ class binSelector(Base,TransformerMixin):
             + 其将会影响最终vtable的每一箱的count,bad,good,bad_prob,iv,ks等,
             + 若只对好坏样本进行加权则只会影响bad_prob
             + 当method in ('tree','chi2')时若sample_weight非空，则算法会计算加权后的iv_gain,ks_gain或卡方值
+        levels=10,int,分类变量若水平大于levels将被剔除不进行分箱
         special_values,特殊值指代值,若数据中某些值或某列某些值需特殊对待(这些值不是np.nan)时设定
             + None,保证数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换为special箱
@@ -84,7 +85,7 @@ class binSelector(Base,TransformerMixin):
     """
     
     def __init__(self,method='freq',max_bin=50,distr_limit=0.05,bin_num_limit=8,special_values=None,
-                 iv_limit=0.02,keep=None,sample_weight=None,coerce_monotonic=False,n_jobs=-1,verbose=0):
+                 iv_limit=0.02,keep=None,sample_weight=None,coerce_monotonic=False,levels=10,n_jobs=-1,verbose=0):
         
         self.method=method
         self.max_bin=max_bin
@@ -94,6 +95,7 @@ class binSelector(Base,TransformerMixin):
         self.keep=keep
         self.special_values=special_values
         self.coerce_monotonic=coerce_monotonic
+        self.levels=levels
         self.sample_weight=sample_weight
         self.n_jobs=n_jobs
         self.verbose=verbose
@@ -122,6 +124,12 @@ class binSelector(Base,TransformerMixin):
         else:
             
             raise ValueError('name y using pd.Series(y,name=yname)')        
+            
+        X=X.drop(self._check_levels(X,self.levels),axis=1)
+        
+        if not X.size:
+            
+            raise ValueError('no variable to get binning!')
         
             
         if self.method == 'freq':
@@ -228,6 +236,19 @@ class binSelector(Base,TransformerMixin):
        
         return self     
     
+    def _check_levels(self,X,level_lim=10):
+    
+        X_c=X.select_dtypes('object')
+        
+        if X_c.columns.size:
+            
+            c_l=X_c.apply(lambda x:x.nunique())
+            
+            return c_l[c_l>level_lim].index.tolist()
+        
+        else:
+            
+            return []
 
     
 class binAdjuster(Base,BaseWoePlotter):  
