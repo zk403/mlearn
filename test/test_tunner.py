@@ -335,6 +335,7 @@ def test_shapcheck(mock_show):
                         validation_fraction=None,early_stopping_rounds=None).fit(X,y)
         
     shapCheck(res.model_refit).fit_plot(X,y)
+    shapCheck(res.model_refit,woe_raw=True).fit_plot(X,y)
     
     X=pd.DataFrame(
             {
