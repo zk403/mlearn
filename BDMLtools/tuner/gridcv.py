@@ -275,15 +275,23 @@ class gridTuner(Base,BaseTunner):
                 self.cv_result=self._cvresult_to_df(self.grid_res.cv_results_)
                 
                 #refit with early_stopping_rounds  
-                refit_Estimator=self.Estimator(random_state=self.random_state,**self.params_best)
-                
                 if self.Estimator is CatBoostClassifier:
+                    
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   thread_count=effective_n_jobs(self.n_jobs),
+                                                   **self.params_best)
                     
                     if self.eval_metric=='auc':
                         
                         self.eval_metric='AUC'
                     
                     refit_Estimator.set_params(**{"eval_metric":self.eval_metric})
+                    
+                else:
+                    
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   n_jobs=effective_n_jobs(self.n_jobs),
+                                                   **self.params_best)
     
                 self.model_refit = refit_Estimator.fit(**self._get_fit_params(self.Estimator,X_tr,y_tr,X_val,y_val,sample_weight,y_tr.index,y_val.index))   
                                                                                                      
@@ -301,11 +309,21 @@ class gridTuner(Base,BaseTunner):
                 self.cv_result=self._cvresult_to_df(self.grid_res.cv_results_)
                 
                 #refit model
-                refit_Estimator=self.Estimator(random_state=self.random_state,**self.params_best)
+                
 
                 if self.Estimator is CatBoostClassifier:
                     
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   thread_count=effective_n_jobs(self.n_jobs),
+                                                   **self.params_best)
+                    
                     refit_Estimator.set_params(**{'cat_features':self.cat_features})
+                    
+                else:
+                    
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   n_jobs=effective_n_jobs(self.n_jobs),
+                                                   **self.params_best)
 
                 self.model_refit = refit_Estimator.fit(X,y,sample_weight=sample_weight)          
 
@@ -326,15 +344,23 @@ class gridTuner(Base,BaseTunner):
                 self.cv_result=self._cvresult_to_df(self.r_grid_res.cv_results_)                
             
                 #refit with early_stopping_rounds or None  
-                refit_Estimator=self.Estimator(random_state=self.random_state,**self.params_best)
-                
                 if self.Estimator is CatBoostClassifier:
                     
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   thread_count=effective_n_jobs(self.n_jobs),
+                                                   **self.params_best)
+           
                     if self.eval_metric=='auc':
                         
                         self.eval_metric='AUC'
                     
                     refit_Estimator.set_params(**{"eval_metric":self.eval_metric})
+                    
+                else:
+                    
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   n_jobs=effective_n_jobs(self.n_jobs),
+                                                   **self.params_best)
     
                 self.model_refit = refit_Estimator.fit(**self._get_fit_params(self.Estimator,X_tr,y_tr,X_val,y_val,sample_weight,y_tr.index,y_val.index))   
                                                                                                      
@@ -352,14 +378,23 @@ class gridTuner(Base,BaseTunner):
                 #cv_result
                 self.cv_result=self._cvresult_to_df(self.r_grid_res.cv_results_)
                 
-                #refit with early_stopping_rounds or None  
-                refit_Estimator=self.Estimator(random_state=self.random_state,**self.params_best)
-    
+                #refit with early_stopping_rounds or None      
                 if self.Estimator is CatBoostClassifier:
                     
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   thread_count=effective_n_jobs(self.n_jobs),
+                                                   **self.params_best)
+                    
                     refit_Estimator.set_params(**{'cat_features':self.cat_features})
+                    
+                else:
+                    
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   n_jobs=effective_n_jobs(self.n_jobs),
+                                                   **self.params_best)
     
                 self.model_refit = refit_Estimator.fit(X,y,sample_weight=sample_weight) 
+                
                 
             
         else:
@@ -392,17 +427,23 @@ class gridTuner(Base,BaseTunner):
         
         n_jobs=effective_n_jobs(self.n_jobs)              
         
-        grid=GridSearchCV(self.Estimator(random_state=self.random_state),self.para_space,cv=cv,
-                          n_jobs=n_jobs,
-                          refit=False,
-                          verbose=self.verbose,
-                          scoring=scorer,error_score=0)    
-        
         if self.Estimator is CatBoostClassifier:
+            
+            grid=GridSearchCV(self.Estimator(random_state=self.random_state,thread_count=n_jobs),self.para_space,cv=cv,
+                              n_jobs=-1 if self.n_jobs==-1 else 1,
+                              refit=False,
+                              verbose=self.verbose,
+                              scoring=scorer,error_score=0)   
             
             self.grid_res=grid.fit(X,y,sample_weight=sample_weight,cat_features=self.cat_features)
             
         else:
+            
+            grid=GridSearchCV(self.Estimator(random_state=self.random_state,n_jobs=n_jobs),self.para_space,cv=cv,
+                              n_jobs=-1 if self.n_jobs==-1 else 1,
+                              refit=False,
+                              verbose=self.verbose,
+                              scoring=scorer,error_score=0)   
             
             self.grid_res=grid.fit(X,y,sample_weight=sample_weight)
         
@@ -426,16 +467,24 @@ class gridTuner(Base,BaseTunner):
         
         n_jobs=effective_n_jobs(self.n_jobs) 
         
-        r_grid=RandomizedSearchCV(self.Estimator(random_state=self.random_state),self.para_space,cv=cv,
-                                  n_jobs=n_jobs,verbose=self.verbose,refit=False,
-                                  random_state=self.random_state,
-                                  scoring=scorer,error_score=0,n_iter=self.n_iter)
         
         if self.Estimator is CatBoostClassifier:
+            
+            r_grid=RandomizedSearchCV(self.Estimator(random_state=self.random_state,thread_count=n_jobs),self.para_space,cv=cv,
+                                      n_jobs=-1 if self.n_jobs==-1 else 1,
+                                      verbose=self.verbose,refit=False,
+                                      random_state=self.random_state,
+                                      scoring=scorer,error_score=0,n_iter=self.n_iter)
         
             self.r_grid_res=r_grid.fit(X,y,sample_weight=sample_weight,cat_features=self.cat_features)
             
         else:
+            
+            r_grid=RandomizedSearchCV(self.Estimator(random_state=self.random_state,n_jobs=n_jobs),self.para_space,cv=cv,
+                                      n_jobs=-1 if self.n_jobs==-1 else 1,
+                                      verbose=self.verbose,refit=False,
+                                      random_state=self.random_state,
+                                      scoring=scorer,error_score=0,n_iter=self.n_iter)
             
             self.r_grid_res=r_grid.fit(X,y,sample_weight=sample_weight)
         

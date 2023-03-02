@@ -39,7 +39,7 @@ def test_gridTuner_xgb():
                          'colsample_bytree' :[0.6],
                          'reg_lambda':[0],
                          
-                         'use_label_encoder':[False]
+                         #'use_label_encoder':[False]
                          }
     
     res=gridTuner(XGBClassifier,para_space_gird,method='grid',n_jobs=1,cv=2,
@@ -80,7 +80,7 @@ def test_gridTuner_xgb():
                           'subsample':sp_uniform(loc=0.5,scale=0.5),
                           'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),                          
                           'reg_lambda':sp_randint(low=0,high=1), 
-                          'use_label_encoder':[False]
+                          #'use_label_encoder':[False]
                          }   
     
     res=gridTuner(XGBClassifier,para_space_random,method='random_grid',n_jobs=1,cv=2,n_iter=1,

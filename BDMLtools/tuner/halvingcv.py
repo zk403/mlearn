@@ -284,15 +284,24 @@ class hgridTuner(Base,BaseTunner):
                 self.cv_result=self._cvresult_to_df(self.h_grid_res.cv_results_)
             
                 #refit with early_stopping_rounds  
-                refit_Estimator=self.Estimator(random_state=self.random_state,**self.params_best)
-                
                 if self.Estimator is CatBoostClassifier:
+                    
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   thread_count=effective_n_jobs(self.n_jobs),
+                                                   **self.params_best)
                     
                     if self.eval_metric=='auc':
                         
                         self.eval_metric='AUC'
                     
                     refit_Estimator.set_params(**{"eval_metric":self.eval_metric})
+                    
+                else:
+                    
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   n_jobs=effective_n_jobs(self.n_jobs),
+                                                   **self.params_best)
+                    
             
                 self.model_refit = refit_Estimator.fit(**self._get_fit_params(self.Estimator,X_tr,y_tr,X_val,y_val,sample_weight,y_tr.index,y_val.index))   
                                                                                                      
@@ -310,12 +319,18 @@ class hgridTuner(Base,BaseTunner):
                 #cv_result
                 self.cv_result=self._cvresult_to_df(self.h_grid_res.cv_results_)
                 
-                #refit model
-                refit_Estimator=self.Estimator(random_state=self.random_state,**self.params_best)
-            
+                #refit model            
                 if self.Estimator is CatBoostClassifier:
                     
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   thread_count=effective_n_jobs(self.n_jobs),**self.params_best)
+                    
                     refit_Estimator.set_params(**{'cat_features':self.cat_features})
+                    
+                else:
+                    
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   n_jobs=effective_n_jobs(self.n_jobs),**self.params_best)
             
                 self.model_refit = refit_Estimator.fit(X,y,sample_weight=sample_weight)          
 
@@ -334,15 +349,23 @@ class hgridTuner(Base,BaseTunner):
                 self.cv_result=self._cvresult_to_df(self.h_random_res.cv_results_)
             
                 #refit with early_stopping_rounds  
-                refit_Estimator=self.Estimator(random_state=self.random_state,**self.params_best)
-                
                 if self.Estimator is CatBoostClassifier:
+                    
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   thread_count=effective_n_jobs(self.n_jobs),
+                                                   **self.params_best)
                     
                     if self.eval_metric=='auc':
                         
                         self.eval_metric='AUC'
                     
                     refit_Estimator.set_params(**{"eval_metric":self.eval_metric})
+                    
+                else:
+                    
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   n_jobs=effective_n_jobs(self.n_jobs),
+                                                   **self.params_best)                    
             
                 self.model_refit = refit_Estimator.fit(**self._get_fit_params(self.Estimator,X_tr,y_tr,X_val,y_val,sample_weight,y_tr.index,y_val.index))   
                                                                                                      
@@ -361,11 +384,19 @@ class hgridTuner(Base,BaseTunner):
                 self.cv_result=self._cvresult_to_df(self.h_random_res.cv_results_)
                 
                 #refit model
-                refit_Estimator=self.Estimator(random_state=self.random_state,**self.params_best)
-            
                 if self.Estimator is CatBoostClassifier:
                     
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   thread_count=effective_n_jobs(self.n_jobs),**self.params_best)                   
+                    
                     refit_Estimator.set_params(**{'cat_features':self.cat_features})
+                    
+                else:
+                    
+                    refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                   n_jobs=effective_n_jobs(self.n_jobs),**self.params_best) 
+                    
+                    
             
                 self.model_refit = refit_Estimator.fit(X,y,sample_weight=sample_weight)          
                                                         
@@ -378,7 +409,7 @@ class hgridTuner(Base,BaseTunner):
         if self.calibration:
             
             self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
-                                                  n_jobs=self.n_jobs).fit(X,y,sample_weight=sample_weight) 
+                                                  n_jobs=effective_n_jobs(self.n_jobs)).fit(X,y,sample_weight=sample_weight) 
                        
         self._is_fitted=True
         
@@ -400,21 +431,32 @@ class hgridTuner(Base,BaseTunner):
         
         n_jobs=effective_n_jobs(self.n_jobs) 
         
-        hgrid=HalvingGridSearchCV(self.Estimator(random_state=self.random_state),
-                                  param_grid=self.para_space,
-                                  cv=cv,
-                                  refit=False,
-                                  factor=self.factor,
-                                  scoring=scorer,
-                                  random_state=self.random_state,
-                                  verbose=self.verbose,
-                                  n_jobs=n_jobs)
         
         if self.Estimator is CatBoostClassifier:
+            
+            hgrid=HalvingGridSearchCV(self.Estimator(random_state=self.random_state,thread_count=n_jobs),
+                                      param_grid=self.para_space,
+                                      cv=cv,
+                                      refit=False,
+                                      factor=self.factor,
+                                      scoring=scorer,
+                                      random_state=self.random_state,
+                                      verbose=self.verbose,
+                                      n_jobs=-1 if self.n_jobs==-1 else 1)
         
             self.h_grid_res=hgrid.fit(X,y,**{'sample_weight':sample_weight,'cat_features':self.cat_features})
             
         else:
+            
+            hgrid=HalvingGridSearchCV(self.Estimator(random_state=self.random_state,n_jobs=n_jobs),
+                                      param_grid=self.para_space,
+                                      cv=cv,
+                                      refit=False,
+                                      factor=self.factor,
+                                      scoring=scorer,
+                                      random_state=self.random_state,
+                                      verbose=self.verbose,
+                                      n_jobs=-1 if self.n_jobs==-1 else 1)
             
             self.h_grid_res=hgrid.fit(X,y,sample_weight=sample_weight)
            
@@ -438,23 +480,35 @@ class hgridTuner(Base,BaseTunner):
         
         n_jobs=effective_n_jobs(self.n_jobs) 
         
-        h_r_grid=HalvingRandomSearchCV(self.Estimator(random_state=self.random_state),
-                                     param_distributions=self.para_space,
-                                     n_candidates=self.n_candidates,
-                                     factor=self.factor,
-                                     cv=cv,
-                                     n_jobs=n_jobs,
-                                     verbose=self.verbose,
-                                     refit=True,
-                                     random_state=self.random_state,
-                                     scoring=scorer,
-                                     error_score=0)
-        
         if self.Estimator is CatBoostClassifier:
+            
+            h_r_grid=HalvingRandomSearchCV(self.Estimator(random_state=self.random_state,thread_count=n_jobs),
+                                         param_distributions=self.para_space,
+                                         n_candidates=self.n_candidates,
+                                         factor=self.factor,
+                                         cv=cv,
+                                         n_jobs=-1 if self.n_jobs==-1 else 1,
+                                         verbose=self.verbose,
+                                         refit=True,
+                                         random_state=self.random_state,
+                                         scoring=scorer,
+                                         error_score=0)
         
             self.h_random_res=h_r_grid.fit(X,y,**{'sample_weight':sample_weight,'cat_features':self.cat_features})
             
         else:
+            
+            h_r_grid=HalvingRandomSearchCV(self.Estimator(random_state=self.random_state,n_jobs=n_jobs),
+                                         param_distributions=self.para_space,
+                                         n_candidates=self.n_candidates,
+                                         factor=self.factor,
+                                         cv=cv,
+                                         n_jobs=-1 if self.n_jobs==-1 else 1,
+                                         verbose=self.verbose,
+                                         refit=True,
+                                         random_state=self.random_state,
+                                         scoring=scorer,
+                                         error_score=0)
             
             self.h_random_res=h_r_grid.fit(X,y,sample_weight=sample_weight)       
         

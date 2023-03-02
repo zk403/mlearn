@@ -16,7 +16,7 @@ from sklearn.model_selection import RepeatedStratifiedKFold,train_test_split
 #from lightgbm import early_stopping as lgbm_early_stopping
 #from time import time
 #import pandas as pd
-from joblib import effective_n_jobs
+from joblib import effective_n_jobs,cpu_count
 #import numpy as np
 from lightgbm.sklearn import LGBMClassifier
 from skopt import BayesSearchCV
@@ -42,7 +42,7 @@ class BayesianCVTuner(Base,BaseTunner):
         eval_metric=‘auc’,early_stopping的评价指标,为可被Estimator识别的格式,参考Estimator.fit中的eval_metric参数
         cv:int,RepeatedStratifiedKFold交叉验证的折数
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
-        n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
+        n_jobs,int,运行交叉验证和提升算法并行数,默认-1
         verbose,int,并行信息输出等级
         random_state,随机种子
         calibration:使用sklearn的CalibratedClassifierCV对refit模型进行概率校准
@@ -111,7 +111,7 @@ class BayesianCVTuner(Base,BaseTunner):
 
     '''    
     
-    def __init__(self,Estimator,para_space={},n_iter=10,init_points=5,scoring='auc',eval_metric='auc',
+    def __init__(self,Estimator,para_space={},n_iter=10,init_points=1,scoring='auc',eval_metric='auc',
                  cv=5,repeats=1,n_jobs=-1,verbose=0,early_stopping_rounds=10,validation_fraction=0.1,random_state=123,calibration=False,cv_calibration=5):
         
         self.Estimator=Estimator
@@ -226,16 +226,24 @@ class BayesianCVTuner(Base,BaseTunner):
             #cv_result
             self.cv_result=self._cvresult_to_df(self.bs_res.cv_results_)
             
-            #refit with early_stopping_rounds  
-            refit_Estimator=self.Estimator(random_state=self.random_state,**self.params_best)
-                
+            #refit with early_stopping_rounds                  
             if self.Estimator is CatBoostClassifier:
+                
+                refit_Estimator=self.Estimator(random_state=self.random_state,
+                                               thread_count=effective_n_jobs(self.n_jobs),
+                                               **self.params_best)
                 
                 if self.eval_metric=='auc':
                     
                     self.eval_metric='AUC'
                 
                 refit_Estimator.set_params(**{"eval_metric":self.eval_metric})
+                
+            else:
+                
+                refit_Estimator=self.Estimator(random_state=self.random_state,
+                                               n_jobs=effective_n_jobs(self.n_jobs),
+                                               **self.params_best)
 
             self.model_refit = refit_Estimator.fit(**self._get_fit_params(self.Estimator,X_tr,y_tr,X_val,y_val,sample_weight,y_tr.index,y_val.index))   
                                                                                                  
@@ -254,11 +262,19 @@ class BayesianCVTuner(Base,BaseTunner):
             self.cv_result=self._cvresult_to_df(self.bs_res.cv_results_)
             
             #refit model
-            refit_Estimator=self.Estimator(random_state=self.random_state,**self.params_best)
-
             if self.Estimator is CatBoostClassifier:
                 
+                refit_Estimator=self.Estimator(random_state=self.random_state,
+                                               thread_count=effective_n_jobs(self.n_jobs),
+                                               **self.params_best)
+                
                 refit_Estimator.set_params(**{'cat_features':self.cat_features})
+                
+            else:
+                
+                refit_Estimator=self.Estimator(random_state=self.random_state,
+                                               n_jobs=effective_n_jobs(self.n_jobs),
+                                               **self.params_best)
 
             self.model_refit = refit_Estimator.fit(X,y,sample_weight=sample_weight)             
 
@@ -267,7 +283,7 @@ class BayesianCVTuner(Base,BaseTunner):
         if self.calibration:
 
             self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
-                                                  n_jobs=self.n_jobs).fit(X,y,sample_weight=sample_weight)
+                                                  n_jobs=effective_n_jobs(self.n_jobs)).fit(X,y,sample_weight=sample_weight)
 
         self._is_fitted=True
         
@@ -288,19 +304,27 @@ class BayesianCVTuner(Base,BaseTunner):
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)
         
         n_jobs=effective_n_jobs(self.n_jobs)
-                        
-        bs=BayesSearchCV(
-            self.Estimator(random_state=self.random_state),para_space,cv=cv,
-            n_iter=self.n_iter,n_points=self.init_points,
-            n_jobs=n_jobs,verbose=self.verbose,refit=False,random_state=self.random_state,
-            scoring=scorer,error_score=0)       
         
         if self.Estimator is CatBoostClassifier:
-        
+            
+            bs=BayesSearchCV(
+                self.Estimator(random_state=self.random_state,thread_count=n_jobs),para_space,cv=cv,
+                n_iter=self.n_iter,n_points=self.init_points,
+                n_jobs=-1 if self.n_jobs==-1 else 1,
+                verbose=self.verbose,refit=False,random_state=self.random_state,
+                scoring=scorer,error_score=0)    
+            
             self.bs_res=bs.fit(X,y,**{'sample_weight':sample_weight,
                                       'cat_features':self.cat_features})
-            
+                    
         else:
+                        
+            bs=BayesSearchCV(
+                self.Estimator(random_state=self.random_state,n_jobs=n_jobs),para_space,cv=cv,
+                n_iter=self.n_iter,n_points=self.init_points,
+                n_jobs=-1 if self.n_jobs==-1 else 1,
+                verbose=self.verbose,refit=False,random_state=self.random_state,
+                scoring=scorer,error_score=0)       
             
             self.bs_res=bs.fit(X,y,**{'sample_weight':sample_weight})
   

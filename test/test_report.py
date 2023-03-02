@@ -41,6 +41,8 @@ def test_varReportSinge(mock_show):
     varReportSinge().report(X['a'],y,[1],sample_weight=ws)
     varReportSinge().woe_plot(X['c'],y,['1','2','3'])
     varReportSinge().woe_plot(X['c'],y,['1','2','3'],sample_weight=ws)
+    varReportSinge().woe_plot(X['c'],y,['1','2%,%3'])
+    varReportSinge().woe_plot(X['c'],y,['1%,%2','3'],sample_weight=ws)
 
     
 @mock.patch('matplotlib.pyplot.show')

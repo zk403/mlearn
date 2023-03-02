@@ -131,13 +131,17 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
                 
                 X_tr, X_val, y_tr, y_val = train_test_split(X,y,test_size=self.validation_fraction,random_state=self.random_state,stratify=y)
                 
-                estimator=sLGBMClassifier(random_state=self.random_state,**self.clf_params).fit(
+                estimator=sLGBMClassifier(random_state=self.random_state,
+                                          n_jobs=effective_n_jobs(self.n_jobs),
+                                          **self.clf_params).fit(
                     X_tr,y_tr,**self._get_fit_params(X_val,y_val,sample_weight,y.index,y_val.index)
                 )
                 
             else:
                 
-                estimator = sLGBMClassifier(random_state=self.random_state,**self.clf_params).fit(
+                estimator = sLGBMClassifier(random_state=self.random_state,
+                                            n_jobs=effective_n_jobs(self.n_jobs),
+                                            **self.clf_params).fit(
                     X,y,**{'sample_weight':sample_weight})  
                                                          
         else:
@@ -150,7 +154,9 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
 
                 self._BayesSearch_CV(para_space,X_tr,y_tr,None if sample_weight is None else sample_weight[y_tr.index])
     
-                estimator=sLGBMClassifier(random_state=self.random_state,**self.bs_res.best_params_).fit(
+                estimator=sLGBMClassifier(random_state=self.random_state,
+                                          n_jobs=effective_n_jobs(self.n_jobs),
+                                          **self.bs_res.best_params_).fit(
                     X_tr,y_tr,**self._get_fit_params(X_val,y_val,sample_weight,y.index,y_val.index)
                 )  
             
@@ -158,11 +164,14 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
                 
                 self._BayesSearch_CV(para_space,X,y,sample_weight)
                 
-                estimator = sLGBMClassifier(random_state=self.random_state,**self.bs_res.best_params_).fit(
+                estimator = sLGBMClassifier(random_state=self.random_state,
+                                            n_jobs=effective_n_jobs(self.n_jobs),
+                                            **self.bs_res.best_params_).fit(
                     X,y,**{'sample_weight':sample_weight})  
                 
          
-        self.pi = permutation_importance(estimator, X, y, n_repeats=self.pi_repeats,random_state=self.random_state,scoring=self.scoring)
+        self.pi = permutation_importance(estimator, X, y, n_repeats=self.pi_repeats,random_state=self.random_state,
+                                         scoring=self.scoring,n_jobs=effective_n_jobs(self.n_jobs))
         
         self.pi_df = pd.concat([pd.Series(self.pi[key],name=key,index=X.columns) for key in self.pi if key!='importances'],axis=1)
 
@@ -214,9 +223,9 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
         n_jobs=effective_n_jobs(self.n_jobs)
                         
         bs=BayesSearchCV(
-            sLGBMClassifier(random_state=self.random_state),para_space,cv=cv,
+            sLGBMClassifier(random_state=self.random_state,n_jobs=n_jobs),para_space,cv=cv,
             n_iter=self.n_iter,n_points=self.init_points,
-            n_jobs=n_jobs,verbose=self.verbose,refit=False,random_state=self.random_state,
+            n_jobs=-1 if self.n_jobs==-1 else 1,verbose=self.verbose,refit=False,random_state=self.random_state,
             scoring=scorer,error_score=0)       
         
         self.bs_res=bs.fit(X,y,**{'sample_weight':sample_weight})
@@ -233,7 +242,7 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
             'verbose':Categorical([-1]), 
             'n_estimators': Integer(low=200, high=300, prior='uniform', transform='identity'),
             'learning_rate': Real(low=0.05, high=0.2, prior='uniform', transform='identity'),
-            'max_depth': Integer(low=2, high=4, prior='uniform', transform='identity')
+            'max_depth': Integer(low=2, high=4, prior='uniform', transform='identity')            
         }
         
         return para_space
@@ -373,17 +382,19 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
 
         if self.method=='raw':
             
-            estimator=sLGBMClassifier(random_state=self.random_state,**self.clf_params)
+            estimator=sLGBMClassifier(random_state=self.random_state,
+                                      n_jobs=effective_n_jobs(self.n_jobs),
+                                      **self.clf_params)
             
         else:
             
             para_space=self.clf_params if self.clf_params else self._lgbm_hpsearch_default()
     
             
-            estimator=BayesSearchCV(sLGBMClassifier(random_state=self.random_state),para_space,
+            estimator=BayesSearchCV(sLGBMClassifier(random_state=self.random_state,n_jobs=n_jobs),para_space,
                                     n_iter=self.n_iter,n_points=self.n_points,
                                     random_state=self.random_state,
-                                    n_jobs=self.n_jobs,
+                                    n_jobs=-1 if self.n_jobs==-1 else 1,
                                     verbose=self.verbose,cv=cv)
         
         if self.early_stopping_rounds:
@@ -394,7 +405,7 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
                                         step=self.step,
                                         random_state=self.random_state,
                                         scoring=self.scoring,
-                                        n_jobs=n_jobs,
+                                        n_jobs=-1 if self.n_jobs==-1 else 1,
                                         verbose=-1,
                                         early_stopping_rounds=self.early_stopping_rounds,
                                         cv=cv)
@@ -408,7 +419,7 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
                                 step=self.step,
                                 random_state=self.random_state,
                                 scoring=self.scoring,
-                                n_jobs=n_jobs,
+                                n_jobs=-1 if self.n_jobs==-1 else 1,
                                 verbose=-1,
                                 cv=cv)
         
@@ -569,7 +580,7 @@ class LgbmSeqSelector(TransformerMixin,Base,BaseTunner):
         
         n_jobs=effective_n_jobs(self.n_jobs)
         
-        lgbm=sLGBMClassifier(random_state=self.random_state,**self.clf_params)
+        lgbm=sLGBMClassifier(random_state=self.random_state,n_jobs=n_jobs,**self.clf_params)
         
         seq_clf = SequentialFeatureSelector(lgbm,                                            
                         k_features=self.k_features,

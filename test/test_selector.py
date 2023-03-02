@@ -22,7 +22,10 @@ def test_binSelector():
         {
          'a':np.arange(100,dtype='float'),
          'b':np.concatenate([[-999],np.ones(98),[999]]),
-         'c':np.concatenate([np.repeat('a',30),np.repeat('b',30),np.repeat('c',30),np.repeat('d',10)],dtype=object)}
+         'c':np.concatenate([np.repeat('a',30),np.repeat('b',30),np.repeat('c',30),np.repeat('d',10)],dtype=object),
+         'd':np.repeat(999,100),
+         'e':np.repeat(np.nan,100)
+         }
         )
     
     ws=pd.Series(np.ones(100),name='ws')
@@ -31,9 +34,10 @@ def test_binSelector():
     
     binSelector(method='freq').fit_transform(X,y)        
     binSelector(method='freq',coerce_monotonic=True).fit_transform(X,y)  
-    binSelector(method='freq',sample_weight=ws,keep=['a','c']).fit_transform(X,y)   
-    binSelector(method='freq',special_values=[1,2,3,4,'a']).fit_transform(X,y)        
-    
+    binSelector(method='freq',sample_weight=ws,keep=['a','c']).fit_transform(X,y)
+    binSelector(method='freq',sample_weight=ws,keep=['a','c'],coerce_monotonic=True).fit_transform(X,y)   
+    binSelector(method='freq',special_values=[1,2,3,4,'a']).fit_transform(X,y)   
+
     binSelector(method='freq-kmeans',n_jobs=1,iv_limit=0,bin_num_limit=2).fit_transform(X,y)       
     binSelector(method='freq-kmeans',n_jobs=1,iv_limit=0,coerce_monotonic=True).fit_transform(X,y)   
     binSelector(method='freq-kmeans',n_jobs=1,iv_limit=0,sample_weight=ws,keep=['a','c']).fit_transform(X,y)   
@@ -175,7 +179,7 @@ def test_prefitModel():
     y=pd.Series([0,0,1,1,1],name='y')
 
     pm=prefitModel(
-        tree_params={'max_depth': 2, 'learning_rate': 0.05, 'n_estimators': 10},
+        tree_params={'max_depth': 2, 'learning_rate': 0.05, 'n_estimators': 10,'n_jobs':1},
         method='ceiling',
                    ).fit(X,y)    
     

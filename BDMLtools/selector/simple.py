@@ -23,7 +23,7 @@ from BDMLtools.base import Base
 #from lofo import LOFOImportance, Dataset
 from sklearn.feature_selection import SelectFpr,SelectFdr,SelectFwe
 #from BDMLtools.selector.lgbm import LgbmPISelector
-
+from joblib import effective_n_jobs
 
 
 class prefitModel(Base):
@@ -138,10 +138,10 @@ class prefitModel(Base):
         X_new=pd.concat([X_numeric,X_categoty_encode],axis=1)
         
         
-        max_depth=params['max_depth']
-        learning_rate=params['learning_rate']
-        n_estimators=params['n_estimators']
-        
+        max_depth=params['max_depth'] if 'max_depth' in params else 3
+        learning_rate=params['learning_rate'] if 'learning_rate' in params else 0.01
+        n_estimators=params['n_estimators'] if 'n_estimators' in params else 100
+        n_jobs=params['n_jobs'] if 'n_jobs' in params else -1
 
         lgb=sLGBMClassifier(
                 boosting_type='gbdt',
@@ -149,6 +149,7 @@ class prefitModel(Base):
                 learning_rate=learning_rate,
                 n_estimators=n_estimators,
                 max_depth=max_depth,
+                n_jobs=effective_n_jobs(n_jobs)
             ).fit(X_new,y,sample_weight=sample_weight)         
             
         return lgb
@@ -228,6 +229,7 @@ class preSelector(Base,Specials,TransformerMixin):
         tree_imps:int or None,lightgbm树的split_gan小于等于tree_imps的列将被剔除,默认1，设定为None将跳过此步骤
         tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
         iv_limit:float or None使用进行iv快速筛选的iv阈值(数值等频30箱，分类则按照类别分箱)
+        n_jobs:int,默认-1,Lightgbm筛选过程中线程并行控制参数
         out_path:str or None,模型报告路径,将预筛选过程每一步的筛选过程输出到模型报告中
         missing_values:缺失值指代值
                 + None
@@ -243,7 +245,7 @@ class preSelector(Base,Specials,TransformerMixin):
     
     
     def __init__(self,na_pct=0.99,unique_pct=0.99,variance=0,chif_pvalue=0.05,tree_imps=1,random_state=123,
-                 tree_size=250,iv_limit=0.02,out_path=None,missing_values=None,keep=None
+                 tree_size=250,iv_limit=0.02,out_path=None,missing_values=None,keep=None,n_jobs=-1
                  ):
 
         self.na_pct=na_pct
@@ -257,6 +259,7 @@ class preSelector(Base,Specials,TransformerMixin):
         self.missing_values=missing_values
         self.random_state=random_state
         self.keep=keep
+        self.n_jobs=n_jobs
         
         self._is_fitted=False
         
@@ -680,6 +683,7 @@ class preSelector(Base,Specials,TransformerMixin):
                 random_state=123,
                 subsample=0.7,
                 colsample_bytree=1,
+                n_jobs=effective_n_jobs(self.n_jobs)
             ).fit(X_new,y,sample_weight=sample_weight,categorical_feature=X_category_encode.columns.tolist())         
 
             lgb_imps=lgb.booster_.feature_importance(importance_type='split')
@@ -696,6 +700,7 @@ class preSelector(Base,Specials,TransformerMixin):
                 random_state=123,
                 subsample=0.7,
                 colsample_bytree=1,
+                n_jobs=effective_n_jobs(self.n_jobs)
             ).fit(X_numeric,y,sample_weight=sample_weight)         
 
             lgb_imps=lgb.booster_.feature_importance(importance_type='split')
