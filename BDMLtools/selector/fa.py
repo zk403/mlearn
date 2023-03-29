@@ -275,11 +275,11 @@ class faSelector(Base,TransformerMixin):
         
         if distance_threshold:
             
-            model = FeatureAgglomeration(distance_threshold=distance_threshold,n_clusters=None,affinity='precomputed',linkage=linkage).fit(m)
+            model = FeatureAgglomeration(distance_threshold=distance_threshold,n_clusters=None,metric='precomputed',linkage=linkage).fit(m)
             
         elif n_clusters:
             
-            model = FeatureAgglomeration(n_clusters=n_clusters,affinity='precomputed',linkage='average').fit(m)
+            model = FeatureAgglomeration(n_clusters=n_clusters,metric='precomputed',linkage='average').fit(m)
             
         else:
             
@@ -328,7 +328,7 @@ class faSelector(Base,TransformerMixin):
         m = pd.DataFrame(pairwise_distances(X_t, X_t, metric=custom_distance)) #使用相关系数距离衡量
 
         #affinity设定为'precomputed',linkage设定为非ward
-        model = FeatureAgglomeration(distance_threshold=0,n_clusters=None,affinity='precomputed',linkage=linkage).fit(m)
+        model = FeatureAgglomeration(distance_threshold=0,n_clusters=None,metric='precomputed',linkage=linkage).fit(m)
         plt.title('Hierarchical Clustering Dendrogram')
         plot(model)
         plt.xlabel("Variable index")

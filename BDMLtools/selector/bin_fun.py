@@ -243,7 +243,7 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
         return breaks
 
     breaks_list={name_value[0]:get_breaks(name_value[1],y) 
-                 for name_value in X.iteritems()}
+                 for name_value in X.items()}
     
     breaks_list=Base()._check_breaks(breaks_list)
     
@@ -517,8 +517,8 @@ class binKmeans(Base,Specials):
                      if n_clusters<=1:
                          
                          n_clusters=1
-         
-                     res_km=KMeans(n_clusters=n_clusters,random_state=random_state).fit_predict(var_bin[['badprob']])
+                                  
+                     res_km=KMeans(n_clusters=n_clusters,random_state=random_state,n_init=10).fit_predict(var_bin[['badprob']])
                      res_km_s=pd.Series(res_km,var_bin.index,name='cluster')
         
                      #get index of bins to be merged
@@ -646,7 +646,7 @@ class binTree(Base,Specials):
                                         self.bin_num_limit,
                                         self.ws,
                                         self.coerce_monotonic,
-                                        self.special_values) for col in X.iteritems())
+                                        self.special_values) for col in X.items())
         
         self.breaks_list=self._check_breaks({col_name:breaks for col_name,breaks,_ in res})        
         self.bins={col_name:vtab for col_name,_,vtab in res}
@@ -1022,7 +1022,7 @@ class binChi2(Base,Specials):
                                         self.bin_num_limit,
                                         self.ws,
                                         self.coerce_monotonic,
-                                        self.special_values) for col in X.iteritems())
+                                        self.special_values) for col in X.items())
         
         self.breaks_list=self._check_breaks({col_name:breaks for col_name,breaks,_ in res})
         self.bins={col_name:vtab for col_name,_,vtab in res}            
@@ -1384,7 +1384,7 @@ class binPretty(Base,Specials):
                                         self.bin_num_limit,
                                         self.ws,
                                         self.coerce_monotonic,
-                                        self.special_values) for col in X.iteritems())
+                                        self.special_values) for col in X.items())
         
         self.breaks_list=self._check_breaks({col_name:breaks for col_name,breaks,_ in res})
         self.bins={col_name:vtab for col_name,_,vtab in res}            

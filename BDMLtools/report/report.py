@@ -169,7 +169,7 @@ class EDAReport(Base,Specials):
             
             writer = pd.ExcelWriter(self.out_path+"/model_report.xlsx")       
             pd.DataFrame(None).to_excel(writer,sheet_name='summary')
-            writer.save()                    
+            writer.close()                    
             
         writer=pd.ExcelWriter(self.out_path+'/model_report.xlsx',
                               mode='a',
@@ -193,7 +193,7 @@ class EDAReport(Base,Specials):
             
             self.nacorr_report.to_excel(writer,sheet_name='1.EDA_nancorr')
             
-        writer.save()     
+        writer.close()     
         print('to_excel done')  
 
         
@@ -265,7 +265,7 @@ class businessReport(Base,TransformerMixin):
             
             writer = pd.ExcelWriter('/model_report.xlsx')            
             pd.DataFrame(None).to_excel(writer,sheet_name='summary')
-            writer.save()                    
+            writer.close()                    
             
         writer=pd.ExcelWriter(self.out_path+'/model_report.xlsx',
                               mode='a',
@@ -275,7 +275,7 @@ class businessReport(Base,TransformerMixin):
 
         ptable.to_excel(writer,sheet_name='2.Businessreport')
             
-        writer.save()     
+        writer.close()     
         print('to_excel done') 
         
 
@@ -289,7 +289,9 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
         X:pd.Series,单特征x
         y:pd.Series,目标特征
         breaks:list,分箱点
-        regularization=1e-10:float,计算好坏分布时正则项强度,用于应对iv、woe计算时分母为0的情况，越高则强度越高，不同的regularization将影响iv、ks、woe的结算结果。
+        regularization=1e-10:float,计算好坏分布时正则项强度,用于应对iv、woe计算时分母为0的情况，
+                                   regularization越高则强度越高，不同的regularization将影响iv、ks、woe的结算结果，
+                                   默认regularization=1e-10情况下，出现分母为0的变量的IV将被高估
         sample_weight:pd.Seires or None,样本权重
         special_values:特殊值指代值,若数据中某些值或某列某些值需特殊对待(这些值不是np.nan)时设定
             请特别注意若使用binSelector产生breaks_list,special_values必须与binSelector的special_values一致,否则报告的special行会产生错误结果
@@ -491,7 +493,9 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
         sample_weight:numpy.array or pd.Series or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标
-        regularization=1e-10:float,计算好坏分布时正则项强度,用于应对iv、woe计算时分母为0的情况，越高则正则强度越高，不同的regularization将影响iv、ks、woe的结算结果
+        regularization=1e-10:float,计算好坏分布时正则项强度,用于应对iv、woe计算时分母为0的情况，
+                                   regularization越高则强度越高，不同的regularization将影响iv、ks、woe的结算结果，
+                                   默认regularization=1e-10情况下，出现分母为0的变量的IV将被高估
         out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
         tab_suffix:本地excel报告名后缀
         n_jobs:int,并行计算job数
@@ -591,7 +595,7 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
             
             writer = pd.ExcelWriter(self.out_path+'/var_report'+self.tab_suffix+'.xlsx')            
             pd.DataFrame(None).to_excel(writer,sheet_name='summary')
-            writer.save()    
+            writer.close()    
             
         writer=pd.ExcelWriter(self.out_path+'/var_report'+self.tab_suffix+'.xlsx',
                               mode='a',
@@ -600,7 +604,7 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
                               engine='openpyxl')
            
         pd.concat(self.var_report_dict).to_excel(writer,sheet_name='bin')                               
-        writer.save()     
+        writer.close()     
         
         print('to_excel done') 
 
@@ -632,7 +636,9 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
             + None,保持数据默认
             + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
             + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan  
-    regularization=1e-10:float,计算好坏分布时正则项强度,用于应对iv、woe计算时分母为0的情况，越高则正则强度越高，不同的regularization将影响iv、ks、woe的结算结果
+    regularization=1e-10:float,计算好坏分布时正则项强度,用于应对iv、woe计算时分母为0的情况，
+                               regularization越高则强度越高，不同的regularization将影响iv、ks、woe的结算结果，
+                               默认regularization=1e-10情况下，出现分母为0的变量的IV将被高估
     sample_weight:numpy.array or pd.Series(...,index=X.index) or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标以还原抽样对分析影响
     n_jobs:int,并行计算job数
     verbose:int,并行计算信息输出等级
@@ -927,7 +933,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
             
             writer = pd.ExcelWriter(self.out_path+'/var_report'+str(self.tab_suffix)+'.xlsx')            
             pd.DataFrame(None).to_excel(writer,sheet_name='summary')
-            writer.save()                    
+            writer.close()                    
             
         writer=pd.ExcelWriter(self.out_path+'/var_report'+str(self.tab_suffix)+'.xlsx',
                               mode='a',
@@ -948,7 +954,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
             self.report_dict['report_psi'].to_excel(writer,sheet_name='bin_psi')  
         
             
-        writer.save()     
+        writer.close()     
         print('to_excel done') 
         
         

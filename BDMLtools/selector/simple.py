@@ -823,7 +823,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             writer = pd.ExcelWriter(self.out_path+"/model_report.xlsx")       
             pd.DataFrame(None).to_excel(writer,sheet_name='summary')
-            writer.save()                    
+            writer.close()                    
             
         writer=pd.ExcelWriter(self.out_path+'/model_report.xlsx',
                               mode='a',
@@ -833,5 +833,5 @@ class preSelector(Base,Specials,TransformerMixin):
         
         self.preSelector_report.to_excel(writer,sheet_name='3.preSelect')
             
-        writer.save()     
+        writer.close()     
         print('to_excel done') 
