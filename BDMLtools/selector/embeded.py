@@ -171,7 +171,7 @@ class LassoLogit(Base,TransformerMixin):
         n_jobs=effective_n_jobs(self.n_jobs)
         
         parallel=Parallel(n_jobs=n_jobs,verbose=self.verbose)
-        out_list=np.array(parallel(delayed(self._logit_cv_parallel)(X,y,i,ws,'neglogloss')
+        out_list=np.array(parallel(delayed(self._logit_cv_parallel)(X,y,i,ws)
                         for i in product(cs,cv.split(X, y))),dtype=object)
 
         cs_cv=out_list[:,0]
@@ -194,7 +194,7 @@ class LassoLogit(Base,TransformerMixin):
         return cv_path_,cv_res_
         
 
-    def _logit_cv_parallel(self,X,y,i,ws=None,metric='neglogloss'):
+    def _logit_cv_parallel(self,X,y,i,ws=None):
     
         c=i[0]
         train=i[1][0]

@@ -1,4 +1,13 @@
 ```
+v0.3.4
+1.修改了部分pandas的接口以适应新版本pandas
+2.绘图依赖包plotnine版本控制在0.10.1及以上
+3.取消了对matlotlib与numpy的版本限制
+4.更新单元测试脚本,更新部分代码说明
+5.更新example
+```
+
+```
 v0.3.3
 1.修复了varGroupReport中report_iv与report_ks在输入数据重复时产生的bug
 2.修复了EDAreport在某类报告为None时产生的写出bug
