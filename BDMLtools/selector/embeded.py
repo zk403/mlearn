@@ -35,9 +35,10 @@ class LassoLogit(Base,TransformerMixin):
     --        
         c_num=20,int:l1正则项的粒度，越大的数值代表越多的l1正则项参与寻优
         method='1se':str,若c_num非None，LassoLogit进行重新拟合时的c值
-            + '1se':一倍标准误差原则，同R的glmnet。交叉验证中最优指标(logloss或其他优化指标)下的c值对应一倍标准误差范围内的最小c值重拟合模型                    
+            + '1se':一倍标准误差原则，同R的glmnet。交叉验证中最优指标(logloss或其他优化指标)下的c值对应一倍标准误差范围内的最小c值在全量数据上拟合的模型        
+            + 'best':交叉验证中最优指标(logloss或其他优化指标)下的c值在全量数据上拟合的模型           
         standard=True:bool,是否进行数据标准化
-        metric:str,交叉验证评估标准，可选'roc_auc','neg_log_loss'
+        metric:str,交叉验证评估标准，可选'roc_auc','neglogloss'
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
         cv:int,交叉验证的折数
         keep:list 需要保留的列的列名list
@@ -47,7 +48,7 @@ class LassoLogit(Base,TransformerMixin):
         
     Method:    
     --     
-        refit_with_C(X,y,C,sample_weight):以自定义C值重新拟合回归模型，要求LassoLogit对象需拟合过
+        select_C(C):选择指定C值下的lasso模型作为refit模型，要求LassoLogit对象需拟合过
      
     Attribute:    
     --
@@ -123,7 +124,7 @@ class LassoLogit(Base,TransformerMixin):
             
             X=StandardScaler().fit_transform(X)
         
-        cv_path_,cv_res_=self._logit_cv(X,y,sample_weight)
+        out_mods_,cv_path_,cv_res_=self._logit_cv(X,y,sample_weight)
         max_s,max_s_se=cv_res_[cv_res_['valscore_avg']==cv_res_['valscore_avg'].max()].to_numpy()[0][[2,4]]
         
         self.plot_path=self._plot_path(cv_path_,figure_size)
@@ -135,29 +136,24 @@ class LassoLogit(Base,TransformerMixin):
             
         self.cv_path_=cv_path_
         self.cv_res_=cv_res_
-            
-#         if self.method=='best':    
-            
-#             refit_c=self.c_best
-            
-        if self.method=='1se':    
-            
-            refit_c=self.c_1se
-            
-        else:
-            
-            raise ValueError('method in ("1se")')
-            
-        self.model_refit = LogisticRegression(
-            C=refit_c,
-            penalty="l1",
-            solver="saga",
-            tol=1e-6,
-            max_iter=int(1e6)
-        ).fit(X,y)
+        self.out_mods_=out_mods_
             
         self._is_fitted=True
         
+        if self.method=='best':    
+            
+            c_selected=self.c_best
+            
+        elif self.method=='1se':    
+            
+            c_selected=self.c_1se
+            
+        else:
+            
+            raise ValueError('method in ("1se","best")')
+        
+        self.select_C(c_selected)
+            
         return self    
     
     def _logit_cv(self,X,y,ws):
@@ -173,25 +169,25 @@ class LassoLogit(Base,TransformerMixin):
         parallel=Parallel(n_jobs=n_jobs,verbose=self.verbose)
         out_list=np.array(parallel(delayed(self._logit_cv_parallel)(X,y,i,ws)
                         for i in product(cs,cv.split(X, y))),dtype=object)
-
+        
+        out_mods_=np.array(parallel(delayed(self._logit_c_refit)(X,y,c,ws)
+                        for c in cs),dtype=object)
+        
         cs_cv=out_list[:,0]
         val_score_cv=out_list[:,1]
-        coefs_cv=out_list[:,2]
         
-        cv_path_=pd.DataFrame({np.log10(c):np.mean(np.array(coefs_cv)[np.array(cs_cv)==c],0) for c in np.unique(cs_cv)}).T.join(
-            pd.Series({np.log10(c):np.sum(np.mean(np.array(coefs_cv)[np.array(cs_cv)==c],0)!=0) for c in np.unique(cs_cv)},name='coef_cnt')
-        )
-        cv_path_['log(C)']=cv_path_.index
+        cv_path_=pd.DataFrame(out_mods_[:,0:2],columns=['C','log(C)'],dtype='float64').join(
+            pd.Series(out_mods_[:,2]).apply(pd.Series)).join(
+            pd.Series(out_mods_[:,2],name='coef_cnt').apply(lambda x:sum(x!=0))).set_index('C')
 
         cv_res_=pd.DataFrame([(
           c,np.log10(c),
           np.mean(np.array(val_score_cv)[np.array(cs_cv)==c]),
           np.std(np.array(val_score_cv)[np.array(cs_cv)==c]),
-          np.std(np.array(val_score_cv)[np.array(cs_cv)==c])/np.sqrt(n-1),
-          np.sum(np.mean(np.array(coefs_cv)[np.array(cs_cv)==c],0)!=0)) for c in np.unique(cs_cv)],
-          columns=['C','log(C)','valscore_avg','valscore_std','valscore_err','coef_cnt'])
+          np.std(np.array(val_score_cv)[np.array(cs_cv)==c])/np.sqrt(n-1)) for c in sorted(np.unique(cs_cv))
+            ],columns=['C','log(C)','valscore_avg','valscore_std','valscore_err']).set_index('C',drop=False).join(cv_path_['coef_cnt'])
         
-        return cv_path_,cv_res_
+        return out_mods_,cv_path_,cv_res_
         
 
     def _logit_cv_parallel(self,X,y,i,ws=None):
@@ -209,6 +205,7 @@ class LassoLogit(Base,TransformerMixin):
             solver="saga",
             tol=1e-6,
             max_iter=int(1e6),
+            random_state=self.random_state,
             warm_start=True
         )
 
@@ -227,31 +224,31 @@ class LassoLogit(Base,TransformerMixin):
 
             raise ValueError('metric in ("neglogloss","roc_auc")')
 
-        coefs=clf.coef_.ravel().copy()
-
-        return i[0],score,coefs
+        return i[0],score
     
-    
-    def refit_with_C(self,X,y,C,sample_weight=None):
+    def _logit_c_refit(self,X,y,c,ws=None):
         
-        self._check_is_fitted()
-        self._check_data(X,y)
-        self._check_ws(y,sample_weight)
-        
-        self.feature_names_=X.columns.tolist()
-        
-        X=np.array(X)
-        y=np.array(y)
-        
-        
-        self.model_refit = LogisticRegression(
-            C=C,
+        clf_refit=LogisticRegression(
+            C=c,
             penalty="l1",
             solver="saga",
             tol=1e-6,
-            max_iter=int(1e6)
-        ).fit(X,y,sample_weight)
+            max_iter=int(1e6),
+            random_state=self.random_state,
+        ).fit(X,y,ws) 
         
+        coefs=clf_refit.coef_.ravel().copy()
+        
+        return c,np.log10(c),coefs,clf_refit
+    
+    
+    def select_C(self,C):
+        
+        self._check_is_fitted()
+        
+        self.model_refit=self.out_mods_[self.out_mods_[:,0]==C][:,3][0]
+        
+        self.coef_=pd.Series(self.model_refit.coef_[0],index=self.feature_names_)
     
     def _plot_path(self,cv_path_,figure_size):
 

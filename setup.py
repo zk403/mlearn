@@ -23,7 +23,7 @@ base_pkgs=[       #'numpy>=1.18,<=1.22',#https://github.com/numpy/numpy
                   'pandas>=1.3.5',#https://github.com/pandas-dev/pandas
                   #'statsmodels>=0.13.2',#https://github.com/statsmodels/statsmodels
                   'plotnine>=0.10.1',#https://github.com/has2k1/plotnine
-                  'scikit-learn>=1.0',#https://github.com/scikit-learn/scikit-learn
+                  'scikit-learn>=1.2.1',#https://github.com/scikit-learn/scikit-learn
                   'xgboost>=1.4.2',#https://github.com/dmlc/xgboost
                   'catboost>=1.0.4',#https://github.com/catboost/catboost
                   'category_encoders>=2.3.0',#https://github.com/scikit-learn-contrib/category_encoders

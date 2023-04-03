@@ -1,4 +1,13 @@
 ```
+v0.3.5
+1.在LassoLgoit中加入随机数参数以消除saga导致得模型无法复现的bug
+2.现在LassoLgoit中将在交叉验证后对全量数据拟合模型并依此计算回归系数相关得指标与图表
+3.移除LassoLgoit得refit_with_C方法，加入select_C方法以选择最合适得模型
+4.更新单元测试脚本,更新部分代码说明
+5.更新example
+```
+
+```
 v0.3.4
 1.修改了部分pandas的接口以适应新版本pandas
 2.绘图依赖包plotnine版本控制在0.10.1及以上

@@ -17,7 +17,7 @@ from sklearn.metrics import precision_recall_curve,confusion_matrix
 class perfEval(BaseEval,BaseEvalPlotter):
     
     """ 
-    二分类排序类模型评估,改写自R scorecard::perf_eval，绘图使用plotnine-0.9.0
+    二分类排序类模型评估,改写自R scorecard::perf_eval，绘图使用plotnine
     
     Params:
     ------
@@ -125,7 +125,7 @@ class perfEval(BaseEval,BaseEvalPlotter):
 class perfEval2(BaseEval):
     
     """ 
-    二分类决策类模型评估,以混淆矩阵指标为主,绘图使用plotnine-0.9.0
+    二分类决策类模型评估,以混淆矩阵指标为主,绘图使用plotnine
     
     Params:
     ------

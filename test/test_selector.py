@@ -247,8 +247,7 @@ def test_lassologit():
     res.predict_proba(X)
     res.transform(X)    
     
-    res.refit_with_C(X, y, C=1)
-    assert res.model_refit.C==1
+    res.select_C(C=res.c_1se)
     
     res=LassoLogit(c_num=10,standard=True,metric='neglogloss',n_jobs=1).fit_plot(X,y,ws)
     

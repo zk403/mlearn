@@ -1,4 +1,4 @@
-# BDMLtools-0.3.4
+# BDMLtools-0.3.5
 
 [![PyPI version](https://img.shields.io/pypi/pyversions/BDMLtools.svg)](https://pypi.python.org/pypi/BDMLtools)
 [![License](https://img.shields.io/github/license/zk403/mlearn)](https://github.com/zk403/mlearn/blob/master/LICENSE)
@@ -33,10 +33,10 @@ pip uninstall BDMLtools
 更新
 
 ```
-v0.3.4
-1.修改了部分pandas的接口以适应新版本pandas
-2.绘图依赖包plotnine版本控制在0.10.1及以上
-3.取消了对matlotlib与numpy的版本限制
+v0.3.5
+1.在LassoLgoit中加入随机数参数以消除saga导致得模型无法复现的问题
+2.现在LassoLgoit中将在交叉验证后对全量数据拟合模型并依此计算回归系数相关得指标与图表
+3.移除LassoLgoit的refit_with_C方法，加入select_C方法以选择最合适得模型
 4.更新单元测试脚本,更新部分代码说明
 5.更新example
 ```
