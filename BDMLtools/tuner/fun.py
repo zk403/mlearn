@@ -11,8 +11,6 @@ from BDMLtools.selector import binSelector
 from BDMLtools.encoder import woeTransformer
 import shap
 from scipy.stats import pearsonr,spearmanr
-from lightgbm import LGBMClassifier
-from catboost import CatBoostClassifier
 from joblib import effective_n_jobs,Parallel,delayed
 import numpy as np
 
@@ -83,7 +81,7 @@ class shapCheck:
 
         explainer = shap.TreeExplainer(self.Estimator)        
             
-        if isinstance(self.Estimator,LGBMClassifier):
+        if self.Estimator.__module__ == 'lightgbm.sklearn':
             
             cate_cols=X.select_dtypes(['object','category']).columns.tolist()
         
@@ -94,13 +92,15 @@ class shapCheck:
             X_shap=pd.DataFrame(explainer.shap_values(X)[1],columns=X.columns,index=X.index)
             
 
-        elif self.Estimator is CatBoostClassifier:
+        elif self.Estimator.__module__ == 'catboost.core':
             
             cate_cols=X.select_dtypes(['object','category']).columns.tolist()
 
             if cate_cols:
                 
                 X=X.apply(lambda x:x.astype('str') if x.name in cate_cols else x)
+                
+            X_shap=pd.DataFrame(explainer.shap_values(X),columns=X.columns,index=X.index)
                 
         else:
                 

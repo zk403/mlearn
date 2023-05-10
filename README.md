@@ -1,4 +1,4 @@
-# BDMLtools-0.3.5
+# BDMLtools-0.3.6
 
 [![PyPI version](https://img.shields.io/pypi/pyversions/BDMLtools.svg)](https://pypi.python.org/pypi/BDMLtools)
 [![License](https://img.shields.io/github/license/zk403/mlearn)](https://github.com/zk403/mlearn/blob/master/LICENSE)
@@ -31,12 +31,11 @@ pip uninstall BDMLtools
 ```
 
 更新
-
 ```
-v0.3.5
-1.在LassoLgoit中加入随机数参数以消除saga导致得模型无法复现的问题
-2.现在LassoLgoit中将在交叉验证后对全量数据拟合模型并依此计算回归系数相关得指标与图表
-3.移除LassoLgoit的refit_with_C方法，加入select_C方法以选择最合适得模型
+v0.3.6
+1.优化代码，移除对xgboost与catboost库的依赖
+2.优化代码，对sklearn的最低依赖降低为1.0.2
+3.修复了shapcheck中的使用catboost时无法计算的bug
 4.更新单元测试脚本,更新部分代码说明
 5.更新example
 ```

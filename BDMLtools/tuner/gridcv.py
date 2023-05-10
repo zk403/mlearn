@@ -12,9 +12,6 @@ from sklearn.calibration import CalibratedClassifierCV
 from BDMLtools.base import Base
 from BDMLtools.tuner.base import BaseTunner
 from joblib import effective_n_jobs
-from lightgbm.sklearn import LGBMClassifier
-from catboost.core import CatBoostClassifier
-from xgboost import XGBClassifier
 
 
 class gridTuner(Base,BaseTunner):
@@ -216,11 +213,11 @@ class gridTuner(Base,BaseTunner):
         self._check_is_fitted()
         self._check_X(X)
         
-        if self.Estimator is CatBoostClassifier:
+        if self.Estimator.__module__ == 'catboost.core':
             
             out=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X
             
-        elif self.Estimator is LGBMClassifier:
+        elif self.Estimator.__module__ == 'lightgbm.sklearn':
         
             out=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
             
@@ -247,11 +244,11 @@ class gridTuner(Base,BaseTunner):
         self.cat_features=X.select_dtypes(['object','category']).columns.tolist() if cat_features is None else cat_features    
 
 
-        if self.Estimator is CatBoostClassifier:
+        if self.Estimator.__module__ == 'catboost.core':
             
             X=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X
             
-        elif self.Estimator is LGBMClassifier:
+        elif self.Estimator.__module__ == 'lightgbm.sklearn':       
         
             X=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
             
@@ -275,7 +272,7 @@ class gridTuner(Base,BaseTunner):
                 self.cv_result=self._cvresult_to_df(self.grid_res.cv_results_)
                 
                 #refit with early_stopping_rounds  
-                if self.Estimator is CatBoostClassifier:
+                if self.Estimator.__module__ == 'catboost.core':
                     
                     refit_Estimator=self.Estimator(random_state=self.random_state,
                                                    thread_count=effective_n_jobs(self.n_jobs),
@@ -295,7 +292,7 @@ class gridTuner(Base,BaseTunner):
     
                 self.model_refit = refit_Estimator.fit(**self._get_fit_params(self.Estimator,X_tr,y_tr,X_val,y_val,sample_weight,y_tr.index,y_val.index))   
                                                                                                      
-                self.params_best['best_iteration']=self.model_refit.best_iteration if self.Estimator is XGBClassifier else self.model_refit.best_iteration_ 
+                self.params_best['best_iteration']=self.model_refit.best_iteration if self.Estimator.__module__ == 'xgboost.sklearn' else self.model_refit.best_iteration_ 
                 
             else:
                 
@@ -311,7 +308,7 @@ class gridTuner(Base,BaseTunner):
                 #refit model
                 
 
-                if self.Estimator is CatBoostClassifier:
+                if self.Estimator.__module__ == 'catboost.core':
                     
                     refit_Estimator=self.Estimator(random_state=self.random_state,
                                                    thread_count=effective_n_jobs(self.n_jobs),
@@ -344,7 +341,7 @@ class gridTuner(Base,BaseTunner):
                 self.cv_result=self._cvresult_to_df(self.r_grid_res.cv_results_)                
             
                 #refit with early_stopping_rounds or None  
-                if self.Estimator is CatBoostClassifier:
+                if self.Estimator.__module__ == 'catboost.core':
                     
                     refit_Estimator=self.Estimator(random_state=self.random_state,
                                                    thread_count=effective_n_jobs(self.n_jobs),
@@ -364,7 +361,7 @@ class gridTuner(Base,BaseTunner):
     
                 self.model_refit = refit_Estimator.fit(**self._get_fit_params(self.Estimator,X_tr,y_tr,X_val,y_val,sample_weight,y_tr.index,y_val.index))   
                                                                                                      
-                self.params_best['best_iteration']=self.model_refit.best_iteration if self.Estimator is XGBClassifier else self.model_refit.best_iteration_ 
+                self.params_best['best_iteration']=self.model_refit.best_iteration if self.Estimator.__module__ == 'xgboost.sklearn' else self.model_refit.best_iteration_ 
     
     
             else:
@@ -379,7 +376,7 @@ class gridTuner(Base,BaseTunner):
                 self.cv_result=self._cvresult_to_df(self.r_grid_res.cv_results_)
                 
                 #refit with early_stopping_rounds or None      
-                if self.Estimator is CatBoostClassifier:
+                if self.Estimator.__module__ == 'catboost.core':
                     
                     refit_Estimator=self.Estimator(random_state=self.random_state,
                                                    thread_count=effective_n_jobs(self.n_jobs),
@@ -427,7 +424,7 @@ class gridTuner(Base,BaseTunner):
         
         n_jobs=effective_n_jobs(self.n_jobs)              
         
-        if self.Estimator is CatBoostClassifier:
+        if self.Estimator.__module__ == 'catboost.core':
             
             grid=GridSearchCV(self.Estimator(random_state=self.random_state,thread_count=n_jobs),self.para_space,cv=cv,
                               n_jobs=-1 if self.n_jobs==-1 else 1,
@@ -468,7 +465,7 @@ class gridTuner(Base,BaseTunner):
         n_jobs=effective_n_jobs(self.n_jobs) 
         
         
-        if self.Estimator is CatBoostClassifier:
+        if self.Estimator.__module__ == 'catboost.core':
             
             r_grid=RandomizedSearchCV(self.Estimator(random_state=self.random_state,thread_count=n_jobs),self.para_space,cv=cv,
                                       n_jobs=-1 if self.n_jobs==-1 else 1,
@@ -494,7 +491,7 @@ class gridTuner(Base,BaseTunner):
     def _get_fit_params(self,Estimator,X_train,y_train,X_val,y_val,sample_weight=None,train_index=None,val_index=None):
         
         
-        if Estimator is XGBClassifier:
+        if Estimator.__module__ == "xgboost.sklearn":
             
             fit_params = {
                 "X":X_train,
@@ -510,7 +507,7 @@ class gridTuner(Base,BaseTunner):
                 fit_params["sample_weight_eval_set"] = [sample_weight.loc[val_index]]
         
             
-        elif Estimator is LGBMClassifier:
+        elif Estimator.__module__ == 'lightgbm.sklearn':
             
             from lightgbm import early_stopping, log_evaluation
 
@@ -536,7 +533,7 @@ class gridTuner(Base,BaseTunner):
                 fit_params["eval_sample_weight"] = [sample_weight.loc[val_index]]
             
         
-        elif Estimator is CatBoostClassifier:
+        elif Estimator.__module__ == "catboost.core":
             
             from catboost import Pool
             

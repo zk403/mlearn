@@ -23,9 +23,7 @@ base_pkgs=[       #'numpy>=1.18,<=1.22',#https://github.com/numpy/numpy
                   'pandas>=1.3.5',#https://github.com/pandas-dev/pandas
                   #'statsmodels>=0.13.2',#https://github.com/statsmodels/statsmodels
                   'plotnine>=0.10.1',#https://github.com/has2k1/plotnine
-                  'scikit-learn>=1.2.1',#https://github.com/scikit-learn/scikit-learn
-                  'xgboost>=1.4.2',#https://github.com/dmlc/xgboost
-                  'catboost>=1.0.4',#https://github.com/catboost/catboost
+                  'scikit-learn>=1.0.2',#https://github.com/scikit-learn/scikit-learn
                   'category_encoders>=2.3.0',#https://github.com/scikit-learn-contrib/category_encoders
                   'lightgbm>=3.3.0',#https://github.com/microsoft/LightGBM 
                   'probatus>=1.8.9',#https://github.com/ing-bank/probatus
@@ -38,7 +36,9 @@ dev_dep = [
     "pytest>=6.0.0",
     "pytest-cov>=2.10.0",
     "IPython",
-    "mock"
+    "mock",
+    'xgboost>=1.4.2',#https://github.com/dmlc/xgboost
+    'catboost>=1.0.4',#https://github.com/catboost/catboost
 ]
 
 here = path.abspath(path.dirname(__file__))

@@ -8,17 +8,14 @@ Created on Thu Oct 14 17:26:03 2021
 from BDMLtools.base import Base
 from BDMLtools.tuner.base import BaseTunner
 #from sklearn.model_selection import GridSearchCV
-from xgboost.sklearn import XGBClassifier
 #from bayes_opt import BayesianOptimization
 from sklearn.calibration import CalibratedClassifierCV
-from catboost import CatBoostClassifier
 from sklearn.model_selection import RepeatedStratifiedKFold,train_test_split
 #from lightgbm import early_stopping as lgbm_early_stopping
 #from time import time
 #import pandas as pd
-from joblib import effective_n_jobs,cpu_count
+from joblib import effective_n_jobs
 #import numpy as np
-from lightgbm.sklearn import LGBMClassifier
 from skopt import BayesSearchCV
 
 
@@ -165,11 +162,11 @@ class BayesianCVTuner(Base,BaseTunner):
         self._check_is_fitted()
         self._check_X(X)
         
-        if self.Estimator is CatBoostClassifier:
+        if self.Estimator.__module__ == "catboost.core":
             
             out=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X
             
-        elif self.Estimator is LGBMClassifier:
+        elif self.Estimator.__module__ == 'lightgbm.sklearn':
         
             out=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
             
@@ -198,11 +195,11 @@ class BayesianCVTuner(Base,BaseTunner):
         
         para_space=self._hpsearch_default(self.Estimator) if not self.para_space else self.para_space
         
-        if self.Estimator is CatBoostClassifier:
+        if self.Estimator.__module__ == "catboost.core":
             
             X=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X
             
-        elif self.Estimator is LGBMClassifier:
+        elif self.Estimator.__module__ == 'lightgbm.sklearn':
         
             X=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
             
@@ -227,7 +224,7 @@ class BayesianCVTuner(Base,BaseTunner):
             self.cv_result=self._cvresult_to_df(self.bs_res.cv_results_)
             
             #refit with early_stopping_rounds                  
-            if self.Estimator is CatBoostClassifier:
+            if self.Estimator.__module__ == "catboost.core":
                 
                 refit_Estimator=self.Estimator(random_state=self.random_state,
                                                thread_count=effective_n_jobs(self.n_jobs),
@@ -247,7 +244,7 @@ class BayesianCVTuner(Base,BaseTunner):
 
             self.model_refit = refit_Estimator.fit(**self._get_fit_params(self.Estimator,X_tr,y_tr,X_val,y_val,sample_weight,y_tr.index,y_val.index))   
                                                                                                  
-            self.params_best['best_iteration']=self.model_refit.best_iteration if self.Estimator is XGBClassifier else self.model_refit.best_iteration_ 
+            self.params_best['best_iteration']=self.model_refit.best_iteration if self.Estimator.__module__ == 'xgboost.sklearn' else self.model_refit.best_iteration_ 
             
             
         else:
@@ -262,7 +259,7 @@ class BayesianCVTuner(Base,BaseTunner):
             self.cv_result=self._cvresult_to_df(self.bs_res.cv_results_)
             
             #refit model
-            if self.Estimator is CatBoostClassifier:
+            if self.Estimator.__module__ == "catboost.core":
                 
                 refit_Estimator=self.Estimator(random_state=self.random_state,
                                                thread_count=effective_n_jobs(self.n_jobs),
@@ -305,7 +302,7 @@ class BayesianCVTuner(Base,BaseTunner):
         
         n_jobs=effective_n_jobs(self.n_jobs)
         
-        if self.Estimator is CatBoostClassifier:
+        if self.Estimator.__module__ == "catboost.core":
             
             bs=BayesSearchCV(
                 self.Estimator(random_state=self.random_state,thread_count=n_jobs),para_space,cv=cv,
@@ -335,7 +332,7 @@ class BayesianCVTuner(Base,BaseTunner):
     def _get_fit_params(self,Estimator,X_train,y_train,X_val,y_val,sample_weight=None,train_index=None,val_index=None):
         
         
-        if Estimator is XGBClassifier:
+        if Estimator.__module__ == "xgboost.sklearn":
             
             fit_params = {
                 "X":X_train,
@@ -351,7 +348,7 @@ class BayesianCVTuner(Base,BaseTunner):
                 fit_params["sample_weight_eval_set"] = [sample_weight.loc[val_index]]
         
             
-        elif Estimator is LGBMClassifier:
+        elif Estimator.__module__ == 'lightgbm.sklearn':
             
             from lightgbm import early_stopping, log_evaluation
 
@@ -377,7 +374,7 @@ class BayesianCVTuner(Base,BaseTunner):
                 fit_params["eval_sample_weight"] = [sample_weight.loc[val_index]]
             
         
-        elif Estimator is CatBoostClassifier:
+        elif Estimator.__module__ == "catboost.core":
             
             from catboost import Pool
             
@@ -405,7 +402,7 @@ class BayesianCVTuner(Base,BaseTunner):
         
         from skopt.utils import Categorical,Real,Integer
         
-        if Estimator is XGBClassifier:
+        if Estimator.__module__ == "xgboost.sklearn":
             
             para_space = {
                 'n_estimators': Integer(30, 120),
@@ -420,7 +417,7 @@ class BayesianCVTuner(Base,BaseTunner):
                 'use_label_encoder':Categorical([False])            
             } 
             
-        elif Estimator is LGBMClassifier:
+        elif Estimator.__module__ == 'lightgbm.sklearn':
             
             para_space = {
                 
@@ -438,7 +435,7 @@ class BayesianCVTuner(Base,BaseTunner):
                 'reg_lambda':Real(0,10,prior='uniform'),    
             } 
             
-        elif Estimator is CatBoostClassifier:
+        elif Estimator.__module__ == "catboost.core":
             
             para_space = {
             
