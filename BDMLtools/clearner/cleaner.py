@@ -233,7 +233,7 @@ class dtypeAllocator(Base,TransformerMixin):
             
             X_obj=X[col_obj].astype('str')
             
-            X_date=None if self.drop_date else X[col_date].replace('[^0-9]','',regex=True).astype('datetime64')
+            X_date=None if self.drop_date else X[col_date].replace('[^0-9]','',regex=True).astype('datetime64[ns]')
             
             X_out=pd.concat([X_keep,X_float,X_obj,X_date,X_tdiff],axis=1)
             
