@@ -37,8 +37,8 @@ dev_dep = [
     "pytest-cov>=2.10.0",
     "IPython",
     "mock",
-    'xgboost>=1.4.2',#https://github.com/dmlc/xgboost
-    'catboost>=1.0.4',#https://github.com/catboost/catboost
+    #'xgboost>=1.4.2',#https://github.com/dmlc/xgboost
+    #'catboost>=1.0.4',#https://github.com/catboost/catboost
 ]
 
 here = path.abspath(path.dirname(__file__))
