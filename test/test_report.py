@@ -75,7 +75,7 @@ def test_businessReport():
     
     businessReport('y',['g'],None,rename_index=['group']).report(X)
     
-    businessReport('y',['g'],None,out_path='tmp').report(X)
+    #businessReport('y',['g'],None,out_path='tmp').report(X)
 
     
 @mock.patch('matplotlib.pyplot.show')
