@@ -28,8 +28,8 @@ base_pkgs=[       'numpy>=1.18,<=1.22',#https://github.com/numpy/numpy
                   'lightgbm>=3.3.0',#https://github.com/microsoft/LightGBM 
                   'probatus>=1.8.9',#https://github.com/ing-bank/probatus
                   'mlxtend>=0.19.0',#https://github.com/rasbt/mlxtend
+                  'shap>=0.41.0',
                   'scikit-optimize>=0.9.0',#https://github.com/scikit-optimize/scikit-optimize
-                  'shap==0.4.1',
                   'openpyxl'
                  ]
 
