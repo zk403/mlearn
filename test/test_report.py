@@ -9,7 +9,7 @@ Created on Tue Jul 12 13:34:22 2022
 from BDMLtools.report import EDAReport,varReport,varGroupsReport,varReportSinge,varGroupsPlot,GainsTable,businessReport
 import pandas as pd
 import numpy as np
-import mock
+#import mock
 
 def test_EDAReport():
 
@@ -27,8 +27,8 @@ def test_EDAReport():
     assert hasattr(res,'na_report')
     assert hasattr(res,'nacorr_report')
 
-@mock.patch('matplotlib.pyplot.show')
-def test_varReportSinge(mock_show):
+#@mock.patch('matplotlib.pyplot.show')
+def test_varReportSinge():
     
     X=pd.DataFrame(
         {'a':[1,2,2],'c':['1','2','3']})
@@ -45,8 +45,8 @@ def test_varReportSinge(mock_show):
     varReportSinge().woe_plot(X['c'],y,['1%,%2','3'],sample_weight=ws)
 
     
-@mock.patch('matplotlib.pyplot.show')
-def test_varReport(mock_show):
+#@mock.patch('matplotlib.pyplot.show')
+def test_varReport():
     
     X=pd.DataFrame(
         {'a':[1,2,2],'c':['1','2','3']})
@@ -78,8 +78,8 @@ def test_businessReport():
     #businessReport('y',['g'],None,out_path='tmp').report(X)
 
     
-@mock.patch('matplotlib.pyplot.show')
-def test_varGroupsReport(mock_show):  
+#@mock.patch('matplotlib.pyplot.show')
+def test_varGroupsReport():  
     
     X=pd.DataFrame(
         {'a':[1,2,2],'c':['1','2','3'],'g':['g1','g1','g2'],'y':[0,1,1]})
