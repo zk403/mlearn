@@ -27,8 +27,6 @@ jobs:
     - name: Install dependencies
       run: |
         pip install setuptools==65.5.1 
-        pip install xgboost>=1.4.2
-        pip install catboost>=1.0.4
         pip3 install ".[all]"
         
     - name: Generate coverage report
