@@ -16,14 +16,14 @@ from codecs import open
 from os import path
 import re
 
-base_pkgs=[       'numpy>=1.18,<=1.22',#https://github.com/numpy/numpy
+base_pkgs=[       #'numpy>=1.18,<=1.22',#https://github.com/numpy/numpy
                   #'matplotlib>=3.5.0,<=3.5.3',
                   #'lofo-importance>=0.3.1',#https://github.com/aerdem4/lofo-importance
                   'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
                   'pandas>=1.3.5',#https://github.com/pandas-dev/pandas
                   #'statsmodels>=0.13.2',#https://github.com/statsmodels/statsmodels
                   'plotnine>=0.10.1',#https://github.com/has2k1/plotnine
-                  'scikit-learn>=1.0.2,<=1.2.1',#https://github.com/scikit-learn/scikit-learn
+                  'scikit-learn>=1.0.2',#https://github.com/scikit-learn/scikit-learn
                   'category_encoders>=2.3.0',#https://github.com/scikit-learn-contrib/category_encoders
                   'lightgbm>=3.3.0',#https://github.com/microsoft/LightGBM 
                   'probatus>=1.8.9',#https://github.com/ing-bank/probatus
