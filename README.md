@@ -36,6 +36,7 @@ v0.3.6
 1.优化代码，移除对xgboost与catboost库的依赖
 2.优化代码，对sklearn的最低依赖降低为1.0.2
 3.修复了shapcheck中的使用catboost时无法计算的bug
-4.更新单元测试脚本,更新部分代码说明
-5.更新example
+4.修复了EDAreport在pandas==2.0.1版本下的bug
+5.更新单元测试脚本,更新部分代码说明
+6.更新example
 ```
