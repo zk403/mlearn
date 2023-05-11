@@ -12,7 +12,7 @@ from BDMLtools.encoder import woeTransformer,binTransformer
 from sklearn.linear_model import LogisticRegression
 import pandas as pd
 import numpy as np
-#import mock
+import mock
 from io import StringIO
 
 
@@ -59,8 +59,8 @@ def test_binSelector():
     binSelector(method='pretty',n_jobs=1,iv_limit=0,special_values=[1,2,3,4,'a']).fit_transform(X,y)   
 
 
-#@mock.patch('matplotlib.pyplot.show') #(mock_show,monkeypatch)
-def test_binAdjuster(monkeypatch):
+@mock.patch('matplotlib.pyplot.show') #(mock_show,monkeypatch)
+def test_binAdjuster(mock_show,monkeypatch):
 
     X=pd.DataFrame(
         {
@@ -141,8 +141,8 @@ def test_binAdjuster(monkeypatch):
     adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
         
     
-#@mock.patch('matplotlib.pyplot.show')(mock_show)
-def test_faSelector():
+@mock.patch('matplotlib.pyplot.show')
+def test_faSelector(mock_show):
 
     X=pd.DataFrame(
         {'a':[1,2,2,4,5],'b':[1,2,3,4,5],'c':[1,1,1,2,1]}

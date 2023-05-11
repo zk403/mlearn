@@ -36,7 +36,7 @@ dev_dep = [
     "pytest>=6.0.0",
     "pytest-cov>=2.10.0",
     "IPython",
-    "mock==4.0.3",
+    "mock",
     #'shap>=0.41.0',
     'xgboost>=1.4.2',#https://github.com/dmlc/xgboost
     'catboost>=1.0.4,<1.2',#https://github.com/catboost/catboost gituhb action failed in macox
