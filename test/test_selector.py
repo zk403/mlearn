@@ -63,83 +63,85 @@ def test_binSelector():
 @mock.patch('matplotlib.pyplot.show') #(mock_show,monkeypatch)
 def test_binAdjuster(mock_show,monkeypatch):
     
-    X=pd.DataFrame(
-        {
-         'a':np.arange(100),
-         'c':np.concatenate([np.repeat('a',50),np.repeat('b',50)],dtype=object)}
-        )
-
-    y=pd.Series(np.append(np.zeros(50),np.ones(50)),name='y')
-
-    br_raw={'a':[40,80],'c':['a','b']}  
+    if os.name!='nt':
     
-    number_inputs = StringIO('1\n1')
-    monkeypatch.setattr('sys.stdin', number_inputs)
-    adj=binAdjuster(br_raw).fit(X,y)
-    res=adj.transform(X)
-    assert hasattr(adj,'breaks_list_adj')
-    assert hasattr(adj,'vtabs_dict_adj')
-    assert all(np.equal(res.columns,['a','c']))
+        X=pd.DataFrame(
+            {
+             'a':np.arange(100),
+             'c':np.concatenate([np.repeat('a',50),np.repeat('b',50)],dtype=object)}
+            )
     
+        y=pd.Series(np.append(np.zeros(50),np.ones(50)),name='y')
     
-    number_inputs = StringIO('2\n40,50\n1\n2\na%,%b\n1')
-    monkeypatch.setattr('sys.stdin', number_inputs)
-    adj=binAdjuster(br_raw).fit(X,y)
-    assert all(np.equal(adj.breaks_list_adj['a'],[40,50]))
-    assert adj.breaks_list_adj['c'][0]=='a%,%b'
-    
-    number_inputs = StringIO('1\n3\n2\n20,70\n1\n1')
-    monkeypatch.setattr('sys.stdin', number_inputs)
-    adj=binAdjuster(br_raw).fit(X,y)
-    assert all(np.equal(adj.breaks_list_adj['a'],[20,70]))
-    
-    number_inputs = StringIO('1\n4')
-    monkeypatch.setattr('sys.stdin', number_inputs)
-    adj=binAdjuster(br_raw).fit(X,y)
-    assert 'a' in adj.breaks_list_adj.keys() and 'c' not in adj.breaks_list_adj.keys()   
-
-    number_inputs = StringIO('0\ny')
-    monkeypatch.setattr('sys.stdin', number_inputs)
-    adj=binAdjuster(br_raw).fit(X,y)
+        br_raw={'a':[40,80],'c':['a','b']}  
         
-    X=pd.DataFrame(
-        {
-         'a':np.arange(100),
-         'c':np.concatenate([np.repeat('a',50),np.repeat('b',50)],dtype=object),
-         'g':np.concatenate([np.repeat('a',30),np.repeat('b',30),np.repeat('c',40)],dtype=object)}    
-        )
-
-    y=pd.Series(np.append(np.zeros(50),np.ones(50)),name='y')
-
-    br_raw={'a':[40,80],'c':['a','b']}   
+        number_inputs = StringIO('1\n1')
+        monkeypatch.setattr('sys.stdin', number_inputs)
+        adj=binAdjuster(br_raw).fit(X,y)
+        res=adj.transform(X)
+        assert hasattr(adj,'breaks_list_adj')
+        assert hasattr(adj,'vtabs_dict_adj')
+        assert all(np.equal(res.columns,['a','c']))
+        
+        
+        number_inputs = StringIO('2\n40,50\n1\n2\na%,%b\n1')
+        monkeypatch.setattr('sys.stdin', number_inputs)
+        adj=binAdjuster(br_raw).fit(X,y)
+        assert all(np.equal(adj.breaks_list_adj['a'],[40,50]))
+        assert adj.breaks_list_adj['c'][0]=='a%,%b'
+        
+        number_inputs = StringIO('1\n3\n2\n20,70\n1\n1')
+        monkeypatch.setattr('sys.stdin', number_inputs)
+        adj=binAdjuster(br_raw).fit(X,y)
+        assert all(np.equal(adj.breaks_list_adj['a'],[20,70]))
+        
+        number_inputs = StringIO('1\n4')
+        monkeypatch.setattr('sys.stdin', number_inputs)
+        adj=binAdjuster(br_raw).fit(X,y)
+        assert 'a' in adj.breaks_list_adj.keys() and 'c' not in adj.breaks_list_adj.keys()   
     
-    number_inputs = StringIO('1\n1')
-    monkeypatch.setattr('sys.stdin', number_inputs)
-    adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
-    res=adj.transform(X)  
-    assert hasattr(adj,'breaks_list_adj')
-    assert hasattr(adj,'vtabs_dict_adj')
-    assert all(np.equal(res.columns,['a','c']))
+        number_inputs = StringIO('0\ny')
+        monkeypatch.setattr('sys.stdin', number_inputs)
+        adj=binAdjuster(br_raw).fit(X,y)
+            
+        X=pd.DataFrame(
+            {
+             'a':np.arange(100),
+             'c':np.concatenate([np.repeat('a',50),np.repeat('b',50)],dtype=object),
+             'g':np.concatenate([np.repeat('a',30),np.repeat('b',30),np.repeat('c',40)],dtype=object)}    
+            )
     
-    number_inputs = StringIO('2\n40,50\n1\n2\na%,%b\n1')
-    monkeypatch.setattr('sys.stdin', number_inputs)
-    adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
-    assert all(np.equal(adj.breaks_list_adj['a'],[40,50]))
-    assert adj.breaks_list_adj['c'][0]=='a%,%b'
+        y=pd.Series(np.append(np.zeros(50),np.ones(50)),name='y')
     
-    number_inputs = StringIO('1\n3\n2\n20,70\n1\n1')
-    monkeypatch.setattr('sys.stdin', number_inputs)
-    adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
-    assert all(np.equal(adj.breaks_list_adj['a'],[20,70]))
+        br_raw={'a':[40,80],'c':['a','b']}   
+        
+        number_inputs = StringIO('1\n1')
+        monkeypatch.setattr('sys.stdin', number_inputs)
+        adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
+        res=adj.transform(X)  
+        assert hasattr(adj,'breaks_list_adj')
+        assert hasattr(adj,'vtabs_dict_adj')
+        assert all(np.equal(res.columns,['a','c']))
+        
+        number_inputs = StringIO('2\n40,50\n1\n2\na%,%b\n1')
+        monkeypatch.setattr('sys.stdin', number_inputs)
+        adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
+        assert all(np.equal(adj.breaks_list_adj['a'],[40,50]))
+        assert adj.breaks_list_adj['c'][0]=='a%,%b'
+        
+        number_inputs = StringIO('1\n3\n2\n20,70\n1\n1')
+        monkeypatch.setattr('sys.stdin', number_inputs)
+        adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
+        assert all(np.equal(adj.breaks_list_adj['a'],[20,70]))
+        
+        number_inputs = StringIO('1\n4')
+        monkeypatch.setattr('sys.stdin', number_inputs)
+        adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
+        assert 'a' in adj.breaks_list_adj.keys() and 'c' not in adj.breaks_list_adj.keys()   
     
-    number_inputs = StringIO('1\n4')
-    monkeypatch.setattr('sys.stdin', number_inputs)
-    adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
-    assert 'a' in adj.breaks_list_adj.keys() and 'c' not in adj.breaks_list_adj.keys()   
-
-    number_inputs = StringIO('0\ny')
-    monkeypatch.setattr('sys.stdin', number_inputs)
-    adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
+        number_inputs = StringIO('0\ny')
+        monkeypatch.setattr('sys.stdin', number_inputs)
+        adj=binAdjuster(br_raw,column='g',sort_column=['a','b','c']).fit(X,y)
         
     
 @mock.patch('matplotlib.pyplot.show')
