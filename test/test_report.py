@@ -32,43 +32,41 @@ def test_EDAReport():
 def test_varReportSinge(mock):
     
     #plot issue(ax.twinx() failed in windows)
-    if os.name!='nt':
     
-        X=pd.DataFrame(
-            {'a':[1,2,2],'c':['1','2','3']})
-        
-        ws=pd.Series([1,1,1],name='y')
-        y=pd.Series([0,1,1],name='y')
-        
-        varReportSinge().report(X['a'],y,[1])
-        varReportSinge().report(X['c'],y,['1','2','3'])
-        varReportSinge().report(X['a'],y,[1],sample_weight=ws)
-        varReportSinge().woe_plot(X['c'],y,['1','2','3'])
-        varReportSinge().woe_plot(X['c'],y,['1','2','3'],sample_weight=ws)
-        varReportSinge().woe_plot(X['c'],y,['1','2%,%3'])
-        varReportSinge().woe_plot(X['c'],y,['1%,%2','3'],sample_weight=ws)
+    X=pd.DataFrame(
+        {'a':[1,2,2],'c':['1','2','3']})
+    
+    ws=pd.Series([1,1,1],name='y')
+    y=pd.Series([0,1,1],name='y')
+    
+    varReportSinge().report(X['a'],y,[1])
+    varReportSinge().report(X['c'],y,['1','2','3'])
+    varReportSinge().report(X['a'],y,[1],sample_weight=ws)
+    varReportSinge().woe_plot(X['c'],y,['1','2','3'])
+    varReportSinge().woe_plot(X['c'],y,['1','2','3'],sample_weight=ws)
+    varReportSinge().woe_plot(X['c'],y,['1','2%,%3'])
+    varReportSinge().woe_plot(X['c'],y,['1%,%2','3'],sample_weight=ws)
 
     
 @mock.patch('matplotlib.pyplot.show')
 def test_varReport(mock):
     
     #plot issue(ax.twinx() failed in windows)
-    if os.name!='nt':
     
-        X=pd.DataFrame(
-            {'a':[1,2,2],'c':['1','2','3']})
-        
-        ws=pd.Series([1,1,1],name='y')
-        y=pd.Series([0,1,1],name='y')
+    X=pd.DataFrame(
+        {'a':[1,2,2],'c':['1','2','3']})
     
-        res=varReport({'a':[1],'c':['1','2','3']},n_jobs=1).fit(X,y)
-        res=varReport({'a':[1],'c':['1','2','3']},sample_weight=ws,n_jobs=1).fit(X,y)
-        res=varReport({'a':[1],'c':['1','2','3']},out_path='tmp',n_jobs=1).fit(X,y)
-        
-        assert hasattr(res,'var_report_dict')
-        assert hasattr(res,'breaks_list_dict')
-        
-        res.woe_plot(n_jobs=1)
+    ws=pd.Series([1,1,1],name='y')
+    y=pd.Series([0,1,1],name='y')
+
+    res=varReport({'a':[1],'c':['1','2','3']},n_jobs=1).fit(X,y)
+    res=varReport({'a':[1],'c':['1','2','3']},sample_weight=ws,n_jobs=1).fit(X,y)
+    res=varReport({'a':[1],'c':['1','2','3']},out_path='tmp',n_jobs=1).fit(X,y)
+    
+    assert hasattr(res,'var_report_dict')
+    assert hasattr(res,'breaks_list_dict')
+    
+    res.woe_plot(n_jobs=1)
     
 
 def test_businessReport():
@@ -89,29 +87,28 @@ def test_businessReport():
 def test_varGroupsReport(mock):  
     
     #plot issue(ax.twinx() failed in windows)
-    if os.name!='nt':    
         
-        X=pd.DataFrame(
-            {'a':[1,2,2],'c':['1','2','3'],'g':['g1','g1','g2'],'y':[0,1,1]})
-        ws=pd.Series([1,1,1],name='y')    
-        
-        res=varGroupsReport({'a':[1],'c':['1','2','3']},columns=['g'],target='y',n_jobs=1).fit(X)
-        res=varGroupsReport({'a':[1],'c':['1','2','3']},sample_weight=ws,columns=['g'],target='y',n_jobs=1).fit(X)
-        res=varGroupsReport({'a':[1],'c':['1','2','3']},columns=['g'],row_limit=1,target='y',n_jobs=1).fit(X)
-        res=varGroupsReport({'a':[1],'c':['1','2','3']},columns=['g'],sort_columns={'g':['g1','g2']},target='y',n_jobs=1).fit(X)   
-        res=varGroupsReport({'a':[1],'c':['1','2','3']},out_path='tmp',columns=['g'],target='y',n_jobs=1).fit(X)
-        
-        assert hasattr(res,'report_dict')
-        assert not len(set(res.report_dict.keys())-set(['report_all','report_brief','report_count',
-                                                        'report_badprob','report_iv','report_ks','report_lift']))
-                 
-        res=varGroupsReport({'a':[1],'c':['1','2','3']},columns=['g'],output_psi=True,target='y',n_jobs=1).fit(X)
-        assert hasattr(res,'report_dict')
-        assert not len(set(res.report_dict.keys())-set(['report_all','report_brief','report_count',
-                                                        'report_badprob','report_iv','report_ks','report_psi','report_lift']))
-        
-        varGroupsPlot({'a':[1],'c':['1','2','3']},column='g',target='y',n_jobs=1).plot(X)
-        varGroupsPlot({'a':[1],'c':['1','2','3']},column='g',sort_column=['g1','g2'],target='y',n_jobs=1).plot(X)
+    X=pd.DataFrame(
+        {'a':[1,2,2],'c':['1','2','3'],'g':['g1','g1','g2'],'y':[0,1,1]})
+    ws=pd.Series([1,1,1],name='y')    
+    
+    res=varGroupsReport({'a':[1],'c':['1','2','3']},columns=['g'],target='y',n_jobs=1).fit(X)
+    res=varGroupsReport({'a':[1],'c':['1','2','3']},sample_weight=ws,columns=['g'],target='y',n_jobs=1).fit(X)
+    res=varGroupsReport({'a':[1],'c':['1','2','3']},columns=['g'],row_limit=1,target='y',n_jobs=1).fit(X)
+    res=varGroupsReport({'a':[1],'c':['1','2','3']},columns=['g'],sort_columns={'g':['g1','g2']},target='y',n_jobs=1).fit(X)   
+    res=varGroupsReport({'a':[1],'c':['1','2','3']},out_path='tmp',columns=['g'],target='y',n_jobs=1).fit(X)
+    
+    assert hasattr(res,'report_dict')
+    assert not len(set(res.report_dict.keys())-set(['report_all','report_brief','report_count',
+                                                    'report_badprob','report_iv','report_ks','report_lift']))
+             
+    res=varGroupsReport({'a':[1],'c':['1','2','3']},columns=['g'],output_psi=True,target='y',n_jobs=1).fit(X)
+    assert hasattr(res,'report_dict')
+    assert not len(set(res.report_dict.keys())-set(['report_all','report_brief','report_count',
+                                                    'report_badprob','report_iv','report_ks','report_psi','report_lift']))
+    
+    varGroupsPlot({'a':[1],'c':['1','2','3']},column='g',target='y',n_jobs=1).plot(X)
+    varGroupsPlot({'a':[1],'c':['1','2','3']},column='g',sort_column=['g1','g2'],target='y',n_jobs=1).plot(X)
     
 
 def test_GainsTable():      
