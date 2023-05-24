@@ -1,4 +1,4 @@
-# BDMLtools-0.3.6
+# BDMLtools-0.3.7
 
 [![PyPI version](https://img.shields.io/pypi/pyversions/BDMLtools.svg)](https://pypi.python.org/pypi/BDMLtools)
 [![License](https://img.shields.io/github/license/zk403/mlearn)](https://github.com/zk403/mlearn/blob/main/LICENSE)
@@ -32,11 +32,10 @@ pip uninstall BDMLtools
 
 更新
 ```
-v0.3.6
-1.优化代码，移除对xgboost与catboost库的依赖
-2.优化代码，对sklearn的最低依赖降低为1.0.2
-3.修复了shapcheck中的使用catboost时无法计算的bug
-4.修复了EDAreport在pandas==2.0.1版本下的bug
+v0.3.7
+1.新增支持二分类focal loss的损失函数FocalLoss
+2.新增支持二分类focal loss的lightgbm类FLLGBMSklearn
+3.新增支持二分类focal loss下lightgbm的贝叶斯搜索类FLBSTuner
+4.新增支持二分类focal loss下lightgbm的网格搜素、随机搜索类FLgridTuner
 5.更新单元测试脚本,更新部分代码说明
-6.更新example
 ```

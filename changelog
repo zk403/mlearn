@@ -1,4 +1,13 @@
 ```
+v0.3.7
+1.新增支持二分类focal loss的损失函数FocalLoss
+2.新增支持二分类focal loss的lightgbm类FLLGBMSklearn
+3.新增支持二分类focal loss下lightgbm的贝叶斯搜索类FLBSTuner
+4.新增支持二分类focal loss下lightgbm的网格搜素、随机搜索类FLgridTuner
+5.更新单元测试脚本,更新部分代码说明
+```
+
+```
 v0.3.6
 1.优化代码，移除对xgboost与catboost库的依赖
 2.优化代码，对sklearn的最低依赖降低为1.0.2

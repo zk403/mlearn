@@ -12,17 +12,19 @@ from BDMLtools.selector import LassoLogit
 from BDMLtools.plotter import BaseWoePlotter
 from BDMLtools.plotter import perfEval,perfEval2
 from BDMLtools.encoder import woeTransformer,binTransformer
-from BDMLtools.tuner import gridTuner,hgridTuner
-from BDMLtools.tuner import BayesianCVTuner,shapCheck
+from BDMLtools.tuner import gridTuner,hgridTuner,FLgridTuner
+from BDMLtools.tuner import BayesianCVTuner,FLBSTuner,shapCheck
 
 
-__version__ = '0.3.6'
+__version__ = '0.3.7'
 
 __all__ = (    
     dtStandardization,
     outliersTransformer,
     dtypeAllocator,
     nanTransformer,
+    FLBSTuner,
+    FLgridTuner,
     businessReport,
     prefitModel,
     EDAReport,
