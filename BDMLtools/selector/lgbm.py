@@ -15,9 +15,8 @@ from probatus.feature_elimination import EarlyStoppingShapRFECV,ShapRFECV
 from sklearn.model_selection import train_test_split
 from sklearn.inspection import permutation_importance
 from skopt import BayesSearchCV
-from BDMLtools.tuner.base import sLGBMClassifier
+from lightgbm import LGBMClassifier
 from BDMLtools.selector.bin_fun import R_pretty
-import warnings
 from mlxtend.feature_selection import SequentialFeatureSelector
 from sklearn.base import TransformerMixin
 import numpy as np
@@ -131,7 +130,7 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
                 
                 X_tr, X_val, y_tr, y_val = train_test_split(X,y,test_size=self.validation_fraction,random_state=self.random_state,stratify=y)
                 
-                estimator=sLGBMClassifier(random_state=self.random_state,
+                estimator=LGBMClassifier(random_state=self.random_state,verbose=-1,
                                           #n_jobs=effective_n_jobs(self.n_jobs),
                                           **self.clf_params).fit(
                     X_tr,y_tr,**self._get_fit_params(X_val,y_val,sample_weight,y.index,y_val.index)
@@ -139,7 +138,7 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
                 
             else:
                 
-                estimator = sLGBMClassifier(random_state=self.random_state,
+                estimator = LGBMClassifier(random_state=self.random_state,verbose=-1,
                                             #n_jobs=effective_n_jobs(self.n_jobs),
                                             **self.clf_params).fit(
                     X,y,**{'sample_weight':sample_weight})  
@@ -154,7 +153,7 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
 
                 self._BayesSearch_CV(para_space,X_tr,y_tr,None if sample_weight is None else sample_weight[y_tr.index])
     
-                estimator=sLGBMClassifier(random_state=self.random_state,
+                estimator=LGBMClassifier(random_state=self.random_state,verbose=-1,
                                           #n_jobs=effective_n_jobs(self.n_jobs),
                                           **self.bs_res.best_params_).fit(
                     X_tr,y_tr,**self._get_fit_params(X_val,y_val,sample_weight,y.index,y_val.index)
@@ -164,7 +163,7 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
                 
                 self._BayesSearch_CV(para_space,X,y,sample_weight)
                 
-                estimator = sLGBMClassifier(random_state=self.random_state,
+                estimator = LGBMClassifier(random_state=self.random_state,verbose=-1,
                                             #n_jobs=effective_n_jobs(self.n_jobs),
                                             **self.bs_res.best_params_).fit(
                     X,y,**{'sample_weight':sample_weight})  
@@ -223,7 +222,7 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
         n_jobs=effective_n_jobs(self.n_jobs)
                         
         bs=BayesSearchCV(
-            sLGBMClassifier(random_state=self.random_state),#,n_jobs=n_jobs
+            LGBMClassifier(random_state=self.random_state,verbose=-1),#,n_jobs=n_jobs
             para_space,cv=cv,
             n_iter=self.n_iter,n_points=self.init_points,
             n_jobs=n_jobs,#-1 if self.n_jobs==-1 else 1,
@@ -241,7 +240,6 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
 
         para_space={
             'boosting_type':Categorical(['goss','gbdt']),
-            'verbose':Categorical([-1]), 
             'n_estimators': Integer(low=200, high=300, prior='uniform', transform='identity'),
             'learning_rate': Real(low=0.05, high=0.2, prior='uniform', transform='identity'),
             'max_depth': Integer(low=2, high=4, prior='uniform', transform='identity')            
@@ -344,18 +342,8 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
     
         
     def fit(self,X,y,cat_features=None,sample_weight=None,check_additivity=True):
-    
-        if not self.verbose:
-    
-            with warnings.catch_warnings():   
-
-                warnings.filterwarnings("ignore")
-
-                return self._fit(X,y,cat_features=None,sample_weight=None,check_additivity=check_additivity)
-            
-        else:
-            
-            return self._fit(X,y,cat_features=None,sample_weight=None,check_additivity=check_additivity)
+         
+        return self._fit(X,y,cat_features=None,sample_weight=None,check_additivity=check_additivity)
 
     
     
@@ -384,7 +372,8 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
 
         if self.method=='raw':
             
-            estimator=sLGBMClassifier(random_state=self.random_state,
+            estimator=LGBMClassifier(random_state=self.random_state,
+                                     verbose=-1,
                                       #n_jobs=effective_n_jobs(self.n_jobs),
                                       **self.clf_params)
             
@@ -393,7 +382,7 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
             para_space=self.clf_params if self.clf_params else self._lgbm_hpsearch_default()
     
             
-            estimator=BayesSearchCV(sLGBMClassifier(random_state=self.random_state),para_space,
+            estimator=BayesSearchCV(LGBMClassifier(random_state=self.random_state,verbose=-1),para_space,
                                     n_iter=self.n_iter,n_points=self.n_points,
                                     random_state=self.random_state,
                                     n_jobs=n_jobs,#-1 if self.n_jobs==-1 else 1,
@@ -408,7 +397,7 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
                                         random_state=self.random_state,
                                         scoring=self.scoring,
                                         n_jobs=n_jobs,#-1 if self.n_jobs==-1 else 1,
-                                        verbose=-1,
+                                        verbose=self.verbose,
                                         early_stopping_rounds=self.early_stopping_rounds,
                                         cv=cv)
         
@@ -422,7 +411,7 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
                                 random_state=self.random_state,
                                 scoring=self.scoring,
                                 n_jobs=n_jobs,#-1 if self.n_jobs==-1 else 1,
-                                verbose=-1,
+                                verbose=self.verbose,
                                 cv=cv)
         
             self.clf.fit_compute(X,y,check_additivity=check_additivity,sample_weight=sample_weight)
@@ -438,7 +427,6 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
         from skopt.utils import Categorical,Real,Integer
 
         para_space={
-            'verbose':Categorical([-1]), 
             'boosting_type':Categorical(['goss','gbdt']),
             'n_estimators': Integer(low=30, high=300, prior='uniform', transform='identity'),
             'learning_rate': Real(low=0.05, high=0.2, prior='uniform', transform='identity'),
@@ -527,7 +515,7 @@ class LgbmSeqSelector(TransformerMixin,Base,BaseTunner):
         
     '''     
 
-    def __init__(self,forward=False,floating=False,k_features=5,clf_params={'verbose':-1},scoring='roc_auc',
+    def __init__(self,forward=False,floating=False,k_features=5,clf_params={},scoring='roc_auc',
                  cv=5,repeats=1,fixed_features=None,
                  random_state=123,n_jobs=-1,verbose=0):
         
@@ -582,7 +570,7 @@ class LgbmSeqSelector(TransformerMixin,Base,BaseTunner):
         
         n_jobs=effective_n_jobs(self.n_jobs)
         
-        lgbm=sLGBMClassifier(random_state=self.random_state,**self.clf_params)
+        lgbm=LGBMClassifier(random_state=self.random_state,verbose=-1,**self.clf_params)
         
         seq_clf = SequentialFeatureSelector(lgbm,                                            
                         k_features=self.k_features,

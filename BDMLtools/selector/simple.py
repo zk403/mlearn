@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 import os
 from glob import glob
-from BDMLtools.tuner.base import sLGBMClassifier
+from lightgbm import LGBMClassifier
 from BDMLtools.base import Base
 #from lofo import LOFOImportance, Dataset
 from sklearn.feature_selection import SelectFpr,SelectFdr,SelectFwe
@@ -143,9 +143,10 @@ class prefitModel(Base):
         n_estimators=params['n_estimators'] if 'n_estimators' in params else 100
         n_jobs=params['n_jobs'] if 'n_jobs' in params else -1
 
-        lgb=sLGBMClassifier(
+        lgb=LGBMClassifier(
                 boosting_type='gbdt',
                 objective = 'binary',
+                verbose=-1,
                 learning_rate=learning_rate,
                 n_estimators=n_estimators,
                 max_depth=max_depth,
@@ -675,7 +676,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             X_new=pd.concat([X_numeric,X_category_encode],axis=1)
 
-            lgb=sLGBMClassifier(
+            lgb=LGBMClassifier(
                 boosting_type='gbdt',
                 objective = 'binary',
                 learning_rate=0.1,
@@ -683,6 +684,7 @@ class preSelector(Base,Specials,TransformerMixin):
                 random_state=123,
                 subsample=0.7,
                 colsample_bytree=1,
+                verbose=-1,
                 n_jobs=effective_n_jobs(self.n_jobs)
             ).fit(X_new,y,sample_weight=sample_weight,categorical_feature=X_category_encode.columns.tolist())         
 
@@ -692,7 +694,7 @@ class preSelector(Base,Specials,TransformerMixin):
         
         elif X_numeric.columns.size:
             
-            lgb=sLGBMClassifier(
+            lgb=LGBMClassifier(
                 boosting_type='gbdt',
                 objective = 'binary',
                 learning_rate=0.1,
@@ -700,6 +702,7 @@ class preSelector(Base,Specials,TransformerMixin):
                 random_state=123,
                 subsample=0.7,
                 colsample_bytree=1,
+                verbose=-1,
                 n_jobs=effective_n_jobs(self.n_jobs)
             ).fit(X_numeric,y,sample_weight=sample_weight)         
 

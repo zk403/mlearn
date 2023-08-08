@@ -4,7 +4,6 @@ from sklearn import metrics
 import numpy as np
 import pandas as pd
 from lightgbm import LGBMClassifier
-import warnings
 from scipy import special
 
 
@@ -96,22 +95,8 @@ class BaseTunner:
     def _cvresult_to_df(self,cv_results_):
     
         return pd.DataFrame(cv_results_)   
-
-
-class sLGBMClassifier(LGBMClassifier):
     
-    """ 
-    过滤掉LGBM的warning信息
-    """    
     
-    def fit(self, *args, **kwargs):        
-        
-        with warnings.catch_warnings():   
-            
-            warnings.filterwarnings("ignore", category=UserWarning)
-            
-            return super().fit(*args, verbose=False, **kwargs)
-        
         
 class FLLGBMSklearn(LGBMClassifier):
     """ 
