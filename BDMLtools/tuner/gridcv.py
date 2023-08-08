@@ -604,13 +604,13 @@ class FLgridTuner(Base,BaseTunner):
                      'learning_rate':[0.1], 
                     
                      'max_depth':[3],#[0,∞],
-                     'min_split_gain': [0],
+                     'min_split_gain': [0,0.02] #0-0.02,
                      'min_child_weight':[0],
                      
                      'scale_pos_weight':[1],
                      'subsample':[0.6,0.8],
                      'colsample_bytree' :[0.6,0.8],
-                     'reg_lambda':[0,10], 
+                     'reg_lambda':[0,0.01] #0-0.01, 
                      }
                 
              当Estimator=LGBMClassifier,method="random_grid": 
@@ -624,13 +624,12 @@ class FLgridTuner(Base,BaseTunner):
                      'learning_rate':sp_uniform(loc=0.1,scale=0), 
                     
                      'max_depth':sp_randint(low=2,high=4),#[0,∞],
-                     'min_split_gain': sp_uniform(loc=0,scale=0),
+                     'min_split_gain': sp_uniform(loc=0,scale=0),#0-0.02
                      'min_child_samples': sp_randint(low=100,high=300),#[0,∞],
                      
-                     'scale_pos_weight':[1],
                      'subsample':sp_uniform(loc=0.5,scale=0.5),
                      'colsample_bytree' :sp_uniform(loc=0.5,scale=0.5),
-                     'reg_lambda':sp_uniform(loc=0,scale=20),
+                     'reg_lambda':sp_uniform(loc=0,scale=20),#0-0.01
                      }
                 
         """   

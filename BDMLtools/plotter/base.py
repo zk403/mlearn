@@ -58,7 +58,7 @@ class BaseWoePlotter:
                     value_name = "negpos").rename(columns={'variable':''})
         
         #title
-        title_string = binx['variable'][0]+'(iv:{},ks:{})'.format(round(binx['total_iv'][0],4),round(binx['ks_max'][0],4))
+        title_string = binx['variable'][0]+'(iv:{},ks:{})'.format(round(binx['total_iv'][0],4),round(binx['ks'][0],4))
     
         #adjust max val of y-left axis
         y_right_max = np.ceil(binx['badprob'].max()*10)
@@ -137,11 +137,11 @@ class BaseWoePlotter:
             binx_g_melt['g']=binx_g_melt['g'].astype('category').cat.reorder_categories(sort_column)
     
         #title
-        binx_g_ivks=binx_g_h[['total_iv','ks_max']].droplevel(1)
+        binx_g_ivks=binx_g_h[['total_iv','ks']].droplevel(1)
         binx_g_ivks=binx_g_ivks.loc[~binx_g_ivks.index.duplicated(),:]
         
         iv_d=binx_g_ivks['total_iv'].to_dict()
-        ks_d=binx_g_ivks['ks_max'].to_dict()
+        ks_d=binx_g_ivks['ks'].to_dict()
     
         keys=sort_column if sort_column else iv_d.keys()
         

@@ -20,6 +20,18 @@ from BDMLtools.base import Base
 from BDMLtools.report.report import varReportSinge
 
 
+
+class varReportSinge_a(varReportSinge):
+    
+    """ 
+    过滤掉LGBM的warning信息
+    """    
+    
+    def report(self, *args, **kwargs):        
+               
+        return super().report(*args, show_metrics=False, **kwargs)
+
+
 def R_pretty(low, high, n):
     '''
     pretty breakpoints, the same as pretty function in R
@@ -247,7 +259,7 @@ def binFreq(X,y,bin_num_limit=10,special_values=None,ws=None,coerce_monotonic=Fa
     
     breaks_list=Base()._check_breaks(breaks_list)
     
-    bins={col:varReportSinge().report(X[col],y,breaks_list[col],ws,special_values) for col in X.columns}
+    bins={col:varReportSinge_a().report(X[col],y,breaks_list[col],ws,special_values) for col in X.columns}
    
     return breaks_list,bins
 
@@ -371,7 +383,7 @@ class binKmeans(Base,Specials):
              #no merge if n_clusters<=bin_limit(user-defined)
              if n_clusters<bin_limit:
                  
-                 vtab=varReportSinge().report(col,y,breaks=breaks,sample_weight=ws,special_values=special_values)
+                 vtab=varReportSinge_a().report(col,y,breaks=breaks,sample_weight=ws,special_values=special_values)
                  
                  return col.name,breaks,vtab
              
@@ -421,7 +433,7 @@ class binKmeans(Base,Specials):
          
                      n_clusters=var_bin['badprob'].unique().size-1                
                      
-                     res_km=KMeans(n_clusters=n_clusters,random_state=random_state).fit_predict(var_bin[['badprob']])
+                     res_km=KMeans(n_clusters=n_clusters,random_state=random_state,n_init=10).fit_predict(var_bin[['badprob']])
                      res_km_s=pd.Series(res_km,var_bin.index,name='cluster')
          
                      #update string breaks
@@ -447,7 +459,7 @@ class binKmeans(Base,Specials):
                          
                          break
                          
-                 vtab=varReportSinge().report(col,y,breaks=breaks,sample_weight=ws,special_values=special_values)
+                 vtab=varReportSinge_a().report(col,y,breaks=breaks,sample_weight=ws,special_values=special_values)
                  return col.name,breaks,vtab
      
          elif is_numeric_dtype(var_raw):
@@ -462,7 +474,7 @@ class binKmeans(Base,Specials):
              #no merge if n_clusters<=bin_limit(user-defined)
              if n_clusters<bin_limit:
                  
-                 vtab=varReportSinge().report(col,y,breaks=breaks,sample_weight=ws,special_values=special_values)
+                 vtab=varReportSinge_a().report(col,y,breaks=breaks,sample_weight=ws,special_values=special_values)
                  
                  return col.name,breaks,vtab
              
@@ -548,7 +560,7 @@ class binKmeans(Base,Specials):
                          
                          break
                      
-                 vtab=varReportSinge().report(col,y,breaks=breaks,sample_weight=ws,special_values=special_values)
+                 vtab=varReportSinge_a().report(col,y,breaks=breaks,sample_weight=ws,special_values=special_values)
                  
                  return col.name,breaks,vtab
              
@@ -684,13 +696,13 @@ class binTree(Base,Specials):
                 
                 breaks=[]       
                 
-                vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
+                vtab=varReportSinge_a().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
                 
             elif np.unique(col[~np.isnan(col)]).size==1:
                 
                 breaks=[]
                 
-                vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
+                vtab=varReportSinge_a().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
             
             #tree cut
             else:
@@ -705,7 +717,7 @@ class binTree(Base,Specials):
                                      coerce_monotonic=coerce_monotonic,
                                      bin_num_limit=bin_num_limit)
                 
-                vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
+                vtab=varReportSinge_a().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
         
         #string columns         
         elif is_string_dtype(col):
@@ -736,7 +748,7 @@ class binTree(Base,Specials):
                 #restore string breaks
                 breaks=['%,%'.join(i) for i in np.split(codes,np.int32(breaks_raw)) if i.tolist()]    
             
-            vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
+            vtab=varReportSinge_a().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
             
         else:
             
@@ -1076,7 +1088,7 @@ class binChi2(Base,Specials):
                               coerce_monotonic=coerce_monotonic)
             
             #get vtab using chi2-breaks
-            vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
+            vtab=varReportSinge_a().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
             
         elif is_string_dtype(col):
             
@@ -1104,7 +1116,7 @@ class binChi2(Base,Specials):
                 breaks=['%,%'.join(i) for i in np.split(codes,np.int32(breaks_raw)) if i.tolist()] 
             
             #get vtab using chi2-breaks
-            vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
+            vtab=varReportSinge_a().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
     
         else:
                 
@@ -1444,7 +1456,7 @@ class binPretty(Base,Specials):
                               coerce_monotonic=coerce_monotonic)
             
             #get vtab using chi2-breaks
-            vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
+            vtab=varReportSinge_a().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
             
         elif is_string_dtype(col):
             
@@ -1470,7 +1482,7 @@ class binPretty(Base,Specials):
                 breaks=['%,%'.join(i) for i in np.split(codes,np.int32(breaks_raw)) if i.tolist()] 
             
             #get vtab using chi2-breaks
-            vtab=varReportSinge().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
+            vtab=varReportSinge_a().report(col_raw,y,breaks,sample_weight=ws,special_values=special_values)
     
         else:
                 

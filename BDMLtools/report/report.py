@@ -280,7 +280,7 @@ class businessReport(Base,TransformerMixin):
 
 class varReportSinge(Base,Specials,BaseWoePlotter):
     
-    def report(self, X, y,breaks,sample_weight=None,special_values=None,regularization=1e-10):
+    def report(self, X, y,breaks,sample_weight=None,special_values=None,regularization=1e-10,show_metrics=True):
         """ 
         分箱并产生特征分析报告、特征分析绘图报告  
         Params:
@@ -295,7 +295,9 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
         special_values:特殊值指代值,若数据中某些值或某列某些值需特殊对待(这些值不是np.nan)时设定
             请特别注意若使用binSelector产生breaks_list,special_values必须与binSelector的special_values一致,否则报告的special行会产生错误结果
             + None,保证数据默认
-            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan          
+            + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan 
+        show_metrics:bool,默认True，输出ks、lift、auc指标。此类指标更适合评分类变量。注意此指标会受到分箱切分点、正则参数的影响。
+            + 设定20-50等频分箱、regularization=0时相关指标会接近真实水平               
         Return:
         ------
         report_var,pd.DataFrame:单特征分析报告       
@@ -307,7 +309,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
                 
         X=self._sp_replace_single(X,self._check_spvalues(X.name,special_values),fill_num=np.finfo(np.float32).max,fill_str='special')
                
-        report_var=self.getReport_Single(X,y,breaks,sample_weight,special_values,regularization)
+        report_var=self.getReport_Single(X,y,breaks,sample_weight,special_values,regularization,show_metrics)
         
         return report_var 
     
@@ -344,7 +346,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
         return report_var,figure,breaks
    
         
-    def getReport_Single(self,X,y,breakslist_var,sample_weight,special_values,regularization):         
+    def getReport_Single(self,X,y,breakslist_var,sample_weight,special_values,regularization,show_metrics):         
 
          col=X.name
 
@@ -413,9 +415,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
             
              else:
                  
-                 var_bin= var_bin.cat.add_categories('missing').fillna('missing')
-                 
-                
+                 var_bin= var_bin.cat.add_categories('missing').fillna('missing')                                 
              
          else:
              
@@ -436,7 +436,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
                            margins=False,
                            aggfunc='sum').rename(columns=rename_aggfunc,level=0)#.droplevel(level=1,axis=1) 
 
-         var_tab=self._getVarReport_ks(result,col,regularization) 
+         var_tab=self._getVarReport_ks(result,col,show_metrics,regularization) 
          
          if is_string_dtype(var_fillna):
              
@@ -446,7 +446,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
              
              breaks=var_tab.index.categories.map(lambda x:x if isinstance(x,str) else x.right))
             
-    def _getVarReport_ks(self,var_ptable,col,regularization=1e-10):
+    def _getVarReport_ks(self,var_ptable,col,show_metrics,regularization=1e-10):
         
         var_ptable['badprob']=var_ptable['bad'].div(var_ptable['count'])
         var_ptable['count_distr']=var_ptable['count'].div(var_ptable['count'].sum())
@@ -458,14 +458,26 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
         )
         var_ptable['total_iv']=var_ptable['bin_iv'].sum()
         var_ptable['woe']=(var_ptable["bad_dis"]).div((var_ptable["good_dis"])).apply(np.log)
-        var_ptable['ks']=var_ptable['good_dis'].cumsum().sub(var_ptable['bad_dis'].cumsum()).abs()
-        var_ptable['ks_max']=var_ptable['ks'].max()
+        var_ptable['ks_bin']=var_ptable['good_dis'].cumsum().sub(var_ptable['bad_dis'].cumsum()).abs()
+        var_ptable['ks']=var_ptable['ks_bin'].max()
         var_ptable['lift']=var_ptable['badprob'].div(var_ptable['bad'].sum()/var_ptable['count'].sum())
+        var_ptable['auc_bin']=var_ptable['good_dis'].cumsum().diff(1).fillna(var_ptable['good_dis'].cumsum()[0]).mul(
+            var_ptable['bad_dis'].cumsum().shift(1).fillna(0).add(var_ptable['bad_dis'].cumsum())
+        ).div(2)
+        var_ptable['auc']=var_ptable['auc_bin'].sum()        
+        
         var_ptable['variable']=col
         var_ptable.index.name='bin'
         #var_ptable=var_ptable.reset_index()
         #var_ptable['bin']=var_ptable['bin'].astype('str')
-        var_ptable=var_ptable[['variable', 'count', 'count_distr', 'good', 'bad', 'badprob','woe', 'bin_iv', 'total_iv','ks','ks_max','lift']].copy()
+        if show_metrics:
+            
+            var_ptable=var_ptable[['variable', 'count', 'count_distr', 'good', 'bad', 'badprob','woe','total_iv','ks','lift','auc']].copy()
+            
+        else:
+            
+            var_ptable=var_ptable[['variable', 'count', 'count_distr', 'good', 'bad', 'badprob','woe','total_iv']].copy()
+            
         
         if var_ptable.loc['special','count'] == 0:
             
@@ -495,6 +507,8 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
         regularization=1e-10:float,计算好坏分布时正则项强度,用于应对iv、woe计算时分母为0的情况，
                                    regularization越高则强度越高，不同的regularization将影响iv、ks、woe的结算结果，
                                    默认regularization=1e-10情况下，出现分母为0的变量的IV将被高估
+        show_metrics:bool,默认True，输出ks、lift、auc指标。此类指标更适合评价分数类变量。注意此指标会受到分箱切分点、正则参数的影响。
+            + 设定20-50等频分箱、regularization=0时相关指标会接近真实水平                          
         out_path:将报告输出到本地工作目录的str文件夹下，None代表不输出 
         tab_suffix:本地excel报告名后缀
         n_jobs:int,并行计算job数
@@ -512,7 +526,7 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
         
     """
     
-    def __init__(self,breaks_list_dict,special_values=None,sample_weight=None,out_path=None,tab_suffix='',regularization=1e-10,n_jobs=-1,verbose=0):
+    def __init__(self,breaks_list_dict,special_values=None,sample_weight=None,out_path=None,tab_suffix='',regularization=1e-10,show_metrics=True,n_jobs=-1,verbose=0):
 
         self.breaks_list_dict = breaks_list_dict
         self.special_values = special_values
@@ -522,6 +536,7 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
         self.out_path = out_path
         self.tab_suffix = tab_suffix
         self.regularization=regularization
+        self.show_metrics=show_metrics
         
         self._is_fitted=False
         
@@ -535,7 +550,7 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
         
         parallel=Parallel(n_jobs=n_jobs,verbose=self.verbose,batch_size=100)
         
-        out_list=parallel(delayed(self._get_report_single)(X,y,col,self.breaks_list_dict[col],self.sample_weight,self.special_values,self.regularization)
+        out_list=parallel(delayed(self._get_report_single)(X,y,col,self.breaks_list_dict[col],self.sample_weight,self.special_values,self.regularization,self.show_metrics)
                           for col in self.breaks_list_dict)
         
         self.var_report_dict={col:total for col,total in out_list}
@@ -577,9 +592,9 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
         return fig_out
         
         
-    def _get_report_single(self,X,y,col_name,breaks,sample_weight,special_values,regularization):
+    def _get_report_single(self,X,y,col_name,breaks,sample_weight,special_values,regularization,show_metrics):
            
-        vtabs=varReportSinge().report(X[col_name],y,breaks,sample_weight,special_values,regularization)
+        vtabs=varReportSinge().report(X[col_name],y,breaks,sample_weight,special_values,regularization,show_metrics)
         
         return col_name,vtabs
 
@@ -638,6 +653,8 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
     regularization=1e-10:float,计算好坏分布时正则项强度,用于应对iv、woe计算时分母为0的情况，
                                regularization越高则强度越高，不同的regularization将影响iv、ks、woe的结算结果，
                                默认regularization=1e-10情况下，出现分母为0的变量的IV将被高估
+    show_metrics:bool,默认True，输出ks、lift、auc指标。此类指标更适合评价分数类变量。注意此指标会受到分箱切分点、正则参数的影响。
+            + 设定20-50等频分箱、regularization=0时相关指标会接近真实水平                               
     sample_weight:numpy.array or pd.Series(...,index=X.index) or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标以还原抽样对分析影响
     n_jobs:int,并行计算job数
     verbose:int,并行计算信息输出等级
@@ -651,7 +668,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
     """        
     
     def __init__(self,breaks_list_dict,columns,sort_columns=None,target='target',row_limit=0,output_psi=False,psi_base='all',
-                 special_values=None,sample_weight=None,regularization=1e-10,n_jobs=-1,verbose=0,out_path=None,tab_suffix='_group'):
+                 special_values=None,sample_weight=None,regularization=1e-10,show_metrics=True,n_jobs=-1,verbose=0,out_path=None,tab_suffix='_group'):
 
         self.breaks_list_dict=breaks_list_dict
         self.target=target
@@ -663,6 +680,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
         self.special_values=special_values
         self.sample_weight=sample_weight
         self.regularization=regularization
+        self.show_metrics=show_metrics
         self.n_jobs=n_jobs
         self.verbose=verbose
         self.out_path=out_path
@@ -707,7 +725,8 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
         out_list=parallel(delayed(self._group_parallel)(X_g_gen,g,self.target,self.columns,
                                                        self.breaks_list_dict,self.row_limit,
                                                        self.special_values,
-                                                       self.regularization) for g in X_g_gen.groups)
+                                                       self.regularization,
+                                                       self.show_metrics) for g in X_g_gen.groups)
         
         self.report_dict_raw={columns:vtabs for columns,vtabs in out_list}
         
@@ -723,10 +742,10 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
             
             sort_columns_list=self._check_columns_sort(self.sort_columns, self.columns, X)                                    
     
-            report=self._vtab_column_sort(sort_columns_list,report)                
+            report=self._vtab_column_sort(sort_columns_list,report,self.show_metrics)                
                   
         self.report_dict=self._getReport(X,report,self.breaks_list_dict,self.special_values,self.n_jobs,self.verbose,
-                                        self.target,self.regularization,self.output_psi,self.psi_base)                    
+                                        self.target,self.regularization,self.show_metrics,self.output_psi,self.psi_base)                    
 
         if self.out_path:
                 
@@ -740,7 +759,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
      
         return X
 
-    def _group_parallel(self,X_g_gen,g,target,columns,breaks_list_dict,row_limit,special_values,regularization):
+    def _group_parallel(self,X_g_gen,g,target,columns,breaks_list_dict,row_limit,special_values,regularization,show_metrics):
     
         group_dt=X_g_gen.get_group(g)
         X_g=group_dt.drop([target]+columns,axis=1)
@@ -765,6 +784,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
                           special_values=special_values,
                           sample_weight=w_g,
                           regularization=regularization,
+                          show_metrics=show_metrics,
                           n_jobs=1,                                  
                           verbose=0).fit(X_g,y_g)
         
@@ -774,7 +794,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
     
     
    
-    def _getReport(self,X,report,breaks_list_dict,special_values,n_jobs,verbose,target,regularization,
+    def _getReport(self,X,report,breaks_list_dict,special_values,n_jobs,verbose,target,regularization,show_metrics,
                   output_psi=True,psi_base='all'):
         
         report_out={}
@@ -783,22 +803,27 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
                                       ['variable']]].reset_index().rename(columns={'level_0':'variable'})
                 
         report_out['report_brief']=report[[i for i in report.columns.tolist() if i[-1] in \
-                                      ['count','badprob','total_iv','ks_max','lift']]].reset_index().rename(columns={'level_0':'variable'})   
+                                      ['count','badprob','total_iv','ks','lift']]].reset_index().rename(columns={'level_0':'variable'})   
                             
         report_out['report_count']=report[[i for i in report.columns.tolist() if i[-1] in \
                                       ['count']]].reset_index().rename(columns={'level_0':'variable'})  
                 
         report_out['report_badprob']=report[[i for i in report.columns.tolist() if i[-1] in \
-                                        ['badprob']]].reset_index().rename(columns={'level_0':'variable'}) 
-            
-        report_out['report_lift']=report[[i for i in report.columns.tolist() if i[-1] in \
-                                            ['lift']]].reset_index().rename(columns={'level_0':'variable'})      
+                                        ['badprob']]].reset_index().rename(columns={'level_0':'variable'})                  
                 
         report_out['report_iv']=report[[i for i in report.columns.tolist() if i[-1] in \
                                    ['total_iv']]].droplevel(level=1).reset_index().drop_duplicates().rename(columns={'index':'variable'})  
+            
+        if show_metrics:
+            
+            report_out['report_lift']=report[[i for i in report.columns.tolist() if i[-1] in \
+                                                ['lift']]].reset_index().rename(columns={'level_0':'variable'})      
                 
-        report_out['report_ks']=report[[i for i in report.columns.tolist() if i[-1] in \
-                                   ['ks_max']]].droplevel(level=1).reset_index().drop_duplicates().rename(columns={'index':'variable'}) 
+            report_out['report_ks']=report[[i for i in report.columns.tolist() if i[-1] in \
+                                   ['ks']]].droplevel(level=1).reset_index().drop_duplicates().rename(columns={'index':'variable'}) 
+                
+            report_out['report_auc']=report[[i for i in report.columns.tolist() if i[-1] in \
+                                   ['auc']]].droplevel(level=1).reset_index().drop_duplicates().rename(columns={'index':'variable'}) 
         
         if output_psi:
             
@@ -823,7 +848,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
                     
                     sort_columns_list=self._check_columns_sort(self.sort_columns, self.columns, X)                                    
             
-                    psi_tab=self._vtab_column_sort(sort_columns_list,psi_tab)                          
+                    psi_tab=self._vtab_column_sort(sort_columns_list,psi_tab,show_metrics)                          
                                       
                 report_out['report_psi']=psi_tab.reset_index().rename(columns={'level_0':'variable'})
             
@@ -853,7 +878,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
                                     
                     sort_columns_list=self._check_columns_sort(self.sort_columns, self.columns, X)                                    
                             
-                    psi_tab=self._vtab_column_sort(sort_columns_list,psi_tab)                            
+                    psi_tab=self._vtab_column_sort(sort_columns_list,psi_tab,show_metrics)                            
                                       
                 report_out['report_psi']=psi_tab.reset_index().rename(columns={'level_0':'variable'})                                        
                 
@@ -868,13 +893,14 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
 
         return psi_out            
     
-    def _vtab_column_sort(self,sort_columns,report):
+    def _vtab_column_sort(self,sort_columns,report,show_metrics):
         
         sort_columns=sort_columns.copy()
         
         vt_cols=['variable', 'count', 'count_distr', 'good', 'bad', 'badprob', 'woe',
-                 'bin_iv', 'total_iv', 'ks', 'ks_max','lift', 'breaks']
-
+                      'total_iv', 'ks','lift','auc','breaks'] if show_metrics else ['variable', 'count', 'count_distr', 'good', 'bad', 
+                                                                                             'badprob', 'woe', 'total_iv','breaks']
+            
         sort_columns.append(vt_cols)
         
         cols_sorted=list(product(*sort_columns))
@@ -945,8 +971,12 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
         self.report_dict['report_count'].to_excel(writer,sheet_name='bin_count')     
         self.report_dict['report_badprob'].to_excel(writer,sheet_name='bin_badprob')     
         self.report_dict['report_iv'].to_excel(writer,sheet_name='bin_iv') 
-        self.report_dict['report_ks'].to_excel(writer,sheet_name='bin_ks') 
-        self.report_dict['report_lift'].to_excel(writer,sheet_name='bin_lift') 
+        
+        if self.show_metrics:
+        
+            self.report_dict['report_ks'].to_excel(writer,sheet_name='bin_ks') 
+            self.report_dict['report_lift'].to_excel(writer,sheet_name='bin_lift') 
+            self.report_dict['report_auc'].to_excel(writer,sheet_name='bin_auc') 
         
         if self.output_psi:
             

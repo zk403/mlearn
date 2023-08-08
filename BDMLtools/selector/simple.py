@@ -808,7 +808,7 @@ class preSelector(Base,Specials,TransformerMixin):
             
             if not self.iv_limit>0:
                 
-                raise ValueError("auc_limit is in (0,inf]")           
+                raise ValueError("iv_limit is in (0,inf]")           
 
 
     def _writeExcel(self):

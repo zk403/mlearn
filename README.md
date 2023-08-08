@@ -32,10 +32,13 @@ pip uninstall BDMLtools
 
 更新
 ```
-v0.3.7
-1.新增支持二分类focal loss的损失函数FocalLoss
-2.新增支持二分类focal loss的lightgbm类FLLGBMSklearn
-3.新增支持二分类focal loss下lightgbm的贝叶斯搜索类FLBSTuner
-4.新增支持二分类focal loss下lightgbm的网格搜素、随机搜索类FLgridTuner
-5.更新单元测试脚本,更新部分代码说明
+v0.3.8
+1.报告模块中加入auc指标，加入参数show_metrics以控制auc、ks、lift的输出
+2.修复了binAdjuster中组变量加入breaks_list时导致终止的bug
+3.binSelector中将不再输出ks
+4.调整FLLGBMSklearn中与梯度、正则相关的树参数的默认范围，避免产生决策树无法生长的问题
+5.其他bug修复
+6.更新部分依赖库的版本
+7.更新单元测试脚本,更新部分代码说明
+8.更新example
 ```

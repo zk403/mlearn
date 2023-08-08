@@ -570,7 +570,7 @@ class cardScorer(Base,Specials,TransformerMixin):
             self.columns=self.logit_model.feature_names_in_.tolist()
             
         else:
-            raise ValueError('type(logit_model) in (statsmodels..BinaryResultsWrapper;GLMResultsWrapper,sklearn.linear_model._logistic.LogisticRegression)')
+            raise ValueError('type(logit_model) in (statsmodels.BinaryResultsWrapper;GLMResultsWrapper,sklearn.linear_model._logistic.LogisticRegression)')
             
         self.scorecard=self._getPoints(self.varbin,logit_model_coef,logit_model_intercept,self.digit)
         

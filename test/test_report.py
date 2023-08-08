@@ -103,12 +103,12 @@ def test_varGroupsReport(mock):
         
         assert hasattr(res,'report_dict')
         assert not len(set(res.report_dict.keys())-set(['report_all','report_brief','report_count',
-                                                        'report_badprob','report_iv','report_ks','report_lift']))
+                                                        'report_badprob','report_iv','report_ks','report_lift','report_auc']))
                  
         res=varGroupsReport({'a':[1],'c':['1','2','3']},columns=['g'],output_psi=True,target='y',n_jobs=1).fit(X)
         assert hasattr(res,'report_dict')
         assert not len(set(res.report_dict.keys())-set(['report_all','report_brief','report_count',
-                                                        'report_badprob','report_iv','report_ks','report_psi','report_lift']))
+                                                        'report_badprob','report_iv','report_ks','report_psi','report_lift','report_auc']))
         
         varGroupsPlot({'a':[1],'c':['1','2','3']},column='g',target='y',n_jobs=1).plot(X)
         varGroupsPlot({'a':[1],'c':['1','2','3']},column='g',sort_column=['g1','g2'],target='y',n_jobs=1).plot(X)

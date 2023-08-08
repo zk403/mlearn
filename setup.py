@@ -15,8 +15,24 @@ from setuptools import setup, find_packages
 from codecs import open
 from os import path
 import re
+import sys
+import platform
 
-base_pkgs=[       'numpy>=1.18,<=1.23.5',#https://github.com/numpy/numpy
+def system():
+    """
+    Returns the system os as a string. e.g.: "darwin"
+    """
+    return platform.system().lower()
+
+
+def python_ver():
+    """
+    Returns the python version as a string. e.g.: "3.8"
+    """
+    return str(sys.version_info.major) + "." + str(sys.version_info.minor)
+
+
+base_pkgs=[       #'numpy>=1.18,<=1.23.5',#https://github.com/numpy/numpy
                   #'matplotlib>=3.5.0,<=3.5.3',
                   #'lofo-importance>=0.3.1',#https://github.com/aerdem4/lofo-importance
                   'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
@@ -26,7 +42,7 @@ base_pkgs=[       'numpy>=1.18,<=1.23.5',#https://github.com/numpy/numpy
                   'scikit-learn>=1.0.2',#https://github.com/scikit-learn/scikit-learn
                   'category_encoders>=2.3.0',#https://github.com/scikit-learn-contrib/category_encoders
                   'lightgbm>=3.3.0',#https://github.com/microsoft/LightGBM 
-                  'probatus>=1.8.9',#https://github.com/ing-bank/probatus
+                  'probatus>=2.0.0',#https://github.com/ing-bank/probatus
                   'mlxtend>=0.19.0',#https://github.com/rasbt/mlxtend
                   'scikit-optimize>=0.9.0',#https://github.com/scikit-optimize/scikit-optimize
                   'openpyxl'
@@ -38,8 +54,8 @@ dev_dep = [
     "IPython",
     "mock",
     #'shap>=0.41.0',
-    'xgboost>=1.4.2',#https://github.com/dmlc/xgboost
-    'catboost>=1.0.4,<1.2',#https://github.com/catboost/catboost gituhb action failed in macox
+    'xgboost>=1.5.0',#https://github.com/dmlc/xgboost
+    "catboost>=1.1,<1.2" if python_ver() == "3.8" and system() == "darwin" else "catboost>=1.1" #https://github.com/catboost/catboost gituhb action failed in macox
 ]
 
 here = path.abspath(path.dirname(__file__))

@@ -209,8 +209,8 @@ class binSelector(Base,TransformerMixin):
         #get iv and ks 
         optbindf_ks=pd.concat(bin_res.values())           
 
-        self.iv_info=optbindf_ks.groupby('variable')['bin_iv'].sum().rename('total_iv')
-        self.ks_info=optbindf_ks.groupby('variable')['ks'].max().rename('ks_max')
+        self.iv_info=optbindf_ks.groupby('variable')['total_iv'].max().rename('total_iv')
+        #self.ks_info=optbindf_ks.groupby('variable')['ks'].max().rename('ks')
         
         #fliter by iv
         self.keep_col=self.iv_info[self.iv_info>=self.iv_limit].index.tolist()  
@@ -335,6 +335,8 @@ class binAdjuster(Base,BaseWoePlotter):
                                                                 figure_size=self.figure_size)
             
         else:
+            
+            self.breaks_list_dict={i:self.breaks_list_dict[i] for i in self.breaks_list_dict if i not in self.column}
             
             breaks_list_adj,vtabs_dict_adj=self._get_breaks_adj_g(self.breaks_list_dict,
                                                                 X,y,

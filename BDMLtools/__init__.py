@@ -16,7 +16,7 @@ from BDMLtools.tuner import gridTuner,hgridTuner,FLgridTuner
 from BDMLtools.tuner import BayesianCVTuner,FLBSTuner,shapCheck
 
 
-__version__ = '0.3.7'
+__version__ = '0.3.8'
 
 __all__ = (    
     dtStandardization,

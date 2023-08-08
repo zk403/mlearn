@@ -75,7 +75,7 @@ class BayesianCVTuner(Base,BaseTunner):
                 'max_depth':Integer(2, 4),
                 'learning_rate': Real(0.05, 0.2,prior='uniform'),
             
-                'min_split_gain': Real(0, 10,prior='uniform'),
+                #'min_split_gain': Real(0, 10,prior='uniform'),
                 'min_child_samples':Integer(1, 100,prior='uniform'),
                 
                 'subsample':Real(0.5,1.0,prior='uniform'),
@@ -471,7 +471,7 @@ class FLBSTuner(Base,BaseTunner):
             + Focal Loss中包含了类权重(alpha)，范围为(0,1),因此本模块不支持额外得再设定类权重、样本权重
             + Focal Loss中的gamma[0,+inf)值能减少易分类样本的损失贡献同时增加难分类样本的损失贡献。原始论文中gamma=2时效果最好            
                          
-        参考文献:
+        参考资料:
         [FocalLoss论文:Focal Loss for Dense Object Detection](https://arxiv.org/abs/1708.02002)
         [Lightgbm中Focal Loss损失函数的应用-scipy求导](https://github.com/jrzaurin/LightGBM-with-Focal-Loss)
         [Lightgbm中Focal Loss损失函数的应用-手工求导](https://maxhalford.github.io/blog/lightgbm-focal-loss/)
@@ -507,12 +507,12 @@ class FLBSTuner(Base,BaseTunner):
                     'max_depth':Integer(2, 4),
                     'learning_rate': Real(0.05, 0.2,prior='uniform'),
                 
-                    'min_split_gain': Real(0, 10,prior='uniform'),
+                    'min_split_gain': Real(0, 0.02,prior='uniform'),
                     'min_child_samples':Integer(1, 100,prior='uniform'),
                     
                     'subsample':Real(0.5,1.0,prior='uniform'),
                     'colsample_bytree':Real(0.5,1.0,prior='uniform'),
-                    'reg_lambda':Real(0,10,prior='uniform'),    
+                    'reg_lambda':Real(0,0.01,prior='uniform'),    
                 }                                  
               """   
               
@@ -835,12 +835,12 @@ class FLBSTuner(Base,BaseTunner):
                 'max_depth':Integer(2, 4),
                 'learning_rate': Real(0.05, 0.2,prior='uniform'),
 
-                'min_split_gain': Real(0, 10,prior='uniform'),
+                'min_split_gain': Real(0, 0.02,prior='uniform'),
                 'min_child_samples':Integer(1, 100,prior='uniform'),
 
                 'subsample':Real(0.5,1.0,prior='uniform'),
                 'colsample_bytree':Real(0.5,1.0,prior='uniform'),
-                'reg_lambda':Real(0,10,prior='uniform'),    
+                'reg_lambda':Real(0,0.01,prior='uniform'),    
             } 
 
             # elif Estimator.__module__ == "catboost.core":
