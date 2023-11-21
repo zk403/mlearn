@@ -560,7 +560,7 @@ class cardScorer(Base,Specials,TransformerMixin):
         if isinstance(self.logit_model,(BinaryResultsWrapper,GLMResultsWrapper)):
             
             logit_model_coef=self.logit_model.params[1:].to_dict()
-            logit_model_intercept=self.logit_model.params[0]
+            logit_model_intercept=self.logit_model.params.tolist()[0]
             self.columns=list(logit_model_coef.keys())
         
         elif isinstance(self.logit_model,LogisticRegression):  
@@ -593,7 +593,7 @@ class cardScorer(Base,Specials,TransformerMixin):
             
         score=pd.concat({col:col_points for col,col_points in res},axis=1)
             
-        score['score']=score.sum(axis=1).add(self.scorecard['intercept']['points'][0])
+        score['score']=score.sum(axis=1).add(self.scorecard['intercept']['points'].iloc[0])
             
         return score  
 
@@ -641,9 +641,9 @@ class cardScorer(Base,Specials,TransformerMixin):
             
             points=bin_df[~bin_df['breaks'].isin(['missing','special'])]['points'].tolist()
             
-            points_nan= bin_df[bin_df['breaks'].eq("missing")]['points'][0]
+            points_nan= bin_df[bin_df['breaks'].eq("missing")]['points'].iloc[0]
             
-            points_sp= bin_df[bin_df['breaks'].eq("special")]['points'][0]
+            points_sp= bin_df[bin_df['breaks'].eq("special")]['points'].iloc[0]
             
             if special_values:
                 
@@ -663,9 +663,9 @@ class cardScorer(Base,Specials,TransformerMixin):
             
         elif is_string_dtype(col):
             
-            points_nan= bin_df[bin_df['breaks'].eq("missing")]['points'][0]
+            points_nan= bin_df[bin_df['breaks'].eq("missing")]['points'].iloc[0]
         
-            points_sp= bin_df[bin_df['breaks'].eq("special")]['points'][0]
+            points_sp= bin_df[bin_df['breaks'].eq("special")]['points'].iloc[0]
         
             breaks=bin_df[~bin_df['breaks'].isin(['missing','special'])].index.tolist()
         

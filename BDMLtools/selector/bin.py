@@ -209,7 +209,7 @@ class binSelector(Base,TransformerMixin):
         #get iv and ks 
         optbindf_ks=pd.concat(bin_res.values())           
 
-        self.iv_info=optbindf_ks.groupby('variable')['total_iv'].max().rename('total_iv')
+        self.iv_info=optbindf_ks.groupby('variable',observed=False)['total_iv'].max().rename('total_iv')
         #self.ks_info=optbindf_ks.groupby('variable')['ks'].max().rename('ks')
         
         #fliter by iv

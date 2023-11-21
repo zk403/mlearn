@@ -24,7 +24,7 @@ from BDMLtools.report.report import varReportSinge
 class varReportSinge_a(varReportSinge):
     
     """ 
-    过滤掉LGBM的warning信息
+    
     """    
     
     def report(self, *args, **kwargs):        
@@ -393,7 +393,7 @@ class binKmeans(Base,Specials):
                  while True:
                      
                      #get badprob                             
-                     gp=pd.concat([var_map,y.mul(ws).rename(y.name),ws.rename('ws')],axis=1).groupby(var_map)
+                     gp=pd.concat([var_map,y.mul(ws).rename(y.name),ws.rename('ws')],axis=1).groupby(var_map,observed=False)
         
                      var_bin=gp[y.name].sum().div(gp['ws'].sum()).rename('badprob').reset_index()
          
@@ -437,7 +437,7 @@ class binKmeans(Base,Specials):
                      res_km_s=pd.Series(res_km,var_bin.index,name='cluster')
          
                      #update string breaks
-                     breaks=var_bin.groupby(res_km_s)['bin'].apply(lambda x : '%,%'.join(x)).tolist() 
+                     breaks=var_bin.groupby(res_km_s,observed=False)['bin'].apply(lambda x : '%,%'.join(x)).tolist() 
          
                      #combine_ratio calculation
                      var_bin_ratio=var_bin['badprob'].diff(1).abs().div(var_bin.badprob+1e-10)
@@ -490,7 +490,7 @@ class binKmeans(Base,Specials):
                                        name='bin') 
          
                      #get badprob
-                     gp=pd.concat([var_cut_fillna,y.mul(ws).rename(y.name),ws.rename('ws')],axis=1).groupby(var_cut_fillna)
+                     gp=pd.concat([var_cut_fillna,y.mul(ws).rename(y.name),ws.rename('ws')],axis=1).groupby(var_cut_fillna,observed=False)
         
                      var_bin=gp[y.name].sum().div(gp['ws'].sum()).rename('badprob').reset_index()
                      
@@ -534,7 +534,7 @@ class binKmeans(Base,Specials):
                      res_km_s=pd.Series(res_km,var_bin.index,name='cluster')
         
                      #get index of bins to be merged
-                     g_index_list=var_bin.groupby(res_km_s)['bin'].apply(lambda x : x.index.sort_values().tolist()).tolist()
+                     g_index_list=var_bin.groupby(res_km_s,observed=False)['bin'].apply(lambda x : x.index.sort_values().tolist()).tolist()
          
                      #combine_ratio_count calculation
                      var_bin_ratio=var_bin['badprob'].diff(1).abs().div(var_bin.badprob+1e-10)
@@ -729,7 +729,7 @@ class binTree(Base,Specials):
                 
             else:
                 #sort levels by bad_rate(no-wieght)
-                codes=y.groupby(col).mean().sort_values().index.tolist()
+                codes=y.groupby(col,observed=False).mean().sort_values().index.tolist()
                 
                 #ordinal encode data start with 0
                 map_code=dict(zip(codes,range(len(codes))))
@@ -1101,7 +1101,7 @@ class binChi2(Base,Specials):
                 
             else:
                 #sort levels by bad_rate(no-wieght)
-                codes=y.groupby(col).mean().sort_values().index.tolist()
+                codes=y.groupby(col,observed=False).mean().sort_values().index.tolist()
     
                 #ordinal encode data start with 0
                 map_code=dict(zip(codes,list(range(len(codes)))))
@@ -1467,7 +1467,7 @@ class binPretty(Base,Specials):
                 
             else:
                 #sort levels by bad_rate(no-wieght)
-                codes=y.groupby(col).mean().sort_values().index.tolist()
+                codes=y.groupby(col,observed=False).mean().sort_values().index.tolist()
     
                 #ordinal encode data start with 0
                 map_code=dict(zip(codes,list(range(len(codes)))))

@@ -489,7 +489,7 @@ class preSelector(Base,Specials,TransformerMixin):
                 
                 ws=pd.Series(ws,index=X.index)
                 
-                X_unique_pct=X.apply(lambda x:ws.groupby(x,dropna=False).sum().max()/ws.sum()) 
+                X_unique_pct=X.apply(lambda x:ws.groupby(x,dropna=False,observed=False).sum().max()/ws.sum()) 
                 
             return X_unique_pct[X_unique_pct<unique_pct].index.tolist()+X_oth.columns.tolist()
         

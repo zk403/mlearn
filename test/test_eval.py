@@ -10,6 +10,7 @@ from BDMLtools.plotter import  perfEval,perfEval2
 from plotnine.ggplot import ggplot
 import pandas as pd
 
+
 def test_eval():
     
     pred_prob=pd.Series([0.22,0.34,0.78,0.13,0.54],name='pred',dtype='float')
@@ -45,4 +46,4 @@ def test_eval2():
     res=perfEval2(labels=['g','b'],sort_group=['g','b']).plot(pred,true,group,sample_weight=ws)
     assert isinstance(res,ggplot)
     
-
+    

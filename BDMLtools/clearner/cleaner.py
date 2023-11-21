@@ -401,6 +401,7 @@ class outliersTransformer(Base,TransformerMixin):
         iqr = iq[2] - iq[1]
         
         col=col.copy()
+        col=col.astype('float')
     
         if iqr == 0:
     

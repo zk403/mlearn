@@ -1,4 +1,15 @@
 ```
+v0.3.9
+1.增加对python3.11的支持
+2.修复了使用新版本plotnine下模型评估模块的绘图bug
+3.调整了机器学习模块中当xgboost>=1.60下eval_metrics和earlystoppinground的参数位置
+4.兼容新版本pandas并修复警告信息
+5.更新部分依赖库的版本
+```
+
+
+
+```
 v0.3.8
 1.报告模块中加入auc指标，加入参数show_metrics以控制auc、ks、lift的输出
 2.修复了binAdjuster中组变量加入breaks_list时导致终止的bug

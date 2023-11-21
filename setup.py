@@ -38,7 +38,7 @@ base_pkgs=[       #'numpy>=1.18,<=1.23.5',#https://github.com/numpy/numpy
                   'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
                   'pandas>=1.3.5',#https://github.com/pandas-dev/pandas
                   #'statsmodels>=0.13.2',#https://github.com/statsmodels/statsmodels
-                  'plotnine>=0.10.1',#https://github.com/has2k1/plotnine
+                  'plotnine>=0.12.4',#https://github.com/has2k1/plotnine
                   'scikit-learn>=1.0.2',#https://github.com/scikit-learn/scikit-learn
                   'category_encoders>=2.3.0',#https://github.com/scikit-learn-contrib/category_encoders
                   'lightgbm>=3.3.0',#https://github.com/microsoft/LightGBM 
@@ -48,11 +48,17 @@ base_pkgs=[       #'numpy>=1.18,<=1.23.5',#https://github.com/numpy/numpy
                   'openpyxl'
                  ]
 
+#warning msg:
+#%category_encoders 2.6.2/pandas 2.1.1: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, CategoricalDtype) instead
+#plotnine 0.10.1/pandas 2.1.1: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, CategoricalDtype) instead 
+
+
 dev_dep = [
     "pytest>=6.0.0",
     "pytest-cov>=2.10.0",
     "IPython",
     "mock",
+    "threadpoolctl>=3.0.0",#kmeans:https://stackoverflow.com/questions/71352354/sklearn-kmeans-is-not-working-as-i-only-get-nonetype-object-has-no-attribute
     #'shap>=0.41.0',
     'xgboost>=1.5.0',#https://github.com/dmlc/xgboost
     "catboost>=1.1,<1.2" if python_ver() == "3.8" and system() == "darwin" else "catboost>=1.1" #https://github.com/catboost/catboost gituhb action failed in macox

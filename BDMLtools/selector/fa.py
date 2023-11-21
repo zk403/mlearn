@@ -228,7 +228,7 @@ class faSelector(Base,TransformerMixin):
         
         if isinstance(self.by,str):
         
-            columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio'],ascending=[True,True]).groupby('Cluster').head(1).index 
+            columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio'],ascending=[True,True]).groupby('Cluster',observed=False).head(1).index 
         
         elif is_array_like(self.by):
 
@@ -236,17 +236,17 @@ class faSelector(Base,TransformerMixin):
             
             if self.is_greater_better:
                 
-                columns=self.rsquare_infos.sort_values(['Cluster',name],ascending=[True,False]).groupby('Cluster').head(1).index 
+                columns=self.rsquare_infos.sort_values(['Cluster',name],ascending=[True,False]).groupby('Cluster',observed=False).head(1).index 
                 
             else:
                  
-                columns=self.rsquare_infos.sort_values(['Cluster',name],ascending=[True,True]).groupby('Cluster').head(1).index        
+                columns=self.rsquare_infos.sort_values(['Cluster',name],ascending=[True,True]).groupby('Cluster',observed=False).head(1).index        
 
         else:
             
             warnings.warn('by in (r2-ratio,pd.Series),use r2-ratio instead')  
             
-            columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio'],ascending=[True,True]).groupby('Cluster').head(1).index   
+            columns=self.rsquare_infos.sort_values(['Cluster','1-R2Ratio'],ascending=[True,True]).groupby('Cluster',observed=False).head(1).index   
             
         if self.keep and isinstance(self.keep,list):
             

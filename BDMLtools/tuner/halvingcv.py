@@ -293,6 +293,15 @@ class hgridTuner(Base,BaseTunner):
                     
                     refit_Estimator.set_params(**{"eval_metric":self.eval_metric})
                     
+                #xgboost:eval_metric and early_stopping_rounds in `fit` method is deprecated for better compatibility with scikit-learn,version>=1.6.0
+                elif self.Estimator.__module__ == 'xgboost.sklearn':
+                        
+                        refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                       thread_count=effective_n_jobs(self.n_jobs),
+                                                       **self.params_best)
+                        
+                        refit_Estimator.set_params(**{"eval_metric":self.eval_metric,'early_stopping_rounds':self.early_stopping_rounds})                                                           
+                    
                 else:
                     
                     refit_Estimator=self.Estimator(random_state=self.random_state,
@@ -324,6 +333,7 @@ class hgridTuner(Base,BaseTunner):
                     
                     refit_Estimator.set_params(**{'cat_features':self.cat_features})
                     
+            
                 else:
                     
                     refit_Estimator=self.Estimator(random_state=self.random_state,
@@ -357,6 +367,16 @@ class hgridTuner(Base,BaseTunner):
                         self.eval_metric='AUC'
                     
                     refit_Estimator.set_params(**{"eval_metric":self.eval_metric})
+                    
+                #xgboost:eval_metric and early_stopping_rounds in `fit` method is deprecated for better compatibility with scikit-learn,version>=1.6.0
+                elif self.Estimator.__module__ == 'xgboost.sklearn':
+                        
+                        refit_Estimator=self.Estimator(random_state=self.random_state,
+                                                       thread_count=effective_n_jobs(self.n_jobs),
+                                                       **self.params_best)
+                        
+                        refit_Estimator.set_params(**{"eval_metric":self.eval_metric,'early_stopping_rounds':self.early_stopping_rounds})                                                                               
+                    
                     
                 else:
                     
@@ -514,15 +534,15 @@ class hgridTuner(Base,BaseTunner):
     
     def _get_fit_params(self,Estimator,X_train,y_train,X_val,y_val,sample_weight=None,train_index=None,val_index=None):
         
-        
+        #xgboost:eval_metric and early_stopping_rounds in `fit` method is deprecated for better compatibility with scikit-learn,version>=1.6.0        
         if Estimator.__module__ == "xgboost.sklearn":
             
             fit_params = {
                 "X":X_train,
                 "y":y_train,
                 "eval_set": [(X_val, y_val)],
-                "eval_metric": self.eval_metric,
-                "early_stopping_rounds": self.early_stopping_rounds,
+                #"eval_metric": self.eval_metric,
+                #"early_stopping_rounds": self.early_stopping_rounds,
             }
             
             if sample_weight is not None:

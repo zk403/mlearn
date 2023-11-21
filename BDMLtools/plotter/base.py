@@ -58,7 +58,7 @@ class BaseWoePlotter:
                     value_name = "negpos").rename(columns={'variable':''})
         
         #title
-        title_string = binx['variable'][0]+'(iv:{},ks:{})'.format(round(binx['total_iv'][0],4),round(binx['ks'][0],4))
+        title_string = binx['variable'].iloc[0]+'(iv:{},ks:{})'.format(round(binx['total_iv'].iloc[0],4),round(binx['ks'].iloc[0],4))
     
         #adjust max val of y-left axis
         y_right_max = np.ceil(binx['badprob'].max()*10)
@@ -92,7 +92,7 @@ class BaseWoePlotter:
         figure=(ggplot() + geom_bar(binx_melt,aes(x='bin',y='negpos',fill=''), stat="identity",show_legend = True)
             + geom_point(data=binx,mapping=aes(x='rowid',y='badprob'), stat="identity",color='blue')
             + geom_path(data=binx,mapping=aes(x='rowid',y='badprob'),color='blue')
-            + scale_y_continuous(limits = (0, y_max))
+            + scale_y_continuous(limits = [0, y_max])
             + theme_bw()
             + labs(x='',y='Bin count distribution',title=title_string)
             + theme(
@@ -115,12 +115,12 @@ class BaseWoePlotter:
             
             plt.close()
         
-        return figure,binx['variable'][0]
+        return figure,binx['variable'].iloc[0]
     
     def _get_plot_single_group(self,binx_g,sort_column=None,figure_size=None,show_plot=True):
     
         #dt transform
-        gs=pd.unique([i[0] for i in binx_g.columns.tolist() if i[0] not in ['variable','bin']]).tolist()
+        gs=np.unique([i[0] for i in binx_g.columns.tolist() if i[0] not in ['variable','bin']]).tolist()
         
         self._check_plot_sort(sort_column,gs)
     
@@ -146,7 +146,7 @@ class BaseWoePlotter:
         keys=sort_column if sort_column else iv_d.keys()
         
         #title
-        title_string=binx_g_h['variable'][0]+':'+(',').join(['{}(iv:{},ks:{})'.format(key,round(iv_d[key],4),round(ks_d[key],4)) for key in keys])
+        title_string=binx_g_h['variable'].iloc[0]+':'+(',').join(['{}(iv:{},ks:{})'.format(key,round(iv_d[key],4),round(ks_d[key],4)) for key in keys])
     
         #adjust max val of y-left axis
         y_right_max = np.ceil(binx_g_h['badprob'].max()*10)
@@ -181,7 +181,7 @@ class BaseWoePlotter:
             + geom_point(data=binx_g_h,mapping=aes(x='rowid',y='badprob'), stat="identity",color='blue')
             + geom_path(data=binx_g_h,mapping=aes(x='rowid',y='badprob'),color='blue')
             + facet_wrap(('g'))
-            + scale_y_continuous(limits = (0, y_max))
+            + scale_y_continuous(limits = [0, y_max])
             + theme_bw()
             + labs(x='',y='Bin count distribution',title=title_string)
             + theme(
@@ -204,7 +204,7 @@ class BaseWoePlotter:
             
             plt.close()     
         
-        return figure,binx_g_h['variable'][0]
+        return figure,binx_g_h['variable'].iloc[0]
     
     
     def _check_plot_sort(self,sort_column,gs):
@@ -259,7 +259,7 @@ class BaseEvalFuns:
         d     = abs(nicenumber((high-low)/(n-1)))
         miny  = np.floor(low  / d) * d
         maxy  = np.ceil (high / d) * d
-        return np.arange(miny, maxy+0.5*d, d)
+        return np.arange(miny, maxy+0.5*d, d).round(1).tolist()
        
     
     def _compute_density(self,x,weight=None,kernel='gau',bw='nrd0'):
@@ -434,15 +434,15 @@ class BaseEvalData:
             dt_df['pred']=-dt_df['pred']
         
         dt_ev=dt_df.assign(nP=ws*dt_df['label'].astype('float'),
-                           nN=ws*dt_df['label'].astype('float').map({0:1,1:0})).groupby('pred')[['nP','nN']].sum().reset_index()
+                           nN=ws*dt_df['label'].astype('float').map({0:1,1:0})).groupby('pred',observed=False)[['nP','nN']].sum().reset_index()
         
         if groupnum is not None:
             
             if groupnum<=len(dt_df):
     
                 pred2=np.ceil(dt_ev[['nP','nN']].sum(1).cumsum()/(np.sum(ws)/groupnum)).rename('pred2')
-                dt_ev=dt_ev.groupby(pred2)[['nP','nN']].sum().join(
-                    dt_ev.groupby(pred2)['pred'].max() 
+                dt_ev=dt_ev.groupby(pred2,observed=False)[['nP','nN']].sum().join(
+                    dt_ev.groupby(pred2,observed=False)['pred'].max() 
                 ).reset_index(drop=True)[['pred','nP','nN']]
 
     
@@ -464,7 +464,7 @@ class BaseEvalData:
 
         groupnum=1000 if len(dt_df)>1000 else None
         
-        g_dict=dt_df.groupby('group').groups
+        g_dict=dt_df.groupby('group',observed=False).groups
 
         g_dtev={group:self._get_dfev(dt_df.loc[g_dict[group]],
                                      sample_weight=sample_weight[dt_df.loc[g_dict[group]].index] if sample_weight is not None else None,
@@ -485,7 +485,7 @@ class BaseEvalData:
         
             dt_df=dt_df.copy()
     
-            dt_ev_density=dt_df.groupby('pred')['ws'].sum().reset_index()
+            dt_ev_density=dt_df.groupby('pred',observed=False)['ws'].sum().reset_index()
     
             if groupnum is not None:
     
@@ -493,7 +493,7 @@ class BaseEvalData:
     
                     pred2=np.ceil(dt_ev_density['ws'].cumsum()/(dt_ev_density['ws'].sum()/groupnum)).rename('pred2')
     
-                    out=dt_df[dt_df['pred'].isin(dt_ev_density.groupby(pred2)['pred'].max())][['pred','label','ws']]\
+                    out=dt_df[dt_df['pred'].isin(dt_ev_density.groupby(pred2,observed=False)['pred'].max())][['pred','label','ws']]\
                             .drop_duplicates(subset='pred').assign(group=group)
     
                 else:
@@ -506,7 +506,7 @@ class BaseEvalData:
     
             return out
         
-        g_dict=dt_df.groupby('group').groups
+        g_dict=dt_df.groupby('group',observed=False).groups
     
         g_dtdens=[get_df_density_g(dt_df.loc[g_dict[group]],group,groupnum=groupnum) for group in g_dict]
         
@@ -613,7 +613,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         max_pred = dt_density['pred'].max()
         min_pred = dt_density['pred'].min()
         
-        max_density_by_datset_label=dt_density.groupby(['group','label'])['pred'].apply(lambda x:self._compute_density(x,dt_density['ws'][x.index])).rename('dens').droplevel(2).reset_index()       
+        max_density_by_datset_label=dt_density.groupby(['group','label'],observed=False)['pred'].apply(lambda x:self._compute_density(x,dt_density['ws'][x.index])).rename('dens').droplevel(2).reset_index()       
         
         max_density=np.ceil(max_density_by_datset_label['dens'].max())
         
@@ -621,8 +621,8 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             
             max_density=max_density_by_datset_label['dens'].max()+max_density_by_datset_label['dens'].max()/10
         
-        coord_label=max_density_by_datset_label.groupby(['label'])[['dens']].max().join(
-            dt_density.groupby('label')['pred'].median()
+        coord_label=max_density_by_datset_label.groupby(['label'],observed=False)[['dens']].max().join(
+            dt_density.groupby('label',observed=False)['pred'].median()
         )
         
         fig=(ggplot(data = dt_density) +
@@ -638,8 +638,8 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
                   legend_key=element_blank()) +
             ggtitle(title+' Density' if title else 'Density') +
             labs(x = "Prediction", y = "Density") +
-            scale_y_continuous(labels=self._R_pretty(0,max_density,5).round(1), breaks=self._R_pretty(0,max_density,5)) +
-            scale_x_continuous(labels=self._R_pretty(min_pred,max_pred,5).round(1), breaks=self._R_pretty(min_pred,max_pred,5)) +
+            scale_y_continuous(labels=self._R_pretty(0,max_density,5), breaks=self._R_pretty(0,max_density,5)) +
+            scale_x_continuous(labels=self._R_pretty(min_pred,max_pred,5), breaks=self._R_pretty(min_pred,max_pred,5)) +
             coord_fixed(ratio = (max_pred-min_pred)/(max_density), xlim = (min_pred,max_pred), 
                 ylim = (0,max_density), expand = False)
         )
@@ -650,7 +650,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
     def _plot_ks(self,g_dtev,figure_size,title=None):
 
         dt_ks=pd.concat([self._get_dt_ks(g_dtev[group],group) for group in g_dtev],axis=0,ignore_index=True)
-        dtks=dt_ks[dt_ks['ks']==dt_ks.groupby('group')['ks'].transform(np.max)].drop_duplicates(subset='group')
+        dtks=dt_ks[dt_ks['ks']==dt_ks.groupby('group',observed=False)['ks'].transform('max')].drop_duplicates(subset='group')
         
         x_posi = 0.95 if dt_ks['cumpos'].mean()<dt_ks['cumneg'].mean() else 0.4 
         x_neg = 0.4 if dt_ks['cumpos'].mean()<dt_ks['cumneg'].mean() else 0.95
@@ -676,8 +676,8 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             guides(color=guide_legend(title='')) +
             ggtitle(title+' K-S' if title else 'K-S') +
             labs(x = "% of population", y = "% of total Neg/Pos") +
-            scale_y_continuous(labels=self._R_pretty(0,1,5).round(1), breaks=self._R_pretty(0,1,5)) +
-            scale_x_continuous(labels=self._R_pretty(0,1,5).round(1), breaks=self._R_pretty(0,1,5)) +
+            scale_y_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
+            scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
             coord_fixed(xlim = (0,1), ylim = (0,1), expand = False)
         )
         
@@ -711,8 +711,8 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             guides(color=guide_legend(title='')) + 
             ggtitle(title+' Lift' if title else 'Lift') +
             labs(x = "% of population", y = "Lift") +
-            scale_y_continuous(labels=self._R_pretty(0,max_lift,5).round(1), breaks=self._R_pretty(0,max_lift,5)) +
-            scale_x_continuous(labels=self._R_pretty(0,1,5).round(1), breaks=self._R_pretty(0,1,5)) +
+            scale_y_continuous(labels=self._R_pretty(0,max_lift,5), breaks=self._R_pretty(0,max_lift,5)) +
+            scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
             coord_fixed(ratio = 1/(max_lift-1) if max_lift!=1 else 1,xlim = (0,1), ylim = (1,max_lift), expand = False) 
             )
 
@@ -740,8 +740,8 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
                 guides(color=guide_legend(title='')) +
                 ggtitle(title+' Gain' if title else 'Gain') +
                 labs(x = "% of population", y = "Precision / PPV") +
-                scale_y_continuous(labels=self._R_pretty(0,1,5).round(1), breaks=self._R_pretty(0,1,5)) +
-                scale_x_continuous(labels=self._R_pretty(0,1,5).round(1), breaks=self._R_pretty(0,1,5)) +
+                scale_y_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
+                scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
                 coord_fixed(xlim = (0,1), ylim = (0,1), expand = False)
             )
 
@@ -751,7 +751,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         
         dt_roc=pd.concat([self._get_dt_roc(g_dtev[group],group) for group in g_dtev],axis=0,ignore_index=True)
         
-        dt_cut=dt_roc[dt_roc['co']==dt_roc.groupby('group')['co'].transform(np.max)].drop_duplicates(subset='group')
+        dt_cut=dt_roc[dt_roc['co']==dt_roc.groupby('group',observed=False)['co'].transform('max')].drop_duplicates(subset='group')
         
         
         fig=(ggplot(dt_roc, aes(x='fpr')) +
@@ -773,8 +773,8 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             guides(color=guide_legend(title=''), fill=False) +  
             ggtitle(title+' ROC' if title else 'ROC') +
             labs(x = "1-Specificity / FPR", y = "Sensitivity / TPR") +
-            scale_y_continuous(labels=self._R_pretty(0,1,5).round(1), breaks=self._R_pretty(0,1,5)) +
-            scale_x_continuous(labels=self._R_pretty(0,1,5).round(1), breaks=self._R_pretty(0,1,5)) +
+            scale_y_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
+            scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
             coord_fixed(xlim = (0,1), ylim = (0,1), expand = False)
             )
         
@@ -800,8 +800,8 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             guides(color=guide_legend(title=''), fill=False)+
             ggtitle(title+' Lorenz' if title else 'Lorenz') +
             labs(x = "% of population", y = "% of total positive") +
-            scale_y_continuous(labels=self._R_pretty(0,1,5).round(1), breaks=self._R_pretty(0,1,5)) +
-            scale_x_continuous(labels=self._R_pretty(0,1,5).round(1), breaks=self._R_pretty(0,1,5)) +
+            scale_y_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
+            scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
             coord_fixed(xlim = (0,1), ylim = (0,1), expand = False)
             )
         
@@ -824,8 +824,8 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
                 guides(color=guide_legend(title='')) +
                 ggtitle(title+' P-R' if title else 'P-R') +
                 labs(x = "Recall / TPR", y = "Precision / PPV") +
-                scale_y_continuous(labels=self._R_pretty(0,1,5).round(1), breaks=self._R_pretty(0,1,5)) +
-                scale_x_continuous(labels=self._R_pretty(0,1,5).round(1), breaks=self._R_pretty(0,1,5)) +
+                scale_y_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
+                scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
                 coord_fixed(xlim = (0,1), ylim = (0,1), expand = False)
             )
 
@@ -835,7 +835,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
 
         dt_f1=pd.concat([self._get_dt_f1(g_dtev[group],group) for group in g_dtev],axis=0,ignore_index=True)
         
-        dtf1=dt_f1[dt_f1['f1']==dt_f1.groupby('group')['f1'].transform(np.max)].drop_duplicates(subset='group')
+        dtf1=dt_f1[dt_f1['f1']==dt_f1.groupby('group',observed=False)['f1'].transform('max')].drop_duplicates(subset='group')
   
         fig=(ggplot(dt_f1, aes(x='cumpop')) +
                 geom_line(aes(y='f1', color='group'), na_rm = True) +
@@ -850,8 +850,8 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
                 guides(color=guide_legend(title=''), fill=False)+
                 ggtitle(title+' F1' if title else 'F1') +
                 labs(x = "% of population", y = 'F1') +
-                scale_y_continuous(labels=self._R_pretty(0,1,5).round(1), breaks=self._R_pretty(0,1,5)) +
-                scale_x_continuous(labels=self._R_pretty(0,1,5).round(1), breaks=self._R_pretty(0,1,5)) +
+                scale_y_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
+                scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
                 coord_fixed(xlim = (0,1), ylim = (0,1), expand = False)
             )
         

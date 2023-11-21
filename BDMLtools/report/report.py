@@ -461,7 +461,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
         var_ptable['ks_bin']=var_ptable['good_dis'].cumsum().sub(var_ptable['bad_dis'].cumsum()).abs()
         var_ptable['ks']=var_ptable['ks_bin'].max()
         var_ptable['lift']=var_ptable['badprob'].div(var_ptable['bad'].sum()/var_ptable['count'].sum())
-        var_ptable['auc_bin']=var_ptable['good_dis'].cumsum().diff(1).fillna(var_ptable['good_dis'].cumsum()[0]).mul(
+        var_ptable['auc_bin']=var_ptable['good_dis'].cumsum().diff(1).fillna(var_ptable['good_dis'].cumsum().iloc[0]).mul(
             var_ptable['bad_dis'].cumsum().shift(1).fillna(0).add(var_ptable['bad_dis'].cumsum())
         ).div(2)
         var_ptable['auc']=var_ptable['auc_bin'].sum()        
@@ -716,7 +716,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
             
             X['sample_weight']=1
         
-        X_g_gen=X.groupby(self.columns)
+        X_g_gen=X.groupby(self.columns,observed=False)
         
         n_jobs=effective_n_jobs(self.n_jobs)
         
@@ -840,7 +840,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
                 
                 
                 psi_sum=report_distr.fillna(0).apply(lambda x:self._psi(x,base),axis=0).droplevel(level=1)\
-                                      .assign(bin='psi').set_index('bin',append=True).sort_index(axis=1).groupby(level=[0,1]).sum()
+                                      .assign(bin='psi').set_index('bin',append=True).sort_index(axis=1).groupby(level=[0,1],observed=False).sum()
                                       
                 psi_tab=pd.concat([report_distr,psi_sum]).sort_index()     
                 
@@ -870,7 +870,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
                 report_distr=report[[i for i in report.columns.tolist() if i[-1] in ['count_distr']]]
                 
                 psi_sum=report_distr.fillna(0).apply(lambda x:self._psi(x,base),axis=0).droplevel(level=1)\
-                                      .assign(bin='psi').set_index('bin',append=True).sort_index(axis=1).groupby(level=[0,1]).sum()
+                                      .assign(bin='psi').set_index('bin',append=True).sort_index(axis=1).groupby(level=[0,1],observed=False).sum()
                                       
                 psi_tab=pd.concat([report_distr,psi_sum]).sort_index()     
                                 
@@ -1149,8 +1149,8 @@ class GainsTable(Base):
                    
         if group is not None:
             
-            X_g=X.groupby(group)
-            y_g=y.groupby(group)
+            X_g=X.groupby(group,observed=False)
+            y_g=y.groupby(group,observed=False)
             
             if base_grouper is not None:
             

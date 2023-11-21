@@ -259,9 +259,9 @@ class woeTransformer(Base,Specials,TransformerMixin):
             
             bin_df_drop= bin_df[~bin_df['breaks'].isin([-np.inf,'missing','special',np.inf])]
             
-            woe_nan= bin_df[bin_df['breaks'].eq("missing")]['woe'][0]
+            woe_nan= bin_df[bin_df['breaks'].eq("missing")]['woe'].iloc[0]
             
-            woe_sp= bin_df[bin_df['breaks'].eq("special")]['woe'][0]
+            woe_sp= bin_df[bin_df['breaks'].eq("special")]['woe'].iloc[0]
             
             breaks=bin_df_drop['breaks'].astype('float64').tolist()
             
@@ -286,9 +286,9 @@ class woeTransformer(Base,Specials,TransformerMixin):
             
         elif is_string_dtype(col):
             
-            woe_nan= bin_df[bin_df['breaks'].eq("missing")]['woe'][0]
+            woe_nan= bin_df[bin_df['breaks'].eq("missing")]['woe'].iloc[0]
         
-            woe_sp= bin_df[bin_df['breaks'].eq("special")]['woe'][0]
+            woe_sp= bin_df[bin_df['breaks'].eq("special")]['woe'].iloc[0]
         
             breaks=bin_df[~bin_df['breaks'].isin(['missing','special'])].index.tolist()
         
