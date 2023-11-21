@@ -32,13 +32,10 @@ pip uninstall BDMLtools
 
 更新
 ```
-v0.3.8
-1.报告模块中加入auc指标，加入参数show_metrics以控制auc、ks、lift的输出
-2.修复了binAdjuster中组变量加入breaks_list时导致终止的bug
-3.binSelector中将不再输出ks
-4.调整FLLGBMSklearn中与梯度、正则相关的树参数的默认范围，避免产生决策树无法生长的问题
-5.其他bug修复
-6.更新部分依赖库的版本
-7.更新单元测试脚本,更新部分代码说明
-8.更新example
+v0.3.9
+1.增加对python3.11的支持
+2.修复了使用新版本plotnine下模型评估模块的绘图bug
+3.调整了机器学习模块中当xgboost>=1.60下eval_metrics和earlystoppinground的参数位置
+4.兼容新版本pandas并修复警告信息
+5.更新部分依赖库的版本
 ```
