@@ -321,8 +321,8 @@ class perfEval2(BaseEval):
                 cm_raw=cm.copy()
             
         
-        true_label=pd.Categorical([0,0,1,1],categories=[1,0]).map({0:0,1:1} if labels is None else {0:labels[0],1:labels[1]},na_action='ignore')    
-        pred_label=pd.Categorical([0,1,0,1],categories=[0,1]).map({0:0,1:1} if labels is None else {0:labels[0],1:labels[1]},na_action='ignore')      
+        true_label=pd.Categorical([0,0,1,1],categories=[1,0]).map({0:0,1:1} if labels is None else {0:labels[0],1:labels[1]})    
+        pred_label=pd.Categorical([0,1,0,1],categories=[0,1]).map({0:0,1:1} if labels is None else {0:labels[0],1:labels[1]})      
         
         
         if isinstance(cm,dict):

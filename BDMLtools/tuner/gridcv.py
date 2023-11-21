@@ -13,7 +13,8 @@ from BDMLtools.base import Base
 from BDMLtools.tuner.base import BaseTunner,FLLGBMSklearn,FocalLoss
 from joblib import effective_n_jobs
 from sklearn import metrics
-
+import numpy as np
+np.int=int
 
 class gridTuner(Base,BaseTunner):
     

@@ -20,6 +20,8 @@ from BDMLtools.selector.bin_fun import R_pretty
 from mlxtend.feature_selection import SequentialFeatureSelector
 from sklearn.base import TransformerMixin
 import numpy as np
+np.int=int
+
 
 
 class LgbmPISelector(TransformerMixin,Base,BaseTunner):

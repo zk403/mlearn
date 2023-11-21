@@ -19,6 +19,8 @@ from joblib import effective_n_jobs
 #import numpy as np
 from skopt import BayesSearchCV
 from sklearn import metrics
+import numpy as np
+np.int=int
 
 
 class BayesianCVTuner(Base,BaseTunner):

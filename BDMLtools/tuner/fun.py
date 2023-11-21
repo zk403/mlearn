@@ -13,6 +13,7 @@ import shap
 from scipy.stats import pearsonr,spearmanr
 from joblib import effective_n_jobs,Parallel,delayed
 import numpy as np
+np.int=int
 
 class shapCheck:
     
