@@ -13,9 +13,10 @@ import re
 from BDMLtools.base import Base
 from BDMLtools.selector.bin_fun import binFreq,binPretty,binTree,binChi2,binKmeans
 from BDMLtools.report.report import varGroupsReport,varReportSinge
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from pandas.api.types import is_string_dtype,is_numeric_dtype
 from BDMLtools.plotter.base import BaseWoePlotter
+from IPython.core.display_functions import display
 
 
 
@@ -453,8 +454,7 @@ class binAdjuster(Base,BaseWoePlotter):
     
             fig,_=self._get_plot_single(binx,figure_size=None,show_plot=True)
     
-            fig
-            plt.show()
+            display(fig) #IPython.core.display_functions.display
     
             # interactive options
             option=self._menu(adj_count+1,var_sum,colname)
@@ -642,8 +642,7 @@ class binAdjuster(Base,BaseWoePlotter):
                                               sort_column=sort_column,
                                               figure_size=figure_size,
                                               show_plot=True)
-            fig                                
-            plt.show()
+            display(fig)                                
     
             # interactive options
             option=self._menu(adj_count+1,var_sum,colname)

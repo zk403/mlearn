@@ -32,10 +32,9 @@ pip uninstall BDMLtools
 
 更新
 ```
-v0.3.9
-1.增加对python3.11的支持
-2.修复了使用新版本plotnine下模型评估模块的绘图bug
-3.调整了机器学习模块中当xgboost>=1.60下eval_metrics和earlystoppinground的参数位置
-4.兼容新版本pandas并修复警告信息
-5.更新部分依赖库的版本
+v0.4.0
+1.修复了交互分箱模块下的绘图不显示bug
+2.修复了其他绘图bug(双轴图副轴不显示的bug还未修复)
+3.修复warning信息
+4.更新example
 ```

@@ -11,7 +11,7 @@ import numpy as np
 from plotnine import ggplot,geom_density,geom_text,guides,theme_bw,theme,ggtitle,labs,scale_y_continuous,\
     scale_x_continuous,coord_fixed,aes,guide_legend,element_blank,geom_line,geom_segment,geom_point,annotate,geom_ribbon,geom_bar,geom_path,facet_wrap
 import matplotlib.pyplot as plt
-from joblib import Parallel,delayed,effective_n_jobs
+from joblib import Parallel,delayed
 from scipy.stats import iqr
 import statsmodels.api as sm
 
@@ -20,9 +20,9 @@ class BaseWoePlotter:
     
     def _woe_plot(self,varbin,figure_size,n_jobs,verbose):
         
-        n_jobs=effective_n_jobs(n_jobs)   
+        #n_jobs=effective_n_jobs(n_jobs)   
                               
-        p=Parallel(n_jobs=n_jobs,verbose=verbose)
+        p=Parallel(n_jobs=1,verbose=verbose)
         
         res=p(delayed(self._get_plot_single)(varbin[key],figure_size,False) for key in varbin)
         
