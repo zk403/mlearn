@@ -25,7 +25,6 @@ def test_eval():
     res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density')).plot(pred_prob,true,group)
     res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density')).plot(pred_prob,true,group,ws)
     res=perfEval(title='test',pred_desc=True).plot(pred,true,group)
-
     
     assert all([isinstance(res[key],ggplot) for key in res])
     

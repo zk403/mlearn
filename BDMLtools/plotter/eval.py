@@ -12,6 +12,13 @@ import pandas as pd
 import numpy as np
 import warnings
 from sklearn.metrics import precision_recall_curve,confusion_matrix
+import sys
+
+def python_ver():
+    """
+    Returns the python version as a string. e.g.: "3.8"
+    """
+    return str(sys.version_info.major) + "." + str(sys.version_info.minor)
 
 
 class perfEval(BaseEval,BaseEvalPlotter):
@@ -319,11 +326,17 @@ class perfEval2(BaseEval):
             else:
                         
                 cm_raw=cm.copy()
+                
+        if python_ver()=='3.8':
             
+            true_label=pd.Categorical([0,0,1,1],categories=[1,0]).map({0:0,1:1} if labels is None else {0:labels[0],1:labels[1]})    
+            pred_label=pd.Categorical([0,1,0,1],categories=[0,1]).map({0:0,1:1} if labels is None else {0:labels[0],1:labels[1]})      
+           
+        else:    
         
-        true_label=pd.Categorical([0,0,1,1],categories=[1,0]).map({0:0,1:1} if labels is None else {0:labels[0],1:labels[1]},na_action=None)    
-        pred_label=pd.Categorical([0,1,0,1],categories=[0,1]).map({0:0,1:1} if labels is None else {0:labels[0],1:labels[1]},na_action=None)      
-        
+            true_label=pd.Categorical([0,0,1,1],categories=[1,0]).map({0:0,1:1} if labels is None else {0:labels[0],1:labels[1]},na_action=None)    
+            pred_label=pd.Categorical([0,1,0,1],categories=[0,1]).map({0:0,1:1} if labels is None else {0:labels[0],1:labels[1]},na_action=None)      
+            
         
         if isinstance(cm,dict):
             
