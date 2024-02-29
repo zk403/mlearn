@@ -18,8 +18,7 @@ from warnings import warn
 from BDMLtools.fun import raw_to_bin_sc,Specials
 from BDMLtools.base import Base
 from BDMLtools.report.report import varReportSinge
-
-
+from BDMLtools.config import combine_ratio,max_bin,max_iters,chi2_tol
 
 class varReportSinge_a(varReportSinge):
     
@@ -297,7 +296,7 @@ class binKmeans(Base,Specials):
     
     """    
     
-    def __init__(self,breaks_list,combine_ratio=0.1,bin_limit=5,seed=123,sample_weight=None,special_values=None,n_jobs=-1,verbose=0):
+    def __init__(self,breaks_list,combine_ratio=float(combine_ratio),bin_limit=5,seed=123,sample_weight=None,special_values=None,n_jobs=-1,verbose=0):
 
         self.combine_ratio = combine_ratio       
         self.bin_limit=bin_limit
@@ -627,7 +626,7 @@ class binTree(Base,Specials):
     bins:dict,当前breaks_list下的特征分析报告
     """    
     
-    def __init__(self,max_bin=50,criteria='iv',max_iters=100,
+    def __init__(self,max_bin=int(max_bin),criteria='iv',max_iters=int(max_iters),
                  tol=1e-4,distr_limit=0.05,bin_num_limit=8,coerce_monotonic=False,
                  ws=None,special_values=None,n_jobs=-1,verbose=0):
 
@@ -1005,7 +1004,7 @@ class binChi2(Base,Specials):
     bins:dict,当前breaks_list下的特征分析报告
     """    
     
-    def __init__(self,max_bin=50,tol=0.1,distr_limit=0.05,bin_num_limit=8,
+    def __init__(self,max_bin=int(max_bin),tol=float(chi2_tol),distr_limit=0.05,bin_num_limit=8,
                  coerce_monotonic=False,ws=None,special_values=None,n_jobs=-1,verbose=0):
 
         self.max_bin=max_bin
@@ -1369,7 +1368,7 @@ class binPretty(Base,Specials):
     bins:dict,当前breaks_list下的特征分析报告
     """    
     
-    def __init__(self,max_bin=50,distr_limit=0.05,bin_num_limit=8,
+    def __init__(self,max_bin=int(max_bin),distr_limit=0.05,bin_num_limit=8,
                  coerce_monotonic=False,ws=None,special_values=None,n_jobs=-1,verbose=0):
 
         self.max_bin=max_bin

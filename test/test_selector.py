@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Tue Jul 12 13:34:22 2022
@@ -394,7 +393,7 @@ def test_woeTransformer():
     for col in X_woe.columns:
         
         assert X_woe[col].round(4).equals(X_woe1[col].round(4))
-        
+
     X_woe=woeTransformer(bins,woe_missing=0,distr_limit=0.05,woe_special=0).fit_transform(X,y)  
     assert all(X_woe['var_32'][X['var_32'].isnull()]==0)
     
@@ -410,6 +409,8 @@ def test_woeTransformer():
     assert all(X_bin['var_char'][X['var_char']=='a']=='special')
     assert all(X_bin['var_char'][X['var_char'].isnull()]=='missing')
     
+    
+    X_woe[col].round(10).equals(X_woe1[col].round(10))
     
 def test_cardScorer():
     

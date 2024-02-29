@@ -13,6 +13,7 @@ from BDMLtools.fun import Specials
 import pandas as pd
 import numpy as np
 
+
 def test_base():
     
 
@@ -165,6 +166,10 @@ def test_base():
         res._check_yname(y)
     except ValueError:
         pass         
+    
+    #__check_breaks
+    res._check_breaks([1.1111],3)[0]
+    
     
     
 def test_baseeval():

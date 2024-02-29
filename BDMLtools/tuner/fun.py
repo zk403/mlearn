@@ -13,6 +13,7 @@ import shap
 from scipy.stats import pearsonr,spearmanr
 from joblib import effective_n_jobs,Parallel,delayed
 import numpy as np
+from BDMLtools.config import shap_color_bar
 np.int=int
 
 class shapCheck:
@@ -120,7 +121,7 @@ class shapCheck:
             
             self.figs={col:fig for col,fig in out_list}
                       
-            shap.summary_plot(X_shap.values, X)
+            shap.summary_plot(X_shap.values, X,color_bar=bool(shap_color_bar))
         
         return self   
     
@@ -142,15 +143,16 @@ class shapCheck:
         
         p=pearsonr(dt['shap'],dt['woe'])[0]
         
-        p=(ggplot(aes(dt['shap'], dt['woe']))
-         + geom_point(size=1,color='red',alpha=0.5,shape=10)
+        fig=(ggplot(aes(dt['shap'], dt['woe']))
+         + geom_point(size=1,color='red',alpha=0.5)
          + stat_smooth(method='lm',se=True,size=0.5,linetype="dashed",color="blue")
          + theme_bw()
          + labs(x='Shapley Value',y='Weight of Evidence',title='Scatter Plot of Shapley-Value and WoE:{}'.format(col))
          + theme(figure_size=figure_size)
-         + annotate("text", label = "Pearson's r:{}".format(np.round(p,3)), x = x, y = y,color='blue'))
+         + annotate("text", label = "Pearson's r:{}".format(np.round(p,3)), x = x, y = y,color='blue')
+         )
 
-        return p
+        return fig.draw()
     
     def _check(self,X_woe,X_shap):
         

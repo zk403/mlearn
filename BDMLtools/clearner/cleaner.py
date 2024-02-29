@@ -16,7 +16,7 @@ import warnings
 from BDMLtools.fun import Specials
 from BDMLtools.base import Base
 from BDMLtools.exception import DataTypeError
-
+from BDMLtools.config import digit
 
 class dtStandardization(TransformerMixin):
     
@@ -127,8 +127,7 @@ class dtypeAllocator(Base,TransformerMixin):
                 + colname_list不能含有col_rm中的列,否则会报错终止
         col_rm=None or list,不参与转换的列的列名列表，其不会参与任何转换且最终会保留在输出数据中        
         t_unit=‘1 D’,timedelta类列处理为数值的时间单位，默认天
-        drop_date=False,是否剔除原始数据中的日期列，默认False
-        precision=3,数值类数据小数点位数,precision=3代表保留小数点后3位小数
+        drop_date=False,是否剔除原始数据中的日期列，默认False       
 
     Attributes:
     ------
@@ -137,13 +136,13 @@ class dtypeAllocator(Base,TransformerMixin):
     """    
 
     
-    def __init__(self,dtypes_dict={},col_rm=None,t_unit='1 D',drop_date=False,precision=3):
+    def __init__(self,dtypes_dict={},col_rm=None,t_unit='1 D',drop_date=False):
 
         self.dtypes_dict=dtypes_dict
         self.col_rm = col_rm
         self.drop_date=drop_date
         self.t_unit=t_unit
-        self.precision=precision
+        self.precision=int(digit)
         
 
     def transform(self, X):

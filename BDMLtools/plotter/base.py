@@ -8,13 +8,12 @@ Created on Wed Oct 27 23:08:38 2021
 
 import pandas as pd
 import numpy as np
-from plotnine import ggplot,geom_density,geom_text,guides,theme_bw,theme,ggtitle,labs,scale_y_continuous,\
-    scale_x_continuous,coord_fixed,aes,guide_legend,element_blank,geom_line,geom_segment,geom_point,annotate,geom_ribbon,geom_bar,geom_path,facet_wrap
+from plotnine import __version__,ggplot,geom_density,geom_text,guides,theme_bw,theme,ggtitle,labs,scale_y_continuous,\
+    scale_x_continuous,coord_fixed,aes,guide_legend,element_blank,geom_line,geom_segment,geom_point,annotate,geom_ribbon,geom_bar,geom_path,facet_wrap,element_text
 import matplotlib.pyplot as plt
 from joblib import Parallel,delayed
 from scipy.stats import iqr
 import statsmodels.api as sm
-
 
 class BaseWoePlotter:   
     
@@ -97,7 +96,8 @@ class BaseWoePlotter:
             + labs(x='',y='Bin count distribution',title=title_string)
             + theme(
               figure_size=figure_size,
-              legend_position=(0.5,0),legend_direction="horizontal",
+              legend_position=(0.5,-0.15) if __version__!="0.12.4" else (0.5,0),legend_direction="horizontal",
+              plot_title = element_text(ha='left'),
               legend_key_size=10)
             + geom_text(data=binx, mapping=aes(x = 'rowid',y='badprob',label='lineval_l'),va = 'bottom',color='blue')
             + geom_text(data=binx, mapping=aes(x='rowid',y='count_distr',label=labels),va = 'bottom',color='black',alpha=0.6)
@@ -186,7 +186,8 @@ class BaseWoePlotter:
             + labs(x='',y='Bin count distribution',title=title_string)
             + theme(
               figure_size=figure_size,
-              legend_position=(0.5,0),legend_direction="horizontal",
+              legend_position=(0.5,-0.15) if __version__!="0.12.4" else (0.5,0),legend_direction="horizontal",
+              plot_title = element_text(ha='left'),
               legend_key_size=10)
             + geom_text(data=binx_g_h, mapping=aes(x = 'rowid',y='badprob',label='lineval_l'),va = 'bottom',color='blue')
             + geom_text(data=binx_g_h, mapping=aes(x='rowid',y='count_distr',label=labels),va = 'bottom',color='black',alpha=0.6)
@@ -629,22 +630,27 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             geom_density(aes(x='pred',linetype='label',color='group',weight='ws'),fill='gray', alpha=0.1,show_legend = True) +
             geom_text(coord_label, aes(x='pred', y='dens', label=coord_label.index.map({0:'Neg',1:'Pos'}))) +
             guides(linetype=None, color=guide_legend(title='')) +
+            ggtitle(title+' Density' if title else 'Density') +
             theme_bw() +
             theme(figure_size=figure_size,
-                  legend_position=(0.8,0.8),
+                  legend_position=(0.9,0.9) if __version__!='0.12.4' else (0.8,0.8),
                   legend_direction='',
                   #legend_justification=(1,1),
                   legend_background=element_blank(),
+                  plot_title = element_text(ha='left'),
                   legend_key=element_blank()) +
-            ggtitle(title+' Density' if title else 'Density') +
             labs(x = "Prediction", y = "Density") +
             scale_y_continuous(labels=self._R_pretty(0,max_density,5), breaks=self._R_pretty(0,max_density,5)) +
             scale_x_continuous(labels=self._R_pretty(min_pred,max_pred,5), breaks=self._R_pretty(min_pred,max_pred,5)) +
             coord_fixed(ratio = (max_pred-min_pred)/(max_density), xlim = (min_pred,max_pred), 
                 ylim = (0,max_density), expand = False)
-        )
-                
-        return fig
+        )     
+        
+        if __version__!='0.12.4':
+        
+            fig.show()   
+            
+        return fig.draw()  
     
     
     def _plot_ks(self,g_dtev,figure_size,title=None):
@@ -663,25 +669,30 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             geom_point(dtks, aes(x='cumpop', y='ks'), color='red') +
             annotate("text", x=x_posi, y=0.7,  label="Pos", colour = "gray") +
             annotate("text", x=x_neg, y=0.7, label="Neg", colour = "gray") +
+            ggtitle(title+' K-S' if title else 'K-S') +
             theme_bw() +
             theme(figure_size=figure_size,
-                  legend_position=(0.26,0.8),
+                  legend_position=(0.1,0.9) if __version__!='0.12.4' else (0.26,0.8),
                   legend_direction='',
                   #legend_justification=(0,1),
                   legend_background=element_blank(),
                   legend_key=element_blank(),
+                  plot_title = element_text(ha='left'),
                   #panel_border=element_rect(color="black",size=1.5)
                   #legend_key_size = unit(1.5, 'lines')
                  ) +
             guides(color=guide_legend(title='')) +
-            ggtitle(title+' K-S' if title else 'K-S') +
             labs(x = "% of population", y = "% of total Neg/Pos") +
             scale_y_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
             scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
             coord_fixed(xlim = (0,1), ylim = (0,1), expand = False)
         )
         
-        return fig    
+        if __version__!='0.12.4':
+        
+            fig.show()   
+            
+        return fig.draw()  
     
     def _plot_lift(self,g_dtev,figure_size,title=None):
 
@@ -693,59 +704,69 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             
             max_lift=dt_lift['lift'].max()
 
-        legend_xposition=0.2
+        legend_xposition=0.1 if __version__!='0.12.4' else 0.2
 
         if dt_lift.query("cumpop<0.1")['lift'].mean()>dt_lift.query("cumpop>0.9")['lift'].mean():
 
-            legend_xposition=0.8
+            legend_xposition=0.9 if __version__!='0.12.4' else 0.8
 
         fig=(ggplot(dt_lift, aes(x='cumpop', color = 'group')) +
             geom_line(aes(y = 'lift'), na_rm = True) +
+            ggtitle(title+' Lift' if title else 'Lift') +
             theme_bw() +
-            theme(legend_position=(legend_xposition,0.8),
+            theme(legend_position=(legend_xposition,0.9) if __version__!='0.12.4' else (legend_xposition,0.8),
                   #legend.justification=c(legend_xposition,1),
                   legend_direction='',
                   figure_size=figure_size,
                   legend_background=element_blank(),
+                  plot_title = element_text(ha='left'),
                   legend_key=element_blank()) +
-            guides(color=guide_legend(title='')) + 
-            ggtitle(title+' Lift' if title else 'Lift') +
+            guides(color=guide_legend(title='')) +             
             labs(x = "% of population", y = "Lift") +
             scale_y_continuous(labels=self._R_pretty(0,max_lift,5), breaks=self._R_pretty(0,max_lift,5)) +
             scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
             coord_fixed(ratio = 1/(max_lift-1) if max_lift!=1 else 1,xlim = (0,1), ylim = (1,max_lift), expand = False) 
             )
-
-        return fig
+        
+        if __version__!='0.12.4':
+        
+            fig.show()   
+            
+        return fig.draw()  
     
     
     def _plot_gain(self,g_dtev,figure_size,title=None):
 
         dt_gain=pd.concat([self._get_dt_gain(g_dtev[group],group) for group in g_dtev],axis=0,ignore_index=True)
         
-        legend_xposition = 0.2
+        legend_xposition = 0.1 if __version__!='0.12.4' else 0.2
 
         if dt_gain[dt_gain['cumpop']<0.1]['precision'].mean()>dt_gain[dt_gain['cumpop']>0.9]['precision'].mean():
 
-            legend_xposition=0.8
+            legend_xposition=0.9 if __version__!='0.12.4' else 0.8
 
         fig=(ggplot(dt_gain, aes(x='cumpop', color = 'group')) +
                 geom_line(aes(y = 'precision'), na_rm = True) +
+                ggtitle(title+' Gain' if title else 'Gain') +
                 theme_bw() +
                 theme(figure_size=figure_size,
                       legend_direction='',
-                      legend_position=(legend_xposition,0.8),
+                      legend_position=(legend_xposition,0.9) if __version__!='0.12.4' else (legend_xposition,0.8),
                       legend_background=element_blank(),
+                      plot_title = element_text(ha='left'),
                       legend_key=element_blank()) +
                 guides(color=guide_legend(title='')) +
-                ggtitle(title+' Gain' if title else 'Gain') +
                 labs(x = "% of population", y = "Precision / PPV") +
                 scale_y_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
                 scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
                 coord_fixed(xlim = (0,1), ylim = (0,1), expand = False)
             )
-
-        return fig
+        
+        if __version__!='0.12.4':
+        
+            fig.show()   
+            
+        return fig.draw()  
     
     def _plot_roc(self,g_dtev,figure_size,title=None):
         
@@ -761,24 +782,29 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             geom_point(dt_cut, aes(x='fpr', y='tpr'), color='red') +
             # geom_text(dt_cut, aes(x=FPR, y=TPR, label=oc, color=datset), vjust=1) +
             # geom_segment(aes(x=0, y=0, xend=1, yend=1), linetype = "dashed", colour="red") +
+            ggtitle(title+' ROC' if title else 'ROC') +
             theme_bw() +
-            theme(legend_position=(0.7,0.2),
+            theme(legend_position=(0.8,0.2) if __version__!='0.12.4' else (0.7,0.2),
                   legend_direction='',
                   figure_size=figure_size,
                   #legend_justification=c(1,0),
                   legend_background=element_blank(),
                   legend_key=element_blank(),
+                  plot_title = element_text(ha='left'),
                   #legend_key_size = unit(1.5, 'lines')
                  ) +
             guides(color=guide_legend(title=''), fill=False) +  
-            ggtitle(title+' ROC' if title else 'ROC') +
             labs(x = "1-Specificity / FPR", y = "Sensitivity / TPR") +
             scale_y_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
             scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
             coord_fixed(xlim = (0,1), ylim = (0,1), expand = False)
             )
         
-        return fig
+        if __version__!='0.12.4':
+        
+            fig.show()   
+            
+        return fig.draw()  
     
     
     def _plot_lz(self,g_dtev,figure_size,title=None):
@@ -790,22 +816,27 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
             geom_line(aes(y='cumpop'), linetype = "dashed", colour="gray") +
             # geom_segment(aes(x=0, y=0, xend=1, yend=1), linetype = "dashed", colour="red") +
             geom_ribbon(aes(ymin='cumpop', ymax='cumposrate', fill='group'), alpha=0.1) +
+            ggtitle(title+' Lorenz' if title else 'Lorenz') +
             theme_bw() +
             theme(figure_size=figure_size,
-                  legend_position=(0.26,0.8),
+                  legend_position=(0.1,0.9) if __version__!='0.12.4' else (0.2,0.8),
                   legend_direction='',
                   #legend_justification=c(0,1),
                   legend_background=element_blank(),
+                  plot_title = element_text(ha='left'),
                   legend_key=element_blank()) +
             guides(color=guide_legend(title=''), fill=False)+
-            ggtitle(title+' Lorenz' if title else 'Lorenz') +
             labs(x = "% of population", y = "% of total positive") +
             scale_y_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
             scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
             coord_fixed(xlim = (0,1), ylim = (0,1), expand = False)
             )
         
-        return fig
+        if __version__!='0.12.4':
+        
+            fig.show()   
+            
+        return fig.draw()  
         
     
     def _plot_pr(self,g_dtev,figure_size,title=None):
@@ -815,22 +846,28 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         fig=(ggplot(dt_pr) +
                 geom_line(aes(x='recall', y='precision', color='group'), na_rm = True) +
                 geom_line(aes(x='recall', y='recall'), na_rm = True, linetype = "dashed", colour="gray") +
+                ggtitle(title+' P-R' if title else 'P-R') +
                 theme_bw() +
                 theme(figure_size=figure_size,
-                      legend_position=(0.2,0.2),
+                      legend_position=(0.1,0.1) if __version__!='0.12.4' else (0.2,0.2),
                       legend_background=element_blank(),
+                      plot_title = element_text(ha='left'),
                       legend_direction='',
                       legend_key=element_blank()) +
                 guides(color=guide_legend(title='')) +
-                ggtitle(title+' P-R' if title else 'P-R') +
                 labs(x = "Recall / TPR", y = "Precision / PPV") +
                 scale_y_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
                 scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
                 coord_fixed(xlim = (0,1), ylim = (0,1), expand = False)
             )
+        
+        if __version__!='0.12.4':
+        
+            fig.show()   
+            
+        return fig.draw()  
 
-        return fig
-    
+            
     def _plot_f1(self,g_dtev,figure_size,title=None):
 
         dt_f1=pd.concat([self._get_dt_f1(g_dtev[group],group) for group in g_dtev],axis=0,ignore_index=True)
@@ -841,19 +878,24 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
                 geom_line(aes(y='f1', color='group'), na_rm = True) +
                 geom_point(dtf1, aes(x='cumpop', y='f1'), color='red') +
                 geom_segment(dtf1, aes(x = 'cumpop', y = 0, xend = 'cumpop', yend = 'f1', color='group'), linetype = "dashed") +
+                ggtitle(title+' F1' if title else 'F1') +
                 theme_bw() +
                 theme(figure_size=figure_size,
-                      legend_position=(0.7,0.2),      
+                      legend_position=(0.8,0.2) if __version__!='0.12.4' else (0.7,0.2),      
                       legend_direction='',
+                      plot_title = element_text(ha='left'),
                       legend_background=element_blank(),
                       legend_key=element_blank()) +
                 guides(color=guide_legend(title=''), fill=False)+
-                ggtitle(title+' F1' if title else 'F1') +
                 labs(x = "% of population", y = 'F1') +
                 scale_y_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
                 scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) +
                 coord_fixed(xlim = (0,1), ylim = (0,1), expand = False)
             )
         
-        return fig                 
+        if __version__!='0.12.4':
+        
+            fig.show()   
+            
+        return fig.draw()  
                 

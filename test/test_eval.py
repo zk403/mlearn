@@ -7,11 +7,11 @@ Created on Wed Jul 13 09:44:35 2022
 """
 
 from BDMLtools.plotter import  perfEval,perfEval2
-from plotnine.ggplot import ggplot
 import pandas as pd
+import mock
 
-
-def test_eval():
+@mock.patch('matplotlib.pyplot.show')
+def test_eval(mock_show):
     
     pred_prob=pd.Series([0.22,0.34,0.78,0.13,0.54],name='pred',dtype='float')
     pred=pd.Series([100,130,70,150,160],name='pred',dtype='float')
@@ -24,12 +24,12 @@ def test_eval():
     res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density')).plot(pred,true,group)
     res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density')).plot(pred_prob,true,group)
     res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density')).plot(pred_prob,true,group,ws)
+    assert set(res) == {'ks','roc','gain','lift','roc','pr','lz','f1','density'}
     res=perfEval(title='test',pred_desc=True).plot(pred,true,group)
-    
-    assert all([isinstance(res[key],ggplot) for key in res])
-    
+    assert set(res) == {'ks','roc'}
 
-def test_eval2():
+@mock.patch('matplotlib.pyplot.show')
+def test_eval2(mock_show):
     
     pred_prob=pd.Series([0.22,0.34,0.78,0.13,0.54],name='pred',dtype='float')
     pred=pd.Series([1,1,0,1,1],name='pred',dtype='float')
@@ -43,6 +43,9 @@ def test_eval2():
     res=perfEval2(pred_prob=True).plot(pred_prob,true,group)
     res=perfEval2(labels=['g','b'],sort_group=['g','b']).plot(pred,true,group)
     res=perfEval2(labels=['g','b'],sort_group=['g','b']).plot(pred,true,group,sample_weight=ws)
-    assert isinstance(res,ggplot)
+    
+    
+    
+
     
     

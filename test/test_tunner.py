@@ -436,27 +436,28 @@ def test_FLBSTuner():
                     init_points=1,n_iter=1,
                     validation_fraction=None,early_stopping_rounds=None,calibration=True).fit(X,y)
     
-    res.predict_proba(X);res.predict_score(X)
-
+    res.predict_proba(X);res.predict_score(X)   
     
 
 @mock.patch('matplotlib.pyplot.show')
 def test_shapcheck(mock_show):
-    
+      
     X=pd.DataFrame(
-        {
-         'a':[1,2,2,4,5,1,2,2,4,5,1,2,2,4,5,1,2,2,4,5],
-         'b':[1,2,3,4,5,1,2,3,4,5,1,2,3,4,5,1,2,3,4,5],
-         'c':[1,1,1,2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,2,1]}
-        )
+            {
+             'a':[1,2,2,4,5,1,2,2,4,5,1,2,2,4,5,1,2,2,4,5],
+             'b':[1,2,3,4,5,1,2,3,4,5,1,2,3,4,5,1,2,3,4,5],
+             },
+            )
     y=pd.Series([0,0,1,1,1,0,0,1,1,1,0,0,1,1,1,0,0,1,1,1],name='y')
     
     res=BayesianCVTuner(XGBClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
                         init_points=1,n_iter=1,
                         validation_fraction=None,early_stopping_rounds=None).fit(X,y)
         
-    shapCheck(res.model_refit).fit_plot(X,y)
-    shapCheck(res.model_refit,woe_raw=True).fit_plot(X,y)
+    p=shapCheck(res.model_refit).fit_plot(X,y)
+    assert p.figs
+    p=shapCheck(res.model_refit,woe_raw=True).fit_plot(X,y)
+    assert p.figs
     
     X=pd.DataFrame(
             {
@@ -470,7 +471,8 @@ def test_shapcheck(mock_show):
                         init_points=1,n_iter=1,
                         validation_fraction=None,early_stopping_rounds=None).fit(X,y)
         
-    shapCheck(res.model_refit).fit_plot(X,y)
+    p=shapCheck(res.model_refit).fit_plot(X,y)
+    assert p.figs
     
     X=pd.DataFrame(
             {
@@ -484,6 +486,7 @@ def test_shapcheck(mock_show):
                         init_points=1,n_iter=1,
                         validation_fraction=None,early_stopping_rounds=None).fit(X,y)
         
-    shapCheck(res.model_refit).fit_plot(X,y)
+    p=shapCheck(res.model_refit).fit_plot(X,y) 
     
+    assert p.figs
     

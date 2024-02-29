@@ -38,7 +38,7 @@ base_pkgs=[       #'numpy>=1.18,<=1.23.5',#https://github.com/numpy/numpy
                   'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
                   'pandas>=1.3.5',#https://github.com/pandas-dev/pandas
                   #'statsmodels>=0.13.2',#https://github.com/statsmodels/statsmodels
-                  'plotnine>=0.12.4',#https://github.com/has2k1/plotnine
+                  'plotnine==0.12.4' if python_ver() == "3.8" else 'plotnine>=0.12.4',#https://github.com/has2k1/plotnine
                   'scikit-learn>=1.0.2',#https://github.com/scikit-learn/scikit-learn
                   'category_encoders>=2.3.0',#https://github.com/scikit-learn-contrib/category_encoders
                   'lightgbm>=3.3.0',#https://github.com/microsoft/LightGBM 
@@ -46,6 +46,7 @@ base_pkgs=[       #'numpy>=1.18,<=1.23.5',#https://github.com/numpy/numpy
                   'mlxtend>=0.19.0',#https://github.com/rasbt/mlxtend
                   'scikit-optimize>=0.9.0',#https://github.com/scikit-optimize/scikit-optimize
                   'shap>=0.41.0,<0.43.0',
+                  "IPython",
                   'openpyxl'
                  ]
 
@@ -57,7 +58,6 @@ base_pkgs=[       #'numpy>=1.18,<=1.23.5',#https://github.com/numpy/numpy
 dev_dep = [
     "pytest>=6.0.0",
     "pytest-cov>=2.10.0",
-    "IPython",
     "mock",
     "threadpoolctl>=3.0.0",#kmeans:https://stackoverflow.com/questions/71352354/sklearn-kmeans-is-not-working-as-i-only-get-nonetype-object-has-no-attribute
     #'shap>=0.41.0',

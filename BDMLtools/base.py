@@ -12,6 +12,8 @@ from BDMLtools.exception import DataTypeError,XyIndexError,yValueError
 import pandas as pd
 import numpy as np
 from itertools import combinations
+from BDMLtools.config import digit
+
 
 class Base:
     
@@ -124,7 +126,7 @@ class Base:
             raise ValueError("Series y must have a name!")
             
             
-    def _check_breaks(self,breaks_list,digit=3):
+    def _check_breaks(self,breaks_list,digit=int(digit)):
                    
         def is_numeric_list(breaks):
             

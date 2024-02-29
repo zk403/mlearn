@@ -17,7 +17,6 @@ import numpy as np
 from itertools import product
 import pandas as pd
 from sklearn.metrics import log_loss,roc_auc_score
-import matplotlib.pyplot as plt
 import os
 
 class LassoLogit(Base,TransformerMixin):    
@@ -280,11 +279,11 @@ class LassoLogit(Base,TransformerMixin):
             geom_line()+
             ggtitle('Lasso-Logistic Regularization Path')+
             labs(x = "Log(C)", y = "Coefficients") +
-            scale_color_discrete(guide=False)+ 
+            scale_color_discrete()+ 
             theme_bw() +
-            theme(figure_size=figure_size,plot_title=element_text(y=0.98))
+            theme(figure_size=figure_size,plot_title=element_text(y=0.98,ha='left'))
         ).draw()
-        plt.close()
+        #plt.close()
 
         ax1=fig.get_axes()[-1]
         ay=fig.get_axes()[0]
@@ -330,10 +329,10 @@ class LassoLogit(Base,TransformerMixin):
             labs(x = "Log(C)", y = "Val-Score") +
             theme_bw() +
             theme(figure_size=figure_size,
-                  plot_title=element_text(y=0.98),
+                  plot_title=element_text(y=0.98,ha='left'),
                  ) 
         ).draw()
-        plt.close()
+        #plt.close()
 
         ax1=fig.get_axes()[-1]
         ay=fig.get_axes()[0]

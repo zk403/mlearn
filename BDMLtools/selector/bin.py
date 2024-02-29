@@ -19,7 +19,6 @@ from BDMLtools.plotter.base import BaseWoePlotter
 from IPython.core.display_functions import display
 
 
-
 class binSelector(Base,TransformerMixin):    
     
     """ 
@@ -643,7 +642,7 @@ class binAdjuster(Base,BaseWoePlotter):
                                               figure_size=figure_size,
                                               show_plot=True)
             display(fig)                                
-    
+
             # interactive options
             option=self._menu(adj_count+1,var_sum,colname)
     

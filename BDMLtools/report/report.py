@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Fri Oct 22 21:10:13 2021
 
@@ -18,7 +16,7 @@ from joblib import Parallel,delayed,effective_n_jobs
 from BDMLtools.base import Base
 from BDMLtools.fun import raw_to_bin_sc,Specials
 from BDMLtools.plotter.base import BaseWoePlotter
-
+from BDMLtools.config import digit
 
 class EDAReport(Base,Specials):
     
@@ -307,7 +305,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
         self._check_yname(y)
         breaks=self._check_breaks(breaks)
                 
-        X=self._sp_replace_single(X,self._check_spvalues(X.name,special_values),fill_num=np.finfo(np.float32).max,fill_str='special')
+        X=self._sp_replace_single(X,self._check_spvalues(X.name,special_values),fill_num=np.finfo(np.float32).max,fill_str='special')       
                
         report_var=self.getReport_Single(X,y,breaks,sample_weight,special_values,regularization,show_metrics)
         
@@ -365,7 +363,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
                  breaks=breakslist_var+[np.finfo(np.float32).max]
                  
                  #按照分箱sc的breaklist的区间进行分箱
-                 var_cut=pd.cut(var_fillna,[-np.inf]+breaks+[np.inf],duplicates='drop',right=False).cat.add_categories('missing')                 
+                 var_cut=pd.cut(var_fillna,[-np.inf]+breaks+[np.inf],duplicates='drop',right=False,precision=int(digit)).cat.add_categories('missing')                 
                  
                  #add missing codes
                  var_bin=var_cut.fillna('missing')
@@ -384,7 +382,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
                  
                  breaks=breakslist_var
                  
-                 var_cut=pd.cut(var_fillna,[-np.inf]+breaks+[np.inf],duplicates='drop',right=False).cat.add_categories(['special','missing'])                 
+                 var_cut=pd.cut(var_fillna,[-np.inf]+breaks+[np.inf],duplicates='drop',right=False,precision=int(digit)).cat.add_categories(['special','missing'])                 
                  
                  #add missing codes
                  var_bin=var_cut.fillna('missing')

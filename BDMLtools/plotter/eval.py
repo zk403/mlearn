@@ -14,6 +14,7 @@ import warnings
 from sklearn.metrics import precision_recall_curve,confusion_matrix
 import sys
 
+
 def python_ver():
     """
     Returns the python version as a string. e.g.: "3.8"
@@ -408,7 +409,7 @@ class perfEval2(BaseEval):
             
             title='Confusion Matrix'
         
-        from plotnine import ggplot,aes,geom_tile,facet_wrap,ggtitle,labs,geom_text,theme,scale_fill_cmap,theme_bw,element_text
+        from plotnine import __version__,ggplot,aes,geom_tile,facet_wrap,ggtitle,labs,geom_text,theme,scale_fill_cmap,theme_bw,element_text
         
         
         if fill_col == 'count' and fill_lab == 'Count':
@@ -426,11 +427,15 @@ class perfEval2(BaseEval):
              + theme(figure_size=figure_size,
                      legend_position = 'right',
                      strip_text = element_text(size=12),
-                     plot_title = element_text(size=14,color='darkblue'),
+                     plot_title = element_text(size=14,color='darkblue',ha='left'),
                      legend_title = element_text(size=10,color='darkblue'),
                      legend_text = element_text(color='darkblue'),
                      axis_text = element_text(size=10,color='darkblue',rotation=90),
                      axis_title = element_text(size=12,color='darkblue'))
             )
         
-        return(p)
+        if __version__!='0.12.4':
+        
+            p.show()   
+    
+        return p.draw()
