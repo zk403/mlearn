@@ -52,7 +52,7 @@ class BayesianCVTuner(Base,BaseTunner):
         """参数空间写法 
         
             #XGBClassifier
-            from skopt.utils import Categorical,Real,Integer
+            from skopt.space import Categorical,Real,Integer
             
             para_space = {
                 'n_estimators': Integer(30, 120),
@@ -69,7 +69,7 @@ class BayesianCVTuner(Base,BaseTunner):
             }         
         
             #LGBMClassifier
-            from skopt.utils import Categorical,Real,Integer
+            from space.utils import Categorical,Real,Integer
     
             para_space = {
                 'boosting_type':Categorical(['gbdt','goss']),
@@ -86,7 +86,7 @@ class BayesianCVTuner(Base,BaseTunner):
             } 
                         
             #Catboost
-            from skopt.utils import Categorical,Real,Integer
+            from skopt.space import Categorical,Real,Integer
     
             para_space = {
             
@@ -414,7 +414,7 @@ class BayesianCVTuner(Base,BaseTunner):
     @staticmethod
     def _hpsearch_default(Estimator):
         
-        from skopt.utils import Categorical,Real,Integer
+        from skopt.space import Categorical,Real,Integer
         
         if Estimator.__module__ == "xgboost.sklearn":
             
@@ -511,7 +511,7 @@ class FLBSTuner(Base,BaseTunner):
             """参数空间写法     
                         
                 #LGBMClassifier
-                from skopt.utils import Categorical,Real,Integer
+                from skopt.space import Categorical,Real,Integer
         
                 para_space = {
                     'boosting_type':Categorical(['gbdt','goss']),
@@ -820,7 +820,7 @@ class FLBSTuner(Base,BaseTunner):
         @staticmethod
         def _hpsearch_default(Estimator):
 
-            from skopt.utils import Categorical,Real,Integer
+            from skopt.space import Categorical,Real,Integer
 
             # if Estimator.__module__ == "xgboost.sklearn":
 

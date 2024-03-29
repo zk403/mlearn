@@ -281,7 +281,7 @@ class LassoLogit(Base,TransformerMixin):
             labs(x = "Log(C)", y = "Coefficients") +
             scale_color_discrete()+ 
             theme_bw() +
-            theme(figure_size=figure_size,plot_title=element_text(y=0.98,ha='left'))
+            theme(figure_size=figure_size,plot_title=element_text(va='top',ha='left'))
         ).draw()
         #plt.close()
 
@@ -329,7 +329,7 @@ class LassoLogit(Base,TransformerMixin):
             labs(x = "Log(C)", y = "Val-Score") +
             theme_bw() +
             theme(figure_size=figure_size,
-                  plot_title=element_text(y=0.98,ha='left'),
+                  plot_title=element_text(va='top',ha='left'),
                  ) 
         ).draw()
         #plt.close()

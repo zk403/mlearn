@@ -238,7 +238,7 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
     @staticmethod
     def _lgbm_hpsearch_default():
 
-        from skopt.utils import Categorical,Real,Integer
+        from skopt.space import Categorical,Real,Integer
 
         para_space={
             'boosting_type':Categorical(['goss','gbdt']),
@@ -426,7 +426,7 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
     @staticmethod
     def _lgbm_hpsearch_default():
 
-        from skopt.utils import Categorical,Real,Integer
+        from skopt.space import Categorical,Real,Integer
 
         para_space={
             'boosting_type':Categorical(['goss','gbdt']),

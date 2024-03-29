@@ -32,11 +32,8 @@ pip uninstall BDMLtools
 
 更新
 ```
-v0.4.1
-1.加入config.py文件以控制全局参数
-2.移除dtypeAllocator的参数precision，改为由config.py中全局参数控制
-3.加入设定分箱显示精度参数(pandas.cut),由config.py中全局参数控制
-4.修复了plotnine==0.12.4/0.13.0在py38、py39及以上的诸多绘图bug
-5.更新单元测试脚本,更新部分代码说明
-6.更新example
+v0.4.2
+1.支持py3.12
+2.修复skopt的载入bug
+3.更新单元测试脚本,更新部分代码说明
 ```
