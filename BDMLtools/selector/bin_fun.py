@@ -860,10 +860,15 @@ class binTree(Base,Specials):
                     # b=interim['y'].ravel()
                     # g=count_g-b
         
-                    #if no good or bad sample in cut of the point,then pass the iteration 
-                    if 0 in b.tolist() or 0 in g.tolist():
+                    # #if no nan in col and no good or bad sample in cut of the point,then pass the iteration 
+                    if (0 in b.tolist() or 0 in g.tolist()) and (not nan_sum):
+                                                   
+                        cuts_remain=cuts_remain[cuts_remain!=point]  
+        
+                    # #if nan in col and no good or bad sample in cut of the non nan point,then pass the iteration 
+                    elif (0 in b[:-1].tolist() or 0 in g[:-1].tolist()) and (nan_sum):
                         
-                        cuts_remain=cuts_remain[cuts_remain!=point]    
+                        cuts_remain=cuts_remain[cuts_remain!=point]  
                     
                     #if cuts_tree with current point shows no monotonic trend,then pass the iteration(no nans in col) 
                     elif coerce_monotonic and (not is_str_dtype) and (not is_monotonic(bad_prob)) and (not nan_sum):                    

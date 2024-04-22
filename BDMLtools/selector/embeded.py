@@ -85,7 +85,7 @@ class LassoLogit(Base,TransformerMixin):
         X:pd.DataFrame对象
         '''      
         self._check_is_fitted()
-        pred = self.model_refit.predict_proba(np.array(X))[:,1]        
+        pred = self.model_refit.predict_proba(X)[:,1]        
         return pred
 
     
@@ -109,7 +109,7 @@ class LassoLogit(Base,TransformerMixin):
         self._check_data(X,y)
         self._check_ws(y,sample_weight)
         
-        self.feature_names_=X.columns.tolist()
+        self.feature_names_=X.columns.tolist()       
         
         X=np.array(X)
         y=np.array(y)
@@ -126,13 +126,15 @@ class LassoLogit(Base,TransformerMixin):
         out_mods_,cv_path_,cv_res_=self._logit_cv(X,y,sample_weight)
         max_s,max_s_se=cv_res_[cv_res_['valscore_avg']==cv_res_['valscore_avg'].max()].to_numpy()[0][[2,4]]
         
+        cv_path_.columns=['log(C)']+self.feature_names_+['coef_cnt']  
+        
         self.plot_path=self._plot_path(cv_path_,figure_size)
         self.plot_valscore=self._plot_valscore(cv_res_,figure_size)
         
         self.c_best=cv_res_[cv_res_['valscore_avg']==cv_res_['valscore_avg'].max()]['C'].ravel()[0]
         self.c_1se=cv_res_[(cv_res_['valscore_avg']<=max_s) & \
                            (cv_res_['valscore_avg']>=max_s-max_s_se)].sort_values('log(C)').iloc[0,0]
-            
+        
         self.cv_path_=cv_path_
         self.cv_res_=cv_res_
         self.out_mods_=out_mods_
@@ -177,7 +179,7 @@ class LassoLogit(Base,TransformerMixin):
         
         cv_path_=pd.DataFrame(out_mods_[:,0:2],columns=['C','log(C)'],dtype='float64').join(
             pd.Series(out_mods_[:,2]).apply(pd.Series)).join(
-            pd.Series(out_mods_[:,2],name='coef_cnt').apply(lambda x:sum(x!=0))).set_index('C')
+            pd.Series(out_mods_[:,2],name='coef_cnt').apply(lambda x:sum(x!=0))).set_index('C')                              
 
         cv_res_=pd.DataFrame([(
           c,np.log10(c),
@@ -237,6 +239,8 @@ class LassoLogit(Base,TransformerMixin):
         ).fit(X,y,ws) 
         
         coefs=clf_refit.coef_.ravel().copy()
+        
+        clf_refit.feature_names_in_=self.feature_names_
         
         return c,np.log10(c),coefs,clf_refit
     

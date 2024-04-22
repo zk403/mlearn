@@ -41,7 +41,7 @@ class binSelector(Base,TransformerMixin):
             + method=‘freq-kmeans’时代表freq预分箱数               
             + method='tree'时,代表pretty预分箱数        
             + method='chi2'时,代表pretty预分箱数        
-        distr_limit,最终箱样本占比限制,不适用于method=‘freq’
+        distr_limit,最终箱样本占比限制,不适用于method=‘freq’ or 'freq-kmeans'
             + method='pretty'时，箱最终箱样本占比限制,
             + method='freq-kmeans'时，箱最终箱样本占比限制
             + method='tree'时,箱最终箱样本占比限制

@@ -14,6 +14,7 @@ from sklearn.impute import SimpleImputer
 from BDMLtools.fun import Specials
 from BDMLtools.selector.bin_fun import binFreq
 from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 import pandas as pd
 import os
@@ -34,15 +35,18 @@ class prefitModel(Base):
     
     Parameters:
     ----------
-        method='ceiling',预拟合数据方法，可选‘floor’,‘ceiling’
-            floor:地板算法，这里使用线性模型(sklearn对的logit回归(C=0.1 & solver='saga'))进行prefit  
+        method='lgbm',预拟合数据算法，可选‘lr’,lgbm‘,'rf'
+            lr,这里使用线性模型(sklearn对的logit回归(C=0.1 & solver='saga'))进行prefit  
                  + 分类变量处理方式:进行woe编码
                  + 数值特征缺失值:均值填补,当数据缺失值较多时，建议使用ceiling的lightbgm,其可应对缺失数据
-            ceiling:天花板算法,这里使用lightgbm进行prefit，且不进行任何交叉验证
+            lgbm,这里使用lightgbm进行prefit，且不进行任何交叉验证
                 + 分类变量处理方式:进行woe编码
                 + 数值特征缺失值:不处理        
+            rf,这里使用sklearn的rf进行prefit，且不进行任何交叉验证
+                + 分类变量处理方式:进行woe编码
+                + 数值特征缺失值:不处理                                 
         max_iter:100,logit回归最大迭代次数
-        tree_params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},method='ceiling'时lightgbm的参数设定        
+        tree_params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},method='lgbm'时lightgbm的参数设定,当method='rf'时将忽略learning_rate
         col_rm=None or list,需要移除的列名list，例如id类       
         
     Attribute:
@@ -51,13 +55,14 @@ class prefitModel(Base):
         imputer:sklearn.impute.SimpleImputer object,使用回归时数值特征缺失值处理器
         model:sklearn.linear_model.LogisticRegression or lightgbm.LGBMClassifier object拟合的模型对象
     """      
-    def __init__(self,method='ceiling',max_iter=100,tree_params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},
-                 col_rm=None):
+    def __init__(self,method='lgbm',max_iter=100,tree_params={'max_depth':3,'learning_rate':0.05,'n_estimators':100},
+                 col_rm=None,random_state=123):
 
         self.method=method
         self.tree_params=tree_params
         self.max_iter=max_iter
         self.col_rm=col_rm 
+        self.random_state=random_state
         
         self._is_fitted=False
 
@@ -66,18 +71,18 @@ class prefitModel(Base):
         
         self._check_is_fitted()
            
-        f_names=self.model.feature_names_in_ if self.method=='floor' else self.model.feature_name_
+        f_names=self.model.feature_name_ if self.method=='lgbm' else self.model.feature_names_in_
         
         X=X[f_names]
         
         X_numeric=X.select_dtypes('number')
         X_categoty=X.select_dtypes('object')
         
-        if self.method=='floor':
+        if self.method=='lr':
             
             X_numeric=pd.DataFrame(self.imputer.transform(X_numeric),
                                    columns=self.imputer.feature_names_in_,
-                                   index=X_numeric.index,dtype='float32') #downcast to save memory
+                                   index=X_numeric.index,dtype='float64') 
             
 
         if self.encoder:
@@ -87,10 +92,10 @@ class prefitModel(Base):
         
         X_new=pd.concat([X_numeric,X_categoty],axis=1)[f_names]
         
-        if self.method=='floor':
+        if self.method=='lr':
             
             X_new=pd.DataFrame(self._scaler.transform(X_new),columns=self._scaler.feature_names_in_,
-                                       index=X_new.index,dtype='float32') #downcast to save memory
+                                       index=X_new.index,dtype='float64')
         
         return X_new
     
@@ -114,17 +119,21 @@ class prefitModel(Base):
             
             raise ValueError('All columns in X are nan.')
         
-        if self.method=='ceiling':
+        if self.method=='lgbm':
             
             self.model=self._fit_lgbm(X,y,self.tree_params,sample_weight)
             
-        elif self.method=='floor':
+        elif self.method=='rf':
+            
+            self.model=self._fit_rf(X,y,self.tree_params,sample_weight)
+            
+        elif self.method=='lr':
             
             self.model=self._fit_reg(X,y,self.max_iter,sample_weight)
             
         else:
             
-            raise ValueError("method in ('ceiling','floor')")   
+            raise ValueError("method in ('lgbm','lr','rf')")   
             
         self._is_fitted=True
         
@@ -150,10 +159,31 @@ class prefitModel(Base):
                 learning_rate=learning_rate,
                 n_estimators=n_estimators,
                 max_depth=max_depth,
+                random_state=self.random_state,
                 n_jobs=effective_n_jobs(n_jobs)
             ).fit(X_new,y,sample_weight=sample_weight)         
             
         return lgb
+    
+    def _fit_rf(self,X,y,params,sample_weight):
+        
+        X_numeric,X_categoty_encode=self._get_X(X,y)
+        
+        X_new=pd.concat([X_numeric,X_categoty_encode],axis=1)
+        
+        
+        max_depth=params['max_depth'] if 'max_depth' in params else 3
+        n_estimators=params['n_estimators'] if 'n_estimators' in params else 100
+        n_jobs=params['n_jobs'] if 'n_jobs' in params else -1
+
+        rf=RandomForestClassifier(
+                n_estimators=n_estimators,
+                max_depth=max_depth,
+                n_jobs=effective_n_jobs(n_jobs),
+                random_state=self.random_state
+            ).fit(X_new,y,sample_weight=sample_weight)         
+            
+        return rf
     
     
     def _fit_reg(self,X,y,max_iter,sample_weight):
@@ -168,7 +198,7 @@ class prefitModel(Base):
                        columns=X_new.columns,
                        index=X_numeric.index,dtype='float32') #downcast to save memory
 
-        logit=LogisticRegression(C=0.1,penalty='l2',solver='saga',max_iter=max_iter).fit(X_new,y,
+        logit=LogisticRegression(C=0.1,penalty='l2',solver='saga',max_iter=max_iter,random_state=self.random_state).fit(X_new,y,
                                                                                          sample_weight=sample_weight)  
         
         return logit
@@ -179,7 +209,7 @@ class prefitModel(Base):
         X_numeric=X.select_dtypes('number')
         X_categoty=X.select_dtypes('object')
         
-        if self.method=='floor':
+        if self.method=='lr':
             
             self.imputer=SimpleImputer(missing_values=np.nan,
                       strategy='median').fit(X_numeric)
@@ -213,7 +243,7 @@ class preSelector(Base,Specials,TransformerMixin):
     Step 2.唯一值(所有):唯一值占比高于用户定义值列将被筛除
     Step 3.方差(数值特征):方差低于用户定义值列的列将被筛除
     Step 4.卡方独立性检验p值(字符)/方差分析p值(数值):p值大于用户定义值的列将被剔除(不支持样本权重)
-    Step 5.Lightgbm筛选(所有):split重要性低于用户定义值的列将被剔除
+    Step 5.树模型筛选(所有):重要性低于用户定义值的列将被剔除
     Step 6.Iv值筛选(所有):等频30箱后iv值低于用户定义值的列将被剔除
     
     目前Step 4不支持sample weight(样本权重)
@@ -227,10 +257,11 @@ class preSelector(Base,Specials,TransformerMixin):
                     + 卡方计算中，缺失值将被视为单独一类,
                     + f值计算中，缺失值将被填补为接近+inf和-inf，计算两次，两次结果都不显著的列都将被剔除   
                     + 不支持样本权重
-        tree_imps:int or None,lightgbm树的split_gan小于等于tree_imps的列将被剔除,默认1，设定为None将跳过此步骤
-        tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略
+        tree_alg:string,默认'lgbm'，树模型算法，可选'lgbm'、'rf'            
+        tree_imps:float or None,lightgbm树的split_gan小于等于tree_imps的列将被剔除,默认1e-3，设定为None将跳过此步骤
+        tree_size:int,lightgbm树个数,若数据量较大可降低树个数，若tree_imps为None时该参数将被忽略       
         iv_limit:float or None使用进行iv快速筛选的iv阈值(数值等频30箱，分类则按照类别分箱)
-        n_jobs:int,默认-1,Lightgbm筛选过程中线程并行控制参数
+        n_jobs:int,默认-1,树模型筛选过程中线程并行控制参数
         out_path:str or None,模型报告路径,将预筛选过程每一步的筛选过程输出到模型报告中
         missing_values:缺失值指代值
                 + None
@@ -245,7 +276,7 @@ class preSelector(Base,Specials,TransformerMixin):
     """    
     
     
-    def __init__(self,na_pct=0.99,unique_pct=0.99,variance=0,chif_pvalue=0.05,tree_imps=1,random_state=123,
+    def __init__(self,na_pct=0.99,unique_pct=0.99,variance=0,chif_pvalue=0.05,tree_alg='lgbm',tree_imps=1e-4,random_state=123,
                  tree_size=250,iv_limit=0.02,out_path=None,missing_values=None,keep=None,n_jobs=-1
                  ):
 
@@ -253,6 +284,7 @@ class preSelector(Base,Specials,TransformerMixin):
         self.unique_pct=unique_pct #
         self.variance=variance
         self.chif_pvalue=chif_pvalue #
+        self.tree_alg=tree_alg
         self.tree_imps=tree_imps #
         self.tree_size=tree_size
         self.iv_limit=iv_limit
@@ -261,6 +293,7 @@ class preSelector(Base,Specials,TransformerMixin):
         self.random_state=random_state
         self.keep=keep
         self.n_jobs=n_jobs
+
         
         self._is_fitted=False
         
@@ -669,50 +702,70 @@ class preSelector(Base,Specials,TransformerMixin):
         X_category=X.select_dtypes(include='object')
         X_oth=X.select_dtypes(exclude=['number','object'])
         
+        if self.tree_alg=='lgbm':
         
-        if X_category.columns.size:
+            if X_category.columns.size:
+                
+                X_category_encode=OrdinalEncoder().fit_transform(X_category).sub(1)
+                
+                X_new=pd.concat([X_numeric,X_category_encode],axis=1)
+                    
+                clf=LGBMClassifier(
+                    boosting_type='gbdt',
+                    objective = 'binary',
+                    learning_rate=0.1,
+                    n_estimators=tree_size,
+                    random_state=self.random_state,
+                    subsample=0.7,
+                    colsample_bytree=1,
+                    verbose=-1,
+                    n_jobs=effective_n_jobs(self.n_jobs)
+                ).fit(X_new,y,sample_weight=sample_weight,categorical_feature=X_category_encode.columns.tolist())         
+    
+                clf_imps=clf.booster_.feature_importance(importance_type='split')
+                
+                return X_new.columns[clf_imps>tree_imps].tolist()+X_oth.columns.tolist()
+                               
             
-            X_category_encode=OrdinalEncoder().fit_transform(X_category).sub(1)
-            
-            X_new=pd.concat([X_numeric,X_category_encode],axis=1)
-
-            lgb=LGBMClassifier(
-                boosting_type='gbdt',
-                objective = 'binary',
-                learning_rate=0.1,
+            elif X_numeric.columns.size:
+                
+                clf=LGBMClassifier(
+                    boosting_type='gbdt',
+                    objective = 'binary',
+                    learning_rate=0.1,
+                    n_estimators=tree_size,
+                    random_state=self.random_state,
+                    subsample=0.7,
+                    colsample_bytree=1,
+                    verbose=-1,
+                    n_jobs=effective_n_jobs(self.n_jobs)
+                ).fit(X_numeric,y,sample_weight=sample_weight)         
+    
+                clf_imps=clf.booster_.feature_importance(importance_type='split')
+                
+        
+                return X_numeric.columns[clf_imps>tree_imps].tolist()+X_oth.columns.tolist()
+        
+            else:
+                
+                return X_oth.columns.tolist()
+        
+        elif self.tree_alg=='rf':
+                
+            clf=RandomForestClassifier(                    
                 n_estimators=tree_size,
-                random_state=123,
-                subsample=0.7,
-                colsample_bytree=1,
-                verbose=-1,
+                random_state=self.random_state,
+                max_depth=3,
                 n_jobs=effective_n_jobs(self.n_jobs)
-            ).fit(X_new,y,sample_weight=sample_weight,categorical_feature=X_category_encode.columns.tolist())         
+            ).fit(X_numeric,y,sample_weight=sample_weight)    
 
-            lgb_imps=lgb.booster_.feature_importance(importance_type='split')
+            clf_imps=clf.feature_importances_             
         
-            return X_new.columns[lgb_imps>tree_imps].tolist()+X_oth.columns.tolist()
-        
-        elif X_numeric.columns.size:
-            
-            lgb=LGBMClassifier(
-                boosting_type='gbdt',
-                objective = 'binary',
-                learning_rate=0.1,
-                n_estimators=tree_size,
-                random_state=123,
-                subsample=0.7,
-                colsample_bytree=1,
-                verbose=-1,
-                n_jobs=effective_n_jobs(self.n_jobs)
-            ).fit(X_numeric,y,sample_weight=sample_weight)         
-
-            lgb_imps=lgb.booster_.feature_importance(importance_type='split')
-        
-            return X_numeric.columns[lgb_imps>tree_imps].tolist()+X_oth.columns.tolist()
+            return X_numeric.columns[clf_imps>tree_imps].tolist()+X_oth.columns.tolist()+X_category.columns.tolist()
         
         else:
             
-            return X_oth.columns.tolist()
+            raise ValueError('tree_alg in ("lgbm","rf")')          
         
         
     # def _filterbyLofoimp(self,X,y,lofo_imp=0,sample_weight=None):

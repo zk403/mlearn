@@ -39,7 +39,7 @@ base_pkgs=[       #'numpy>=1.18,<=1.23.5',#https://github.com/numpy/numpy
                   'pandas>=1.3.5',#https://github.com/pandas-dev/pandas
                   #'statsmodels>=0.13.2',#https://github.com/statsmodels/statsmodels
                   'plotnine==0.12.4' if python_ver() == "3.8" else 'plotnine>=0.12.4',#https://github.com/has2k1/plotnine
-                  'scikit-learn>=1.0.2',#https://github.com/scikit-learn/scikit-learn
+                  'scikit-learn>=1.4.0',#https://github.com/scikit-learn/scikit-learn
                   'category_encoders>=2.3.0',#https://github.com/scikit-learn-contrib/category_encoders
                   'lightgbm>=3.3.0',#https://github.com/microsoft/LightGBM 
                   'probatus>=2.0.0',#https://github.com/ing-bank/probatus

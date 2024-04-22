@@ -182,12 +182,14 @@ def test_prefitModel():
 
     pm=prefitModel(
         tree_params={'max_depth': 2, 'learning_rate': 0.05, 'n_estimators': 10,'n_jobs':1},
-        method='ceiling',
+        method='lgbm',
                    ).fit(X,y)    
     
-    pm=prefitModel(method='floor',max_iter=10).fit(X,y)    
+    pm=prefitModel(method='lr',max_iter=10).fit(X,y)    
     
-    pm=prefitModel(method='floor',col_rm='a').fit(X,y)    
+    pm=prefitModel(method='lr',col_rm='a').fit(X,y)    
+    
+    pm=prefitModel(method='rf',tree_params={'max_depth': 2,'n_estimators': 10}).fit(X,y)    
     
     pm.predict_proba(X)
     
@@ -208,6 +210,7 @@ def test_preSelector():
     res=preSelector().fit_transform(X,y)   
     res=preSelector().fit(X,y,cat_features=['b'])   
     res=preSelector().fit(X,y,sample_weight=ws).transform(X)   
+    res=preSelector(tree_alg='rf').fit_transform(X,y)  
     res=preSelector(keep=['a']).fit_transform(X,y)  
     assert 'a' in res.columns
     res=preSelector(out_path='tmp').fit_transform(X,y) 
