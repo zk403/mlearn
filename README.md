@@ -32,8 +32,11 @@ pip uninstall BDMLtools
 
 更新
 ```
-v0.4.2
-1.支持py3.12
-2.修复skopt的载入bug
-3.更新单元测试脚本,更新部分代码说明
+v0.4.3
+1.prefitModel中加入sklearn的随机森林算法，并修改参数配置
+2.prefitSelector中加入sklearn的随机森林算法，并修改参数配置
+3.完善了LassoLogit中列名的显示
+4.修复了决策树分箱(binTree)中，缺失值分箱好坏频数为0时无法产生分箱点的bug
+5.sklearn版本依赖改为>=1.4.0
+6.更新单元测试脚本，更新部分代码说明
 ```

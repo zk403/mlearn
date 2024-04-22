@@ -54,7 +54,6 @@ base_pkgs=[       #'numpy>=1.18,<=1.23.5',#https://github.com/numpy/numpy
 #%category_encoders 2.6.2/pandas 2.1.1: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, CategoricalDtype) instead
 #plotnine 0.10.1/pandas 2.1.1: is_categorical_dtype is deprecated and will be removed in a future version. Use isinstance(dtype, CategoricalDtype) instead 
 
-
 dev_dep = [
     "pytest>=6.0.0",
     "pytest-cov>=2.10.0",
