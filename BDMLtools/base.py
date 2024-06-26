@@ -164,9 +164,9 @@ class BaseEval:
             
             raise ValueError("show_plot is tuple")  
             
-        if not np.isin(show_plot,('ks', 'lift', 'gain', 'roc', 'lz', 'pr', 'f1', 'density')).all() :
+        if not np.isin(show_plot,('ks', 'lift', 'gain', 'roc', 'lz', 'pr', 'f1', 'density','sloping','calibration')).all() :
             
-            raise ValueError("show_plot in ('ks', 'lift', 'gain', 'roc', 'lz', 'pr', 'f1', 'density')")  
+            raise ValueError("show_plot in ('ks', 'lift', 'gain', 'roc', 'lz', 'pr', 'f1', 'density','sloping','calibration')")  
             
         if pred_desc is not None:
             
@@ -207,9 +207,7 @@ class BaseEval:
                 
             if not y_pred.index.equals(sample_weight.index):
                 
-                raise XyIndexError("index of sample_weight not equal to y_pred or y_true") 
-            
-
+                raise XyIndexError("index of sample_weight not equal to y_pred or y_true")           
 
 
     def _check_values(self,y_pred,y_true,group,sample_weight):   

@@ -12,6 +12,7 @@ import numpy as np
 import mock
 import os
 
+
 def test_EDAReport():
 
     dt=pd.DataFrame(
@@ -43,10 +44,16 @@ def test_varReportSinge(mock):
         varReportSinge().report(X['a'],y,[1])
         varReportSinge().report(X['c'],y,['1','2','3'])
         varReportSinge().report(X['a'],y,[1],sample_weight=ws)
-        varReportSinge().woe_plot(X['c'],y,['1','2','3'])
-        varReportSinge().woe_plot(X['c'],y,['1','2','3'],sample_weight=ws)
-        varReportSinge().woe_plot(X['c'],y,['1','2%,%3'])
+        
+        varReportSinge().woe_plot(X['c'],y,['1','2','3'])[1][0]
+        varReportSinge().woe_plot(X['c'],y,['1','2','3'],sample_weight=ws)[1][0]
+        varReportSinge().woe_plot(X['c'],y,['1','2%,%3'])[1][0]
         varReportSinge().woe_plot(X['c'],y,['1%,%2','3'],sample_weight=ws)
+        
+        varReportSinge().woe_plot(X['c'],y,['1','2','3'],ptype='woe')[1][0]
+        varReportSinge().woe_plot(X['c'],y,['1','2','3'],ptype='woe',sample_weight=ws)[1][0]
+        varReportSinge().woe_plot(X['c'],y,['1','2%,%3'],ptype='woe')[1][0]
+        varReportSinge().woe_plot(X['c'],y,['1%,%2','3'],ptype='woe',sample_weight=ws)
 
     
 @mock.patch('matplotlib.pyplot.show')
@@ -112,6 +119,9 @@ def test_varGroupsReport(mock):
         
         varGroupsPlot({'a':[1],'c':['1','2','3']},column='g',target='y',n_jobs=1).plot(X)
         varGroupsPlot({'a':[1],'c':['1','2','3']},column='g',sort_column=['g1','g2'],target='y',n_jobs=1).plot(X)
+        
+        varGroupsPlot({'a':[1],'c':['1','2','3']},column='g',target='y',n_jobs=1).plot(X,'woe')
+        varGroupsPlot({'a':[1],'c':['1','2','3']},column='g',sort_column=['g1','g2'],target='y',n_jobs=1).plot(X,'woe')
         
 
 def test_GainsTable():      

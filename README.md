@@ -32,11 +32,11 @@ pip uninstall BDMLtools
 
 更新
 ```
-v0.4.3
-1.prefitModel中加入sklearn的随机森林算法，并修改参数配置
-2.prefitSelector中加入sklearn的随机森林算法，并修改参数配置
-3.完善了LassoLogit中列名的显示
-4.修复了决策树分箱(binTree)中，缺失值分箱好坏频数为0时无法产生分箱点的bug
-5.sklearn版本依赖改为>=1.4.0
-6.更新单元测试脚本，更新部分代码说明
+v0.4.4
+1.varGroupReport的report_brief中加入woe
+2.加入WOE绘图功能，可在binAdjust、varReport等中选择y的二轴显示为badrate或woe
+3.在模型评估中新增sloping、calibration图
+4.修复了诸多绘图bug
+5.更新单元测试脚本，更新部分代码说明
 ```
+

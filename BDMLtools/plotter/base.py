@@ -9,7 +9,7 @@ Created on Wed Oct 27 23:08:38 2021
 import pandas as pd
 import numpy as np
 from plotnine import __version__,ggplot,geom_density,geom_text,guides,theme_bw,theme,ggtitle,labs,scale_y_continuous,\
-    scale_x_continuous,coord_fixed,aes,guide_legend,element_blank,geom_line,geom_segment,geom_point,annotate,geom_ribbon,geom_bar,geom_path,facet_wrap,element_text
+    scale_x_continuous,coord_fixed,aes,guide_legend,element_blank,geom_line,geom_segment,geom_point,annotate,geom_ribbon,geom_bar,geom_path,facet_wrap,element_text,geom_abline
 import matplotlib.pyplot as plt
 from joblib import Parallel,delayed
 from scipy.stats import iqr
@@ -17,20 +17,20 @@ import statsmodels.api as sm
 
 class BaseWoePlotter:   
     
-    def _woe_plot(self,varbin,figure_size,n_jobs,verbose):
+    def _woe_plot(self,varbin,ptype,figure_size,n_jobs,verbose):
         
         #n_jobs=effective_n_jobs(n_jobs)   
                               
         p=Parallel(n_jobs=1,verbose=verbose)
         
-        res=p(delayed(self._get_plot_single)(varbin[key],figure_size,False) for key in varbin)
+        res=p(delayed(self._get_plot_single)(varbin[key],ptype,figure_size,False) for key in varbin)
         
         out={colname:fig for fig,colname in res}
         
         return out     
          
 
-    def _get_bin(self,binx):
+    def _get_bin(self,binx,ptype):
         
         if not binx.loc['missing','count']:
     
@@ -41,75 +41,135 @@ class BaseWoePlotter:
             binx=binx[binx.index!='special']
     
         binx=binx.reset_index()
+        binx['rowid']=binx.index+1      
+        
+        if ptype == 'woe':
+            
+            binx['lineval_l']=binx['woe'].round(2).map(str)  
+        
+        elif ptype == 'badprob':
+            
+            binx['lineval_l']=binx['badprob'].mul(100).round(2).map(str)+'%' 
+
         binx['pos']=binx['good']/binx['count'].sum()
-        binx['neg']=binx['bad']/binx['count'].sum()
-        binx['rowid']=binx.index+1
-        binx['lineval_l']=binx['badprob'].mul(100).round(2).map(str)+'%'
+        binx['neg']=binx['bad']/binx['count'].sum()      
+        
         
         return binx
     
-    def _get_plot_single(self,binx,figure_size=None,show_plot=True):
+    def _get_plot_single(self,binx,ptype,figure_size=None,show_plot=True):
     
         #dt transform
-        binx=self._get_bin(binx)
+        binx=self._get_bin(binx,ptype)
+                    
         
         binx_melt=pd.melt(binx,id_vars = ["bin","rowid"], value_vars =["pos", "neg"], 
                     value_name = "negpos").rename(columns={'variable':''})
         
         #title
         title_string = binx['variable'].iloc[0]+'(iv:{},ks:{})'.format(round(binx['total_iv'].iloc[0],4),round(binx['ks'].iloc[0],4))
-    
-        #adjust max val of y-left axis
-        y_right_max = np.ceil(binx['badprob'].max()*10)
-    
-        if y_right_max % 2 == 1: 
-    
-            y_right_max=y_right_max+1
-    
-        if y_right_max - binx['badprob'].max()*10 <= 0.3: 
-    
-            y_right_max = y_right_max+2
-    
-        #adjust max val of y-right axis    
-        y_right_max = y_right_max/10
-    
-        if y_right_max>1 or y_right_max<=0 or y_right_max is np.nan or y_right_max is None: 
-    
-            y_right_max=1
-    
-        y_left_max = np.ceil(binx['count_distr'].max()*10)/10
-    
-        if y_left_max>1 or y_left_max<=0 or y_left_max is np.nan or y_left_max is None:
-    
-            y_left_max=1
-            
-        y_max=max(y_right_max,y_left_max)
-        
+
         labels=(binx['count'].astype('str')+','+binx['count_distr'].mul(100).round(2).astype('str')+'%').tolist()
-    
-        #base plot using ggplot2(no sec_axis function in plotnine - 0.8.0)
-        figure=(ggplot() + geom_bar(binx_melt,aes(x='bin',y='negpos',fill=''), stat="identity",show_legend = True)
-            + geom_point(data=binx,mapping=aes(x='rowid',y='badprob'), stat="identity",color='blue')
-            + geom_path(data=binx,mapping=aes(x='rowid',y='badprob'),color='blue')
-            + scale_y_continuous(limits = [0, y_max])
-            + theme_bw()
-            + labs(x='',y='Bin count distribution',title=title_string)
-            + theme(
-              figure_size=figure_size,
-              legend_position=(0.5,-0.15) if __version__!="0.12.4" else (0.5,0),legend_direction="horizontal",
-              plot_title = element_text(ha='left'),
-              legend_key_size=10)
-            + geom_text(data=binx, mapping=aes(x = 'rowid',y='badprob',label='lineval_l'),va = 'bottom',color='blue')
-            + geom_text(data=binx, mapping=aes(x='rowid',y='count_distr',label=labels),va = 'bottom',color='black',alpha=0.6)
-        ).draw()
-    
-        #add subplot(second axis) using matplotlib 
-        ax1=figure.get_axes()[-1]
-        ax2=ax1.twinx()
-        ax2.set_ylabel('Bad probability', color='blue')
-        ax2.set_ylim(top=y_max)
-        ax2.set_yticks(np.arange(0, y_max, 0.2))
-        ax2.tick_params(axis='y', colors='blue')   
+
+        if ptype == 'woe':         
+            
+            binx['woe_std']=binx['woe'].sub(binx['woe'].min()) 
+            binx['count_distr_adj']=binx['count_distr'].mul(binx['woe_std'].max()/binx['count_distr'].max())
+ 
+            #adjust max val of y-left axis
+            y_right_max = binx['woe_std'].max()*1.2
+        
+            y_left_max = binx['count_distr'].max()*1.2
+                
+            y_max=max(y_right_max,y_left_max)
+            
+            if y_right_max>y_left_max:
+                
+                binx_melt['negpos']=binx_melt['negpos'].mul(binx['woe_std'].max()/binx['count_distr'].max())
+            
+            #print(binx[['variable','woe','badprob']])
+            #base plot using ggplot2(no sec_axis function in plotnine - 0.8.0)
+            figure=(ggplot() 
+                + geom_bar(binx_melt,aes(x='bin',y='negpos',fill=''), stat="identity",show_legend = True)
+                + geom_point(data=binx,mapping=aes(x='rowid',y='woe_std'), stat="identity",color='blue')
+                + geom_abline(intercept=-binx['woe'].min(),slope=0,color='blue',linetype='dotted')
+                + geom_path(data=binx,mapping=aes(x='rowid',y='woe_std'),color='blue')
+                + scale_y_continuous(limits = [0, y_max],breaks=None)
+                + theme_bw()
+                + labs(x='',y='Bin count distribution',title=title_string)
+                + theme(
+                  figure_size=figure_size,
+                  legend_position=(0.5,-0.15) if __version__!="0.12.4" else (0.5,0),legend_direction="horizontal",
+                  plot_title = element_text(ha='left'),
+                  legend_key_size=10)
+                + geom_text(data=binx, mapping=aes(x ='rowid',y='woe_std',label='lineval_l'),va = 'bottom',color='blue')
+                + geom_text(data=binx, mapping=aes(x='rowid',y='count_distr_adj',label=labels),va = 'bottom',color='black',alpha=0.6)
+            ).draw()
+        
+            #add subplot(second axis) using matplotlib 
+            ax1=figure.get_axes()[-1]
+            ax2=ax1.twinx()
+            ax2.set_ylabel('Weight of Evidence', color='blue')
+            ax2.set_ylim(top=y_max)
+            ax2.set_yticks([])
+            ax2.tick_params(axis='y', colors='blue')             
+                
+        elif ptype == 'badprob':
+                         
+            #adjust max val of y-left axis
+            y_right_max = np.ceil(binx['badprob'].max()*10)
+            
+            if y_right_max % 2 == 1: 
+            
+                y_right_max=y_right_max+1
+            
+            if y_right_max - binx['badprob'].max()*10 <= 0.3: 
+            
+                y_right_max = y_right_max+2
+            
+            #adjust max val of y-right axis    
+            y_right_max = y_right_max/10
+            
+            if y_right_max>1 or y_right_max<=0 or y_right_max is np.nan or y_right_max is None: 
+            
+                y_right_max=1
+            
+            y_left_max = np.ceil(binx['count_distr'].max()*10)/10
+            
+            if y_left_max>1 or y_left_max<=0 or y_left_max is np.nan or y_left_max is None:
+            
+                y_left_max=1
+                
+            y_max=max(y_right_max,y_left_max)  
+            
+            #print(binx[['variable','woe','badprob']])
+            
+            figure=(ggplot() + geom_bar(binx_melt,aes(x='bin',y='negpos',fill=''), stat="identity",show_legend = True)
+                + geom_point(data=binx,mapping=aes(x='rowid',y='badprob'), stat="identity",color='blue')
+                + geom_path(data=binx,mapping=aes(x='rowid',y='badprob'),color='blue')
+                + scale_y_continuous(limits = [0, y_max])
+                + theme_bw()
+                + labs(x='',y='Bin count distribution',title=title_string)
+                + theme(
+                  figure_size=figure_size,
+                  legend_position=(0.5,-0.15) if __version__!="0.12.4" else (0.5,0),legend_direction="horizontal",
+                  plot_title = element_text(ha='left'),
+                  legend_key_size=10)
+                + geom_text(data=binx, mapping=aes(x = 'rowid',y='badprob',label='lineval_l'),va = 'bottom',color='blue')
+                + geom_text(data=binx, mapping=aes(x='rowid',y='count_distr',label=labels),va = 'bottom',color='black',alpha=0.6)
+            ).draw()
+        
+            #add subplot(second axis) using matplotlib 
+            ax1=figure.get_axes()[-1]
+            ax2=ax1.twinx()
+            ax2.set_ylabel('Bad probability', color='blue')
+            ax2.set_ylim(top=y_max)
+            ax2.set_yticks(np.arange(0, y_max, 0.2))
+            ax2.tick_params(axis='y', colors='blue')                 
+            
+        else:
+            
+            raise ValueError("ptype in ('woe','badprob')")       
         
         if not show_plot:
             
@@ -117,20 +177,20 @@ class BaseWoePlotter:
         
         return figure,binx['variable'].iloc[0]
     
-    def _get_plot_single_group(self,binx_g,sort_column=None,figure_size=None,show_plot=True):
+    def _get_plot_single_group(self,binx_g,ptype,sort_column=None,figure_size=None,show_plot=True):
     
         #dt transform
         gs=np.unique([i[0] for i in binx_g.columns.tolist() if i[0] not in ['variable','bin']]).tolist()
         
         self._check_plot_sort(sort_column,gs)
     
-        binx_g_h=pd.concat({g:self._get_bin(binx_g[g].assign(g=g)) for g in gs})    
-    
-        binx_g_melt=pd.concat({g:pd.melt(self._get_bin(binx_g[g]),
+        binx_g_h=pd.concat({g:self._get_bin(binx_g[g].assign(g=g),ptype=ptype) for g in gs}) 
+                
+        binx_g_melt=pd.concat({g:pd.melt(self._get_bin(binx_g[g],ptype),
                       id_vars = ["bin","rowid"], 
                       value_vars =["pos", "neg"], 
                       value_name = "negpos").rename(columns={'variable':''}).assign(g=g) for g in gs})
-    
+        
         if sort_column:
     
             binx_g_h['g']=binx_g_h['g'].astype('category').cat.reorder_categories(sort_column)
@@ -148,58 +208,109 @@ class BaseWoePlotter:
         #title
         title_string=binx_g_h['variable'].iloc[0]+':'+(',').join(['{}(iv:{},ks:{})'.format(key,round(iv_d[key],4),round(ks_d[key],4)) for key in keys])
     
-        #adjust max val of y-left axis
-        y_right_max = np.ceil(binx_g_h['badprob'].max()*10)
-    
-        if y_right_max % 2 == 1: 
-    
-            y_right_max=y_right_max+1
-    
-        if y_right_max - binx_g_h['badprob'].max()*10 <= 0.3: 
-    
-            y_right_max = y_right_max+2
-    
-        #adjust max val of y-right axis    
-        y_right_max = y_right_max/10
-    
-        if y_right_max>1 or y_right_max<=0 or y_right_max is np.nan or y_right_max is None: 
-    
-            y_right_max=1
-    
-        y_left_max = np.ceil(binx_g_h['count_distr'].max()*10)/10
-    
-        if y_left_max>1 or y_left_max<=0 or y_left_max is np.nan or y_left_max is None:
-    
-            y_left_max=1
+        if ptype == 'woe':  
         
-        y_max=max(y_right_max,y_left_max)
-        
-        labels=(binx_g_h['count'].astype('str')+','+binx_g_h['count_distr'].mul(100).round(2).astype('str')+'%').tolist()
-        
-        #base plot using ggplot2(no sec_axis function in plotnine - 0.8.0)
-        figure=(ggplot() + geom_bar(binx_g_melt,aes(x='bin',y='negpos',fill=''), stat="identity",show_legend = True)
-            + geom_point(data=binx_g_h,mapping=aes(x='rowid',y='badprob'), stat="identity",color='blue')
-            + geom_path(data=binx_g_h,mapping=aes(x='rowid',y='badprob'),color='blue')
-            + facet_wrap(('g'))
-            + scale_y_continuous(limits = [0, y_max])
-            + theme_bw()
-            + labs(x='',y='Bin count distribution',title=title_string)
-            + theme(
-              figure_size=figure_size,
-              legend_position=(0.5,-0.15) if __version__!="0.12.4" else (0.5,0),legend_direction="horizontal",
-              plot_title = element_text(ha='left'),
-              legend_key_size=10)
-            + geom_text(data=binx_g_h, mapping=aes(x = 'rowid',y='badprob',label='lineval_l'),va = 'bottom',color='blue')
-            + geom_text(data=binx_g_h, mapping=aes(x='rowid',y='count_distr',label=labels),va = 'bottom',color='black',alpha=0.6)
-        ).draw()
+            binx_g_h['woe_std']=binx_g_h['woe'].sub(binx_g_h['woe'].min()) 
+            binx_g_h['count_distr_adj']=binx_g_h['count_distr'].mul(binx_g_h['woe_std'].max()/binx_g_h['count_distr'].max())
+
     
-        #add subplot(second axis) using matplotlib 
-        ax1=figure.get_axes()[-1]
-        ax2=ax1.twinx()
-        ax2.set_ylabel('Bad probability', color='blue')
-        ax2.set_ylim(top=y_max)
-        ax2.set_yticks(np.arange(0, y_max, 0.2))
-        ax2.tick_params(axis='y', colors='blue')
+            y_right_max = binx_g_h['woe_std'].max()*1.2
+        
+            y_left_max = binx_g_h['count_distr'].max()*1.2    
+    
+            if y_right_max>y_left_max:
+                
+                binx_g_melt['negpos']=binx_g_melt['negpos'].mul(binx_g_h['woe_std'].max()/binx_g_h['count_distr'].max())
+                  
+            y_max=max(y_right_max,y_left_max)
+            
+            labels=(binx_g_h['count'].astype('str')+','+binx_g_h['count_distr'].mul(100).round(2).astype('str')+'%').tolist()        
+            
+            #print(binx_g_h[['variable','woe','badprob']])
+            #base plot using ggplot2(no sec_axis function in plotnine - 0.8.0)
+            figure=(ggplot() + geom_bar(binx_g_melt,aes(x='bin',y='negpos',fill=''), stat="identity",show_legend = True)
+                + geom_point(data=binx_g_h,mapping=aes(x='rowid',y='woe_std'), stat="identity",color='blue')
+                + geom_path(data=binx_g_h,mapping=aes(x='rowid',y='woe_std'),color='blue')
+                + geom_abline(intercept=-binx_g_h['woe'].min(),slope=0,color='blue',linetype='dotted')
+                + facet_wrap(('g'))           
+                + scale_y_continuous(limits = [0, y_max],breaks=None)
+                + theme_bw()
+                + labs(x='',y='Bin count distribution',title=title_string)
+                + theme(
+                  figure_size=figure_size,
+                  legend_position=(0.5,-0.15) if __version__!="0.12.4" else (0.5,0),legend_direction="horizontal",
+                  plot_title = element_text(ha='left'),
+                  legend_key_size=10)
+                + geom_text(data=binx_g_h, mapping=aes(x ='rowid',y='woe_std',label='lineval_l'),va = 'bottom',color='blue')
+                + geom_text(data=binx_g_h, mapping=aes(x='rowid',y='count_distr_adj',label=labels),va = 'bottom',color='black',alpha=0.6)
+            ).draw()
+        
+            #add subplot(second axis) using matplotlib 
+            ax1=figure.get_axes()[-1]
+            ax2=ax1.twinx()
+            ax2.set_ylabel('Weight of Evidence', color='blue')
+            ax2.set_ylim(top=y_max)
+            ax2.set_yticks([])
+            ax2.tick_params(axis='y', colors='blue')
+            
+        elif ptype == 'badprob':  
+            
+            #adjust max val of y-left axis
+            y_right_max = np.ceil(binx_g_h['badprob'].max()*10)
+        
+            if y_right_max % 2 == 1: 
+        
+                y_right_max=y_right_max+1
+        
+            if y_right_max - binx_g_h['badprob'].max()*10 <= 0.3: 
+        
+                y_right_max = y_right_max+2
+        
+            #adjust max val of y-right axis    
+            y_right_max = y_right_max/10
+        
+            if y_right_max>1 or y_right_max<=0 or y_right_max is np.nan or y_right_max is None: 
+        
+                y_right_max=1
+        
+            y_left_max = np.ceil(binx_g_h['count_distr'].max()*10)/10
+        
+            if y_left_max>1 or y_left_max<=0 or y_left_max is np.nan or y_left_max is None:
+        
+                y_left_max=1
+            
+            y_max=max(y_right_max,y_left_max)
+            
+            labels=(binx_g_h['count'].astype('str')+','+binx_g_h['count_distr'].mul(100).round(2).astype('str')+'%').tolist()
+            
+            #print(binx_g_h[['variable','woe','badprob']])
+            #base plot using ggplot2(no sec_axis function in plotnine - 0.8.0)
+            figure=(ggplot() + geom_bar(binx_g_melt,aes(x='bin',y='negpos',fill=''), stat="identity",show_legend = True)
+                + geom_point(data=binx_g_h,mapping=aes(x='rowid',y='badprob'), stat="identity",color='blue')
+                + geom_path(data=binx_g_h,mapping=aes(x='rowid',y='badprob'),color='blue')
+                + facet_wrap(('g'))
+                + scale_y_continuous(limits = [0, y_max])
+                + theme_bw()
+                + labs(x='',y='Bin count distribution',title=title_string)
+                + theme(
+                  figure_size=figure_size,
+                  legend_position=(0.5,-0.15) if __version__!="0.12.4" else (0.5,0),legend_direction="horizontal",
+                  plot_title = element_text(ha='left'),
+                  legend_key_size=10)
+                + geom_text(data=binx_g_h, mapping=aes(x = 'rowid',y='badprob',label='lineval_l'),va = 'bottom',color='blue')
+                + geom_text(data=binx_g_h, mapping=aes(x='rowid',y='count_distr',label=labels),va = 'bottom',color='black',alpha=0.6)
+            ).draw()
+        
+            #add subplot(second axis) using matplotlib 
+            ax1=figure.get_axes()[-1]
+            ax2=ax1.twinx()
+            ax2.set_ylabel('Bad probability', color='blue')
+            ax2.set_ylim(top=y_max)
+            ax2.set_yticks(np.arange(0, y_max, 0.2))
+            ax2.tick_params(axis='y', colors='blue')
+            
+        else:                
+            raise ValueError("ptype in ('woe','badprob')")             
         
         if not show_plot:
             
@@ -222,7 +333,7 @@ class BaseWoePlotter:
                     
             else:
                     
-                raise ValueError("sort_column is list")
+                raise ValueError("sort_column is list")                      
                            
                 
 class BaseEvalFuns:
@@ -420,7 +531,7 @@ class BaseEvalData:
                     pd.Series(y_pred,name='pred'),
                     pd.Series(y_true,name='label',dtype='category')             
                  ],axis=1
-                ).assign(group='data').dropna() 
+                ).assign(group='data').dropna()
             
         return dt_df
     
@@ -443,7 +554,7 @@ class BaseEvalData:
     
                 pred2=np.ceil(dt_ev[['nP','nN']].sum(1).cumsum()/(np.sum(ws)/groupnum)).rename('pred2')
                 dt_ev=dt_ev.groupby(pred2,observed=False)[['nP','nN']].sum().join(
-                    dt_ev.groupby(pred2,observed=False)['pred'].max() 
+                    dt_ev.groupby(pred2,observed=False)['pred'].mean() 
                 ).reset_index(drop=True)[['pred','nP','nN']]
 
     
@@ -601,6 +712,21 @@ class BaseEvalData:
                                                   max_f1['f1'].round(2).values[0])
 
         return dt_f1 
+    
+    def _get_dt_sloping(self,dt_ev,group,n=10):
+
+        dt_sloping=dt_ev[['cumpop','pred','nP','nN']].copy()
+        dt_sloping['n']=dt_ev[['nP','nN']].sum(1)
+        dt_sloping['cumpop_bin']=pd.qcut(-dt_sloping['cumpop'],n,labels=np.linspace(0,1,n+1)[:-1]).astype('float')
+        
+        dt_sloping_m=pd.concat(
+            [
+                dt_sloping.groupby('cumpop_bin')['nP'].sum().div(dt_sloping.groupby('cumpop_bin',)['n'].sum()).rename('true'),
+                dt_sloping.groupby('cumpop_bin')['pred'].mean().rename('pred')
+                ],axis=1
+            ).assign(group=group)
+        
+        return dt_sloping_m
 
 
 class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):    
@@ -627,7 +753,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         )
         
         fig=(ggplot(data = dt_density) +
-            geom_density(aes(x='pred',linetype='label',color='group',weight='ws'),fill='gray', alpha=0.1,show_legend = True) +
+            geom_density(aes(x='pred',linetype='label',color='factor(group)',weight='ws'),fill='gray', alpha=0.1,show_legend = True) +
             geom_text(coord_label, aes(x='pred', y='dens', label=coord_label.index.map({0:'Neg',1:'Pos'}))) +
             guides(linetype=None, color=guide_legend(title='')) +
             ggtitle(title+' Density' if title else 'Density') +
@@ -648,7 +774,11 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         
         if __version__!='0.12.4':
         
-            fig.show()   
+            fig.show() 
+            
+        else:
+                
+            print(fig)
             
         return fig.draw()  
     
@@ -692,6 +822,10 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         
             fig.show()   
             
+        else:
+                
+            print(fig)
+            
         return fig.draw()  
     
     def _plot_lift(self,g_dtev,figure_size,title=None):
@@ -710,7 +844,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
 
             legend_xposition=0.9 if __version__!='0.12.4' else 0.8
 
-        fig=(ggplot(dt_lift, aes(x='cumpop', color = 'group')) +
+        fig=(ggplot(dt_lift, aes(x='cumpop', color = 'factor(group)')) +
             geom_line(aes(y = 'lift'), na_rm = True) +
             ggtitle(title+' Lift' if title else 'Lift') +
             theme_bw() +
@@ -732,6 +866,10 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         
             fig.show()   
             
+        else:
+                
+            print(fig)    
+            
         return fig.draw()  
     
     
@@ -745,7 +883,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
 
             legend_xposition=0.9 if __version__!='0.12.4' else 0.8
 
-        fig=(ggplot(dt_gain, aes(x='cumpop', color = 'group')) +
+        fig=(ggplot(dt_gain, aes(x='cumpop', color = 'factor(group)')) +
                 geom_line(aes(y = 'precision'), na_rm = True) +
                 ggtitle(title+' Gain' if title else 'Gain') +
                 theme_bw() +
@@ -764,7 +902,11 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         
         if __version__!='0.12.4':
         
-            fig.show()   
+            fig.show()  
+            
+        else:
+                
+            print(fig)    
             
         return fig.draw()  
     
@@ -804,6 +946,10 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         
             fig.show()   
             
+        else:
+                    
+            print(fig)
+            
         return fig.draw()  
     
     
@@ -836,6 +982,10 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         
             fig.show()   
             
+        else:
+                    
+            print(fig)
+            
         return fig.draw()  
         
     
@@ -844,7 +994,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         dt_pr=pd.concat([self._get_dt_pr(g_dtev[group],group) for group in g_dtev],axis=0,ignore_index=True)
 
         fig=(ggplot(dt_pr) +
-                geom_line(aes(x='recall', y='precision', color='group'), na_rm = True) +
+                geom_line(aes(x='recall', y='precision', color='factor(group)'), na_rm = True) +
                 geom_line(aes(x='recall', y='recall'), na_rm = True, linetype = "dashed", colour="gray") +
                 ggtitle(title+' P-R' if title else 'P-R') +
                 theme_bw() +
@@ -864,6 +1014,10 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         if __version__!='0.12.4':
         
             fig.show()   
+            
+        else:
+            
+            print(fig)
             
         return fig.draw()  
 
@@ -897,5 +1051,78 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         
             fig.show()   
             
-        return fig.draw()  
+        else:
                 
+            print(fig)
+            
+        return fig.draw()  
+    
+    
+    def _plot_sloping(self,g_dtev,figure_size,title=None,n=10):
+
+        dt_sloping=pd.concat([self._get_dt_sloping(g_dtev[group],group,n) for group in g_dtev],axis=0,ignore_index=False).reset_index()               
+        
+        fig=(
+           ggplot(dt_sloping, aes(x='cumpop_bin',color='factor(group)')) +
+            geom_point(aes(y = 'true'), na_rm = True) +
+            geom_line(aes(y = 'true'), na_rm = True) +
+            geom_point(aes(y = 'pred'), na_rm = True)  +
+            geom_line(aes(y = 'pred'), na_rm = True,linetype='dotted') +
+            guides(color = guide_legend(title = "Group")) +
+            ggtitle(title+' Sloping' if title else 'Sloping') +
+            theme_bw() +
+            theme(
+                  legend_position=(0.1,1) if __version__!='0.12.4' else (0.2,0.8),
+                  legend_direction='',
+                  figure_size=figure_size,
+                  legend_background=element_blank(),
+                  plot_title = element_text(ha='left'),
+                  legend_key=element_blank()) +
+            guides(color=guide_legend(title='')) +             
+            labs(x = "% of population", y = "Fraction of Positives") +
+            scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) 
+            )
+        
+        if __version__!='0.12.4':
+        
+            fig.show()
+            
+        else:  
+            
+            print(fig)
+            
+        return fig.draw()
+                
+    def _plot_calibration(self,g_dtev,figure_size,title=None,n=10):
+
+        dt_sloping=pd.concat([self._get_dt_sloping(g_dtev[group],group,n) for group in g_dtev],axis=0,ignore_index=False).reset_index()               
+        
+        fig=(
+           ggplot(dt_sloping, aes(x='pred',y='true',color='factor(group)')) +
+            geom_line(na_rm = True)+
+            geom_line(aes(x='pred',y='pred'), linetype = "dashed", colour="gray")+
+            geom_point(na_rm = True)  +
+            guides(color = guide_legend(title = "group")) +
+            ggtitle(title+' Calibration Plot' if title else 'Calibration Plot') +
+            theme_bw() +
+            theme(
+                  legend_position=(0.1,1) if __version__!='0.12.4' else (0.2,0.8),
+                  legend_direction='',
+                  figure_size=figure_size,
+                  legend_background=element_blank(),
+                  plot_title = element_text(ha='left'),
+                  legend_key=element_blank()) +
+            guides(color=guide_legend(title='')) +             
+            labs(x = "Mean Predicted Probability", y = "Fraction of Positives") +
+            scale_x_continuous(labels=self._R_pretty(0,1,5), breaks=self._R_pretty(0,1,5)) 
+            )
+        
+        if __version__!='0.12.4':
+        
+            fig.show()   
+            
+        else:
+                
+            print(fig)
+            
+        return fig.draw() 

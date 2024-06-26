@@ -20,11 +20,11 @@ def test_eval(mock_show):
     ws=pd.Series([0.2,0.3,0.1,0.9,0.5],name='ws')
     
     res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density')).plot(pred,true)
-    res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density')).plot(pred_prob,true)
+    res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density','sloping','calibration')).plot(pred_prob,true)
     res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density')).plot(pred,true,group)
-    res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density')).plot(pred_prob,true,group)
-    res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density')).plot(pred_prob,true,group,ws)
-    assert set(res) == {'ks','roc','gain','lift','roc','pr','lz','f1','density'}
+    res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density','sloping','calibration')).plot(pred_prob,true,group)
+    res=perfEval(show_plot=('ks','roc','gain','lift','roc','pr','lz','f1','density','sloping','calibration')).plot(pred_prob,true,group,ws)
+    assert set(res) == {'ks','roc','gain','lift','roc','pr','lz','f1','density','sloping','calibration'}
     res=perfEval(title='test',pred_desc=True).plot(pred,true,group)
     assert set(res) == {'ks','roc'}
 

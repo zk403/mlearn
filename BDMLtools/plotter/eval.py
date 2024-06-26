@@ -38,9 +38,13 @@ class perfEval(BaseEval,BaseEvalPlotter):
             + 'lz':lorenz曲线
             + 'f1':f1曲线
             + 'density':核密度分布曲线       
+            + 'sloping':斜率曲线
+            + 'calibration':校准曲线   
         title=None,str,评估图的title
+        n_bins=10,int,绘制sloping、calibration图时等频分箱数
         pred_desc=None,是否反相排序y_pred,
             + pred_desc=False情况下即y_pred越大代表event的概率估计越大，若y_pred越小代表event的概率估计越大时，请设定为pred_desc=True
+                
             + pred_desc=None时,将自动检测y_pred，若y_pred范围在[0,1]之内时pred_desc将设定为False，y_pred范围在[0,1]之外时pred_desc将设定为True
         
     Method:
@@ -50,12 +54,13 @@ class perfEval(BaseEval,BaseEvalPlotter):
     """
     
     
-    def __init__(self,show_plot=('ks','roc'),title=None,pred_desc=None):
+    def __init__(self,show_plot=('ks','roc'),title=None,pred_desc=None,n_bins=10):
         
 
         self.show_plot=show_plot
         self.title=title
         self.pred_desc=pred_desc
+        self.n_bins=n_bins
 
         
     @property
@@ -68,7 +73,10 @@ class perfEval(BaseEval,BaseEvalPlotter):
              'roc':self._plot_roc,
              'lz':self._plot_lz,
              'pr':self._plot_pr,
-             'f1':self._plot_f1}
+             'f1':self._plot_f1,
+             'sloping':self._plot_sloping,
+             'calibration':self._plot_calibration
+             }
         
     def plot(self,y_pred,y_true,group=None,sample_weight=None,figure_size=(4,4)):
         
@@ -100,8 +108,16 @@ class perfEval(BaseEval,BaseEvalPlotter):
             
             else:
                 
-                self.pred_desc=False                            
-                  
+                self.pred_desc=False   
+                
+
+        if y_pred.max()>1 or y_pred.min()<0:
+                            
+            if ('sloping' in self.show_plot) or ('calibration' in self.show_plot):
+                    
+                raise ValueError('y is probability when plot sloping or calibration')
+            
+ 
         dt_plt=self._get_df(y_pred,y_true,group).sample(frac=1,random_state=182)
         
         
@@ -121,6 +137,10 @@ class perfEval(BaseEval,BaseEvalPlotter):
                 dt_dens=self._get_df_density(dt_plt,sample_weight)
                 
                 figs_d[ty]=self._plot_funs[ty](dt_dens,figure_size,self.title)
+                
+            elif ty in ('sloping','calibration'):
+                
+                figs_d[ty]=self._plot_funs[ty](dt_plt_dict,figure_size,self.title,self.n_bins)
                 
             else:
                 
@@ -437,5 +457,9 @@ class perfEval2(BaseEval):
         if __version__!='0.12.4':
         
             p.show()   
+            
+        else:
+            
+            print(p)
     
         return p.draw()

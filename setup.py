@@ -45,7 +45,6 @@ base_pkgs=[       #'numpy>=1.18,<=1.23.5',#https://github.com/numpy/numpy
                   'probatus>=2.0.0',#https://github.com/ing-bank/probatus
                   'mlxtend>=0.19.0',#https://github.com/rasbt/mlxtend
                   'scikit-optimize>=0.9.0',#https://github.com/scikit-optimize/scikit-optimize
-                  'shap>=0.41.0,<0.43.0',
                   "IPython",
                   'openpyxl'
                  ]
@@ -61,7 +60,7 @@ dev_dep = [
     "threadpoolctl>=3.0.0",#kmeans:https://stackoverflow.com/questions/71352354/sklearn-kmeans-is-not-working-as-i-only-get-nonetype-object-has-no-attribute
     #'shap>=0.41.0',
     'xgboost>=1.5.0',#https://github.com/dmlc/xgboost
-    "catboost>=1.1,<1.2" if python_ver() == "3.8" and system() == "darwin" else "catboost>=1.1" #https://github.com/catboost/catboost gituhb action failed in macox
+    "catboost=1.1.1" if python_ver() == "3.8" and system() == "darwin" else "catboost>=1.1.1" #https://github.com/catboost/catboost gituhb action failed in macox
 ]
 
 here = path.abspath(path.dirname(__file__))

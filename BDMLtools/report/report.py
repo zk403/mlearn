@@ -312,7 +312,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
         return report_var 
     
     
-    def woe_plot(self,X, y,breaks,sample_weight=None,special_values=None,figure_size=None,show_plot=True):        
+    def woe_plot(self,X, y,breaks,ptype='badprob',sample_weight=None,special_values=None,figure_size=None,show_plot=True):        
         """ 
         分箱并产生特征分析报告、特征分析绘图报告  
         Params:
@@ -339,7 +339,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
         
         report_var=self.report(X,y,breaks,sample_weight,special_values)
         
-        figure=self. _get_plot_single(report_var,figure_size,show_plot)
+        figure=self. _get_plot_single(report_var,ptype,figure_size,show_plot)
     
         return report_var,figure,breaks
    
@@ -567,12 +567,13 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
         return X
   
     
-    def woe_plot(self,figure_size=None,n_jobs=-1,verbose=0):
+    def woe_plot(self,ptype='badprob',figure_size=None,n_jobs=-1,verbose=0):
         
         """ 
         根据特征分析报告批量绘图并输出        
         Params:
         ------
+        ptype='badprob':可选‘woe’，y第二轴显示指标
         figure_size=None:matplotlib的画布大小
         n_jobs=-1:joblib并行任务数量
         verbose=0:joblib信息打印等级
@@ -585,7 +586,7 @@ class varReport(Base,TransformerMixin,BaseWoePlotter):
         
         self._check_is_fitted()
         
-        fig_out=self._woe_plot(self.var_report_dict,figure_size,n_jobs,verbose)
+        fig_out=self._woe_plot(self.var_report_dict,ptype,figure_size,n_jobs,verbose)
         
         return fig_out
         
@@ -801,7 +802,7 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
                                       ['variable']]].reset_index().rename(columns={'level_0':'variable'})
                 
         report_out['report_brief']=report[[i for i in report.columns.tolist() if i[-1] in \
-                                      ['count','badprob','total_iv','ks','lift']]].reset_index().rename(columns={'level_0':'variable'})   
+                                      ['count','badprob','total_iv','woe','ks','lift']]].reset_index().rename(columns={'level_0':'variable'})   
                             
         report_out['report_count']=report[[i for i in report.columns.tolist() if i[-1] in \
                                       ['count']]].reset_index().rename(columns={'level_0':'variable'})  
@@ -1003,14 +1004,14 @@ class varGroupsPlot(Base,BaseWoePlotter):
         self.verbose=verbose
         
         
-    def plot(self,X,figure_size=None):
+    def plot(self,X,ptype='badprob',figure_size=None):
         
         self._check_X(X)
         self.breaks_list=self._check_breaks(self.breaks_list)
         
         fig_out=self._woe_plot_group(X,self.breaks_list,self.target,self.column,self.psi_base,
                              self.sort_column,figure_size,self.special_values,self.sample_weight,
-                             self.n_jobs,self.verbose)  
+                             self.n_jobs,self.verbose,ptype)  
         
         self.fig_out=fig_out
         
@@ -1018,7 +1019,7 @@ class varGroupsPlot(Base,BaseWoePlotter):
 
     
     def _woe_plot_group(self,X,breaks_list,target,column,psi_base,sort_column=None,figure_size=None,special_values=None,
-                       sample_weight=None,n_jobs=-1,verbose=0):
+                       sample_weight=None,n_jobs=-1,verbose=0,ptype='badprob'):
                  
         """ 
         根据组特征分析报告批量绘图并输出          
@@ -1046,7 +1047,7 @@ class varGroupsPlot(Base,BaseWoePlotter):
         p=Parallel(n_jobs=n_jobs,verbose=verbose)
         
         res=p(delayed(self._woe_plot_group_single)(X,breaks_list,colname,target,column,psi_base,sort_column,
-                                                   figure_size,special_values,sample_weight) for colname in breaks_list)
+                                                   figure_size,special_values,sample_weight,ptype) for colname in breaks_list)
         
         fig_out={colname:fig for fig,colname in res}             
 
@@ -1063,7 +1064,7 @@ class varGroupsPlot(Base,BaseWoePlotter):
             raise ValueError('".woe_plot_group" only support single grouper,reset param "columns" in varGroupsReport instance')  
             
     def _woe_plot_group_single(self,X,breaks_list,colname,target,column,psi_base='all',sort_column=None,figure_size=None,
-                               special_values=None,sample_weight=None):
+                               special_values=None,sample_weight=None,ptype='badprob'):
     
         varbin_g=varGroupsReport({colname:breaks_list[colname]},
                        n_jobs=1,target=target,
@@ -1079,7 +1080,7 @@ class varGroupsPlot(Base,BaseWoePlotter):
         
         binx_g=pd.concat({col:varbin_g[col] for col in cd_col},axis=1).droplevel(0)
         
-        figure,colname=self._get_plot_single_group(binx_g,sort_column=sort_column,figure_size=figure_size,show_plot=False)
+        figure,colname=self._get_plot_single_group(binx_g,ptype,sort_column=sort_column,figure_size=figure_size,show_plot=False)
         
         return figure,colname        
         

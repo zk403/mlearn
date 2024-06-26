@@ -268,6 +268,7 @@ class binAdjuster(Base,BaseWoePlotter):
         + None,保持数据默认
         + list=[value1,value2,...],数据中所有列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
         + dict={col_name1:[value1,value2,...],...},数据中指定列替换，被指定的列的值在[value1,value2,...]中都会被替换，字符被替换为'missing',数值被替换为np.nan
+    ptype='badprob':woe绘图的y第二轴，可选‘badprob’和‘woe’
     sample_weight:numpy.array or pd.Series(...,index=X.index) or None,样本权重，若数据是经过抽样获取的，则可加入样本权重以计算加权的badrate,woe,iv,ks等指标以还原抽样对分析影响
     figure_size:tuple,特征分析图的图形大小
     
@@ -303,7 +304,7 @@ class binAdjuster(Base,BaseWoePlotter):
     
     
     def __init__(self,breaks_list_dict,column=None,sort_column=None,psi_base='all',
-                 special_values=None,sample_weight=None,figure_size=None):
+                 special_values=None,sample_weight=None,ptype='badprob',figure_size=None):
         
         self.breaks_list_dict=breaks_list_dict
         self.column=column
@@ -311,6 +312,7 @@ class binAdjuster(Base,BaseWoePlotter):
         self.psi_base=psi_base
         self.special_values=special_values
         self.sample_weight=sample_weight  
+        self.ptype=ptype
         self.figure_size=figure_size
 
         self._is_fitted=False
@@ -332,6 +334,7 @@ class binAdjuster(Base,BaseWoePlotter):
                                                                 X,y,
                                                                 sample_weight=self.sample_weight,
                                                                 special_values=self.special_values,
+                                                                ptype=self.ptype,
                                                                 figure_size=self.figure_size)
             
         else:
@@ -345,6 +348,7 @@ class binAdjuster(Base,BaseWoePlotter):
                                                                 psi_base=self.psi_base,
                                                                 sample_weight=self.sample_weight,
                                                                 special_values=self.special_values,
+                                                                ptype=self.ptype,
                                                                 figure_size=self.figure_size)           
             
             
@@ -418,6 +422,7 @@ class binAdjuster(Base,BaseWoePlotter):
     
     def _get_breaks_adj(self,br_adj,X,y,
                         sample_weight=None,special_values=None,
+                        ptype='badprob',
                         figure_size=None):
     
         global breaks_list_adj,vtabs_dict_adj
@@ -451,7 +456,7 @@ class binAdjuster(Base,BaseWoePlotter):
             binx=varReportSinge().report(X[colname],y,breaks,sample_weight=sample_weight,
                                             special_values=special_values) 
     
-            fig,_=self._get_plot_single(binx,figure_size=None,show_plot=True)
+            fig,_=self._get_plot_single(binx,figure_size=figure_size,ptype=ptype,show_plot=True)
     
             display(fig) #IPython.core.display_functions.display
     
@@ -589,7 +594,7 @@ class binAdjuster(Base,BaseWoePlotter):
 
 
     def _get_breaks_adj_g(self,br_adj,X,y,column,sort_column=None,psi_base='all',
-                    sample_weight=None,special_values=None,
+                    sample_weight=None,special_values=None,ptype='badprob',
                     figure_size=None):
 
         global breaks_list_adj,vtabs_dict_adj
@@ -639,6 +644,7 @@ class binAdjuster(Base,BaseWoePlotter):
             
             fig,_=self._get_plot_single_group(binx_g,
                                               sort_column=sort_column,
+                                              ptype=ptype,
                                               figure_size=figure_size,
                                               show_plot=True)
             display(fig)                                
