@@ -32,9 +32,9 @@ def python_ver():
     return str(sys.version_info.major) + "." + str(sys.version_info.minor)
 
 
-base_pkgs=[       #'numpy>=1.18,<=1.23.5',#https://github.com/numpy/numpy
+base_pkgs=[       'numpy==1.24.4' if python_ver() == "3.8" else 'numpy==1.26.4',#https://github.com/numpy/numpy
                   #'matplotlib>=3.5.0,<=3.5.3',
-                  #'lofo-importance>=0.3.1',#https://github.com/aerdem4/lofo-importance
+                  #'lofo-importance>=0.3.1',#https://github.com/aerdem4/lofo-importance                 
                   'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
                   'pandas>=1.3.5',#https://github.com/pandas-dev/pandas
                   #'statsmodels>=0.13.2',#https://github.com/statsmodels/statsmodels
@@ -45,6 +45,7 @@ base_pkgs=[       #'numpy>=1.18,<=1.23.5',#https://github.com/numpy/numpy
                   'probatus>=2.0.0',#https://github.com/ing-bank/probatus
                   'mlxtend>=0.19.0',#https://github.com/rasbt/mlxtend
                   'scikit-optimize>=0.9.0',#https://github.com/scikit-optimize/scikit-optimize
+                  'shap<=0.44.1',
                   "IPython",
                   'openpyxl'
                  ]
@@ -60,7 +61,7 @@ dev_dep = [
     "threadpoolctl>=3.0.0",#kmeans:https://stackoverflow.com/questions/71352354/sklearn-kmeans-is-not-working-as-i-only-get-nonetype-object-has-no-attribute
     #'shap>=0.41.0',
     'xgboost>=1.5.0',#https://github.com/dmlc/xgboost
-    "catboost=1.1.1" if python_ver() == "3.8" and system() == "darwin" else "catboost>=1.1.1" #https://github.com/catboost/catboost gituhb action failed in macox
+    "catboost==1.1.1" if python_ver() == "3.8" and system() == "darwin" else "catboost>=1.1.1" #https://github.com/catboost/catboost gituhb action failed in macox
 ]
 
 here = path.abspath(path.dirname(__file__))

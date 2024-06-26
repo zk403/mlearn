@@ -26,7 +26,7 @@ jobs:
         architecture: x64
     - name: Install dependencies
       run: |
-        pip install setuptools==65.5.1 
+        pip install setuptools
         pip3 install ".[all]"
         
     - name: Generate coverage report

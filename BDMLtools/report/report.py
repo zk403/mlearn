@@ -431,7 +431,7 @@ class varReportSinge(Base,Specials,BaseWoePlotter):
          #print var_bin
          rename_aggfunc=dict(zip(['sample_weight',y.name],['count','bad']))
          result=pd.pivot_table(var_bin,index=col,values=[y.name,'sample_weight'],
-                           margins=False,
+                           margins=False,observed=False,
                            aggfunc='sum').rename(columns=rename_aggfunc,level=0)#.droplevel(level=1,axis=1) 
 
          var_tab=self._getVarReport_ks(result,col,show_metrics,regularization) 
@@ -1227,7 +1227,7 @@ class GainsTable(Base):
         #print var_bin
         rename_aggfunc=dict(zip(['sample_weight',y.name],['count','bad']))
         result=pd.pivot_table(var_bin,index=X.name,values=[y.name,'sample_weight'],
-                           margins=False,
+                           margins=False,observed=False,
                            aggfunc='sum').rename(columns=rename_aggfunc,level=0)
 
         var_tab=self._get_gt(result,X.name) 
