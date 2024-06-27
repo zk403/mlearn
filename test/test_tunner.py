@@ -453,8 +453,18 @@ def test_shapcheck(mock_show):
     res=BayesianCVTuner(XGBClassifier,scoring='roc_auc',eval_metric='auc',n_jobs=1,cv=2,
                         init_points=1,n_iter=1,
                         validation_fraction=None,early_stopping_rounds=None).fit(X,y)
+    
+    xgb_m=res.model_refit.get_booster()
+    
+    xgb_m_1=xgb_m.save_raw('deprecated')
+    
+    def save_raw(self=None):
+ 
+        return xgb_m_1
+    
+    xgb_m.save_raw=save_raw
         
-    p=shapCheck(res.model_refit).fit_plot(X,y)
+    p=shapCheck(xgb_m).fit_plot(X,y)
     assert p.figs
     p=shapCheck(res.model_refit,woe_raw=True).fit_plot(X,y)
     assert p.figs
