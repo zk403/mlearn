@@ -11,7 +11,7 @@ jobs:
         build: [windows,macos,ubuntu]
         include:
           - build: macos
-            os: macos-13
+            os: macOS-latest
           - build: ubuntu
             os: ubuntu-latest
           - build: windows
@@ -22,8 +22,10 @@ jobs:
     - name: Setup Python  
       uses: actions/setup-python@master
       with:
-        python-version: ${{ matrix.python-version }}
-        architecture: x64 
+        python-version: ${{ matrix.python-version }}       
+    - name: Install libomp on macOS
+      if: runner.os == 'macOS'
+      run: brew install libomp
     - name: Install dependencies
       run: |
         pip install setuptools
