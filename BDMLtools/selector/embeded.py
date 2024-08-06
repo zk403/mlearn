@@ -131,7 +131,7 @@ class LassoLogit(Base,TransformerMixin):
         self.plot_path=self._plot_path(cv_path_,figure_size)
         self.plot_valscore=self._plot_valscore(cv_res_,figure_size)
         
-        self.c_best=cv_res_[cv_res_['valscore_avg']==cv_res_['valscore_avg'].max()]['C'].ravel()[0]
+        self.c_best=cv_res_[cv_res_['valscore_avg']==cv_res_['valscore_avg'].max()]['C'].to_numpy()[0]
         self.c_1se=cv_res_[(cv_res_['valscore_avg']<=max_s) & \
                            (cv_res_['valscore_avg']>=max_s-max_s_se)].sort_values('log(C)').iloc[0,0]
         

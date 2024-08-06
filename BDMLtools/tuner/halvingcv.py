@@ -5,16 +5,13 @@ Created on Fri Oct 15 09:32:09 2021
 
 @author: zengke
 """
-
 from BDMLtools.base import Base
 from sklearn.experimental import enable_halving_search_cv
 from sklearn.model_selection import train_test_split
 from BDMLtools.tuner.base import BaseTunner
 from sklearn.model_selection import HalvingGridSearchCV,HalvingRandomSearchCV,RepeatedStratifiedKFold
-from sklearn.calibration import CalibratedClassifierCV
 from joblib import effective_n_jobs
-#from lightgbm import early_stopping as lgbm_early_stopping
-
+import numpy as np
 
 class hgridTuner(Base,BaseTunner):
     
@@ -27,7 +24,7 @@ class hgridTuner(Base,BaseTunner):
         para_space:dict,参数空间,注意随机搜索与网格搜索对应不同的dict结构,参数空间写法见后                       
         n_candidates:int or 'exhaust',halving random_search的抽样候选参数个数,当method="h_grid"时该参数会被忽略
         factor:int,halving search中，1/factor的候选参数将被用于下一次迭代
-        scoring:str,寻优准则,可选'auc','ks','lift',目前不支持sample_weight
+        scoring:str,寻优准则,可选'auc','logoss',目前不支持sample_weight
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
         cv:int,交叉验证的折数
         early_stopping_rounds=10,int,训练数据中validation_fraction比例的数据被作为验证数据进行early_stopping
@@ -36,8 +33,6 @@ class hgridTuner(Base,BaseTunner):
         n_jobs,int,运行交叉验证时的joblib的并行数,默认-1
         verbose,int,并行信息输出等级
         random_state:int,随机种子
-        calibration:使用sklearn的CalibratedClassifierCV对refit的模型进行概率校准
-        cv_calibration:CalibratedClassifierCV的交叉验证数
         
         """参数空间写法
         
@@ -167,7 +162,7 @@ class hgridTuner(Base,BaseTunner):
     
     def __init__(self,Estimator,para_space,method='h_random',scoring='auc',eval_metric='auc',repeats=1,cv=5,
                  factor=3,n_candidates='exhaust',early_stopping_rounds=10,validation_fraction=0.1,
-                 n_jobs=-1,verbose=0,random_state=123,calibration=False,cv_calibration=5):
+                 n_jobs=-1,verbose=0,random_state=123):
       
         self.Estimator=Estimator
         self.para_space=para_space
@@ -183,8 +178,6 @@ class hgridTuner(Base,BaseTunner):
         self.n_jobs=n_jobs
         self.verbose=verbose     
         self.random_state=random_state
-        self.calibration=calibration
-        self.cv_calibration=cv_calibration
         
         self._is_fitted=False
         
@@ -199,7 +192,7 @@ class hgridTuner(Base,BaseTunner):
         self._check_is_fitted()
         self._check_X(X)
         
-        pred = self.model_refit.predict_proba(self.transform(X))[:,1]    
+        pred = self.model_refit.predict_proba(X)[:,1]    
         
         return pred
     
@@ -213,7 +206,7 @@ class hgridTuner(Base,BaseTunner):
         self._check_is_fitted()
         self._check_X(X)
         
-        pred = self.model_refit.predict_proba(self.transform(X))[:,1]  
+        pred = self.model_refit.predict_proba(X)[:,1]  
         pred = self._p_to_score(pred,PDO,base,ratio)
         
         return pred
@@ -223,20 +216,8 @@ class hgridTuner(Base,BaseTunner):
 
         self._check_is_fitted()
         self._check_X(X)
-        
-        if self.Estimator.__module__ == 'catboost.core':
-            
-            out=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X
-            
-        elif self.Estimator.__module__ == 'lightgbm.sklearn':
-        
-            out=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
-            
-        else:
-            
-            out=X        
          
-        return out
+        return X
           
     def fit(self,X,y,cat_features=None,sample_weight=None):
         '''
@@ -254,347 +235,259 @@ class hgridTuner(Base,BaseTunner):
         
         self.cat_features=X.select_dtypes(['object','category']).columns.tolist() if cat_features is None else cat_features    
         
+        
+        self._hgrid_search(X,y,sample_weight)
+        
+        #输出最优参数组合
+        self.params_best=self.hgrid_res.best_params_
+        self.cv_result=self._cvresult_to_df(self.hgrid_res.cv_results_)
+        
+        #refit with early_stopping_rounds  
         if self.Estimator.__module__ == 'catboost.core':
             
-            X=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X
+            refit_Estimator=self.Estimator(random_state=self.random_state,
+                                           thread_count=effective_n_jobs(self.n_jobs),
+                                           **self.params_best).set_params(**{'cat_features':self.cat_features})
+         
+        else :
             
-        elif self.Estimator.__module__ == 'lightgbm.sklearn':
-        
-            X=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
-            
-        else:
-            
-            X=X   
+            refit_Estimator=self.Estimator(random_state=self.random_state,
+                                           n_jobs=effective_n_jobs(self.n_jobs),
+                                           **self.params_best)
 
-            
-        if self.method=='h_grid':
-            
-            if self.early_stopping_rounds:
-                
-                X_tr, X_val, y_tr, y_val = train_test_split(X,y,test_size=self.validation_fraction,random_state=self.random_state,stratify=y)
-                
-                sample_weight_tr=sample_weight[y_tr.index] if sample_weight is not None else None
-            
-                self._h_grid_search(X_tr,y_tr,sample_weight_tr)
-                #输出最优参数组合
-                self.params_best=self.h_grid_res.best_params_
-                self.cv_result=self._cvresult_to_df(self.h_grid_res.cv_results_)
-            
-                #refit with early_stopping_rounds  
-                if self.Estimator.__module__ == 'catboost.core':
-                    
-                    refit_Estimator=self.Estimator(random_state=self.random_state,
-                                                   thread_count=effective_n_jobs(self.n_jobs),
-                                                   **self.params_best)
-                    
-                    if self.eval_metric=='auc':
-                        
-                        self.eval_metric='AUC'
-                    
-                    refit_Estimator.set_params(**{"eval_metric":self.eval_metric})
-                    
-                #xgboost:eval_metric and early_stopping_rounds in `fit` method is deprecated for better compatibility with scikit-learn,version>=1.6.0
-                elif self.Estimator.__module__ == 'xgboost.sklearn':
-                        
-                        refit_Estimator=self.Estimator(random_state=self.random_state,
-                                                       thread_count=effective_n_jobs(self.n_jobs),
-                                                       **self.params_best)
-                        
-                        refit_Estimator.set_params(**{"eval_metric":self.eval_metric,'early_stopping_rounds':self.early_stopping_rounds})                                                           
-                    
-                else:
-                    
-                    refit_Estimator=self.Estimator(random_state=self.random_state,
-                                                   n_jobs=effective_n_jobs(self.n_jobs),
-                                                   **self.params_best)
-                    
-            
-                self.model_refit = refit_Estimator.fit(**self._get_fit_params(self.Estimator,X_tr,y_tr,X_val,y_val,sample_weight,y_tr.index,y_val.index))   
-                                                                                                     
-                self.params_best['best_iteration']=self.model_refit.best_iteration if self.Estimator.__module__ == 'xgboost.sklearn' else self.model_refit.best_iteration_ 
-                
-            else:
-                
-                #search
-                
-                self._h_grid_search(X,y,sample_weight)
-                
-                #params_best
-                self.params_best=self.h_grid_res.best_params_
-            
-                #cv_result
-                self.cv_result=self._cvresult_to_df(self.h_grid_res.cv_results_)
-                
-                #refit model            
-                if self.Estimator.__module__ == 'catboost.core':
-                    
-                    refit_Estimator=self.Estimator(random_state=self.random_state,
-                                                   thread_count=effective_n_jobs(self.n_jobs),**self.params_best)
-                    
-                    refit_Estimator.set_params(**{'cat_features':self.cat_features})
-                    
-            
-                else:
-                    
-                    refit_Estimator=self.Estimator(random_state=self.random_state,
-                                                   n_jobs=effective_n_jobs(self.n_jobs),**self.params_best)
-            
-                self.model_refit = refit_Estimator.fit(X,y,sample_weight=sample_weight)          
+        self.model_refit = refit_Estimator.fit(X,y,sample_weight=sample_weight)  
 
-            
-        elif self.method=='h_random':
-            
-            if self.early_stopping_rounds:
-                
-                X_tr, X_val, y_tr, y_val = train_test_split(X,y,test_size=self.validation_fraction,random_state=self.random_state,stratify=y)
-                
-                sample_weight_tr=sample_weight[y_tr.index] if sample_weight is not None else None
-            
-                self._h_random_search(X_tr,y_tr,sample_weight_tr)
-                #输出最优参数组合
-                self.params_best=self.h_random_res.best_params_
-                self.cv_result=self._cvresult_to_df(self.h_random_res.cv_results_)
-            
-                #refit with early_stopping_rounds  
-                if self.Estimator.__module__ == 'catboost.core':
-                    
-                    refit_Estimator=self.Estimator(random_state=self.random_state,
-                                                   thread_count=effective_n_jobs(self.n_jobs),
-                                                   **self.params_best)
-                    
-                    if self.eval_metric=='auc':
-                        
-                        self.eval_metric='AUC'
-                    
-                    refit_Estimator.set_params(**{"eval_metric":self.eval_metric})
-                    
-                #xgboost:eval_metric and early_stopping_rounds in `fit` method is deprecated for better compatibility with scikit-learn,version>=1.6.0
-                elif self.Estimator.__module__ == 'xgboost.sklearn':
-                        
-                        refit_Estimator=self.Estimator(random_state=self.random_state,
-                                                       thread_count=effective_n_jobs(self.n_jobs),
-                                                       **self.params_best)
-                        
-                        refit_Estimator.set_params(**{"eval_metric":self.eval_metric,'early_stopping_rounds':self.early_stopping_rounds})                                                                               
-                    
-                    
-                else:
-                    
-                    refit_Estimator=self.Estimator(random_state=self.random_state,
-                                                   n_jobs=effective_n_jobs(self.n_jobs),
-                                                   **self.params_best)                    
-            
-                self.model_refit = refit_Estimator.fit(**self._get_fit_params(self.Estimator,X_tr,y_tr,X_val,y_val,sample_weight,y_tr.index,y_val.index))   
-                                                                                                     
-                self.params_best['best_iteration']=self.model_refit.best_iteration if self.Estimator.__module__ == 'xgboost.sklearn' else self.model_refit.best_iteration_ 
-                
-            else:
-                
-                #search
-                
-                self._h_random_search(X,y,sample_weight)
-                
-                #params_best
-                self.params_best=self.h_random_res.best_params_
-            
-                #cv_result
-                self.cv_result=self._cvresult_to_df(self.h_random_res.cv_results_)
-                
-                #refit model
-                if self.Estimator.__module__ == 'catboost.core':
-                    
-                    refit_Estimator=self.Estimator(random_state=self.random_state,
-                                                   thread_count=effective_n_jobs(self.n_jobs),**self.params_best)                   
-                    
-                    refit_Estimator.set_params(**{'cat_features':self.cat_features})
-                    
-                else:
-                    
-                    refit_Estimator=self.Estimator(random_state=self.random_state,
-                                                   n_jobs=effective_n_jobs(self.n_jobs),**self.params_best) 
-                    
-                    
-            
-                self.model_refit = refit_Estimator.fit(X,y,sample_weight=sample_weight)          
-                                                        
-            
-        else:
-            
-            raise ValueError('method should be "h_random" or "h_grid".')
-            
-            
-        if self.calibration:
-            
-            self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
-                                                  n_jobs=effective_n_jobs(self.n_jobs)).fit(X,y,sample_weight=sample_weight) 
-                       
         self._is_fitted=True
         
         return self    
-    
-    def _h_grid_search(self,X,y,sample_weight):          
+
+
+    def _hgrid_search(self,X,y,sample_weight):          
         '''
         网格搜索
         '''  
-        if self.scoring in ['ks','auc','lift','neglogloss']:
-            
-            scorer=self._get_scorer[self.scoring]
-            
-        else:
-            
-            scorer=self.scoring
+        
+        scorer=self._get_scorer(self.scoring) #sample_weight not supported yet
             
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state) 
         
-        n_jobs=effective_n_jobs(self.n_jobs) 
+        n_jobs=effective_n_jobs(self.n_jobs)              
         
-        
-        if self.Estimator.__module__ == 'catboost.core':
+         
+        if self.early_stopping_rounds:
             
-            hgrid=HalvingGridSearchCV(self.Estimator(random_state=self.random_state,thread_count=n_jobs),
-                                      param_grid=self.para_space,
-                                      cv=cv,
-                                      refit=False,
-                                      factor=self.factor,
-                                      scoring=scorer,
-                                      random_state=self.random_state,
-                                      verbose=self.verbose,
-                                      n_jobs=-1 if self.n_jobs==-1 else 1)
-        
-            self.h_grid_res=hgrid.fit(X,y,**{'sample_weight':sample_weight,'cat_features':self.cat_features})
-            
-        else:
-            
-            hgrid=HalvingGridSearchCV(self.Estimator(random_state=self.random_state,n_jobs=n_jobs),
-                                      param_grid=self.para_space,
-                                      cv=cv,
-                                      refit=False,
-                                      factor=self.factor,
-                                      scoring=scorer,
-                                      random_state=self.random_state,
-                                      verbose=self.verbose,
-                                      n_jobs=-1 if self.n_jobs==-1 else 1)
-            
-            self.h_grid_res=hgrid.fit(X,y,sample_weight=sample_weight)
-           
-        return self
-        
-        
-    def _h_random_search(self,X,y,sample_weight):  
-        '''
-        随机网格搜索
-        '''         
-        
-        if self.scoring in ['ks','auc','lift','neglogloss']:
-            
-            scorer=self._get_scorer[self.scoring]
-            
-        else:
-            
-           scorer=self.scoring
-        
-        cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state) 
-        
-        n_jobs=effective_n_jobs(self.n_jobs) 
-        
-        if self.Estimator.__module__ == 'catboost.core':
-            
-            h_r_grid=HalvingRandomSearchCV(self.Estimator(random_state=self.random_state,thread_count=n_jobs),
-                                         param_distributions=self.para_space,
-                                         n_candidates=self.n_candidates,
-                                         factor=self.factor,
-                                         cv=cv,
-                                         n_jobs=-1 if self.n_jobs==-1 else 1,
-                                         verbose=self.verbose,
-                                         refit=True,
-                                         random_state=self.random_state,
-                                         scoring=scorer,
-                                         error_score=0)
-        
-            self.h_random_res=h_r_grid.fit(X,y,**{'sample_weight':sample_weight,'cat_features':self.cat_features})
-            
-        else:
-            
-            h_r_grid=HalvingRandomSearchCV(self.Estimator(random_state=self.random_state,n_jobs=n_jobs),
-                                         param_distributions=self.para_space,
-                                         n_candidates=self.n_candidates,
-                                         factor=self.factor,
-                                         cv=cv,
-                                         n_jobs=-1 if self.n_jobs==-1 else 1,
-                                         verbose=self.verbose,
-                                         refit=True,
-                                         random_state=self.random_state,
-                                         scoring=scorer,
-                                         error_score=0)
-            
-            self.h_random_res=h_r_grid.fit(X,y,sample_weight=sample_weight)       
-        
-        return self   
-    
-    
-    def _get_fit_params(self,Estimator,X_train,y_train,X_val,y_val,sample_weight=None,train_index=None,val_index=None):
-        
-        #xgboost:eval_metric and early_stopping_rounds in `fit` method is deprecated for better compatibility with scikit-learn,version>=1.6.0        
-        if Estimator.__module__ == "xgboost.sklearn":
-            
-            fit_params = {
-                "X":X_train,
-                "y":y_train,
-                "eval_set": [(X_val, y_val)],
-                #"eval_metric": self.eval_metric,
-                #"early_stopping_rounds": self.early_stopping_rounds,
-            }
-            
-            if sample_weight is not None:
+            X_tr, X_val, y_tr, y_val = train_test_split(X,y,test_size=self.validation_fraction,random_state=self.random_state,stratify=y)
                 
-                fit_params["sample_weight"] = sample_weight.loc[train_index]
-                fit_params["sample_weight_eval_set"] = [sample_weight.loc[val_index]]
-        
+            sample_weight_tr=sample_weight[y_tr.index] if sample_weight is not None else np.ones(y_tr.size)
+            sample_weight_val=sample_weight[y_val.index] if sample_weight is not None else np.ones(y_val.size)
             
-        elif Estimator.__module__ == 'lightgbm.sklearn':
-            
-            from lightgbm import early_stopping, log_evaluation
 
-            fit_params = {
-                "X":X_train,
-                "y":y_train,
-                "eval_set": [(X_val, y_val)],
-                "eval_metric": self.eval_metric,
-                "callbacks": [early_stopping(self.early_stopping_rounds, first_metric_only=True)],
-            }
-            
-            if self.verbose >= 100:
+            if self.Estimator.__module__ == 'lightgbm.sklearn': 
                 
-                fit_params["callbacks"].append(log_evaluation(1))
+                from lightgbm import early_stopping,log_evaluation
                 
+                if self.method=='h_grid':          
+                
+                    self.hgrid_res=HalvingGridSearchCV(self.Estimator(random_state=self.random_state,n_jobs=1),
+                                              param_grid=self.para_space,
+                                              cv=cv,
+                                              refit=False,
+                                              factor=self.factor,
+                                              scoring=scorer,
+                                              random_state=self.random_state,
+                                              verbose=self.verbose,
+                                              n_jobs=n_jobs).fit(X_tr,y_tr,
+                                                                   eval_set=[(X_val, y_val)],
+                                                                   eval_metric=self.eval_metric,
+                                                                   callbacks=[early_stopping(self.early_stopping_rounds,first_metric_only=True,verbose=0),log_evaluation(0)],
+                                                                   eval_sample_weight=[sample_weight_val],
+                                                                   sample_weight=sample_weight_tr)  
+                                                                    
+                elif self.method=='h_random':                                                   
+                                                                
+                    self.hgrid_res=HalvingRandomSearchCV(self.Estimator(random_state=self.random_state,n_jobs=1),
+                                                 param_distributions=self.para_space,
+                                                 n_candidates=self.n_candidates,
+                                                 factor=self.factor,
+                                                 cv=cv,
+                                                 n_jobs=n_jobs,
+                                                 verbose=self.verbose,
+                                                 refit=True,
+                                                 random_state=self.random_state,
+                                                 scoring=scorer,
+                                                 error_score=0).fit(X_tr,y_tr,
+                                                                   eval_set=[(X_val, y_val)],
+                                                                   eval_metric=self.eval_metric,
+                                                                   callbacks=[early_stopping(self.early_stopping_rounds,first_metric_only=True,verbose=0),log_evaluation(0)],
+                                                                   eval_sample_weight=[sample_weight_val],
+                                                                   sample_weight=sample_weight_tr)    
+                else:
+
+                    raise ValueError('method in ("h_grid","h_random")')                                                                                                       
+                                                                
+                
+            elif self.Estimator.__module__ == 'xgboost.sklearn': 
+                
+                if self.method=='h_grid':
+
+                    self.hgrid_res=HalvingGridSearchCV(self.Estimator(random_state=self.random_state,n_jobs=1),
+                                              param_grid=self.para_space,
+                                              cv=cv,
+                                              refit=False,
+                                              factor=self.factor,
+                                              scoring=scorer,
+                                              random_state=self.random_state,
+                                              verbose=self.verbose,
+                                              n_jobs=n_jobs).fit(X_tr,y_tr,eval_set=[(X_val, y_val)],
+                                                                 sample_weight_eval_set=[sample_weight_val],
+                                                                 sample_weight=sample_weight_tr,verbose=False)
+                    
+                elif self.method=='h_random':     
+
+                    self.hgrid_res=HalvingRandomSearchCV(self.Estimator(random_state=self.random_state,n_jobs=1),
+                                                 param_distributions=self.para_space,
+                                                 n_candidates=self.n_candidates,
+                                                 factor=self.factor,
+                                                 cv=cv,
+                                                 n_jobs=n_jobs,
+                                                 verbose=self.verbose,
+                                                 refit=True,
+                                                 random_state=self.random_state,
+                                                 scoring=scorer,
+                                                 error_score=0).fit(X_tr,y_tr,
+                                                                    eval_set=[(X_val, y_val)],
+                                                                    sample_weight_eval_set=[sample_weight_val],
+                                                                    sample_weight=sample_weight_tr,verbose=False)    
+                                                                    
+                else:
+
+                    raise ValueError('method in ("h_grid","h_random")')                                                                                                                                                  
+
+            elif self.Estimator.__module__ == 'catboost.core': 
+                
+                from catboost import Pool
+                from joblib import parallel_backend
+
+                if self.eval_metric=='auc':
+
+                    self.eval_metric='AUC'
+                
+                if self.method=='h_grid':
+                
+                    with parallel_backend('threading'):
+                        
+                        self.hgrid_res=HalvingGridSearchCV(self.Estimator(random_state=self.random_state,thread_count=1),
+                                                 param_grid=self.para_space,
+                                                 cv=cv,
+                                                 factor=self.factor,
+                                                 n_jobs=n_jobs,
+                                                 refit=False,
+                                                 verbose=self.verbose,
+                                                 scoring=scorer,error_score=0).fit(X=X_tr,y=y_tr,cat_features=self.cat_features,sample_weight=sample_weight_tr,                                                               
+                                                                 eval_set=Pool(X_val,y_val,cat_features=self.cat_features).set_weight(sample_weight_val),                                                                 
+                                                                 early_stopping_rounds=self.early_stopping_rounds,
+                                                                 verbose=False) 
+                                                              
+                elif self.method=='h_random': 
+                    
+                    with parallel_backend('threading'):
+                        
+                        self.hgrid_res=HalvingRandomSearchCV(self.Estimator(random_state=self.random_state,thread_count=1),
+                                                    param_distributions=self.para_space,
+                                                    n_candidates=self.n_candidates,
+                                                    factor=self.factor,
+                                                    cv=cv,
+                                                    n_jobs=n_jobs,
+                                                    verbose=self.verbose,
+                                                    refit=True,
+                                                    random_state=self.random_state,
+                                                    scoring=scorer,
+                                                    error_score=0).fit(X=X_tr,y=y_tr,cat_features=self.cat_features,sample_weight=sample_weight_tr,                                                               
+                                                                 eval_set=Pool(X_val,y_val,cat_features=self.cat_features).set_weight(sample_weight_val),                                                                 
+                                                                 early_stopping_rounds=self.early_stopping_rounds,
+                                                                 verbose=False) 
+                else:
+
+                    raise ValueError('method in ("h_grid","h_random")')                                                                                                                                                  
+                                                                                        
+           
             else:
-                
-                fit_params["callbacks"].append(log_evaluation(0))
-                
-            if sample_weight is not None:
-                
-                fit_params["sample_weight"] = sample_weight.loc[train_index]
-                fit_params["eval_sample_weight"] = [sample_weight.loc[val_index]]
-            
-        
-        elif Estimator.__module__ == "catboost.core":
-            
-            from catboost import Pool
-            
-            fit_params = {
-                "X": Pool(X_train, y_train, cat_features=self.cat_features),
-                "eval_set": Pool(X_val, y_val, cat_features=self.cat_features),
-                "early_stopping_rounds": self.early_stopping_rounds,
-                # Evaluation metric should be passed during initialization
-            }
-            
-            if sample_weight is not None:
-                fit_params["X"].set_weight(sample_weight.loc[train_index])
-                fit_params["eval_set"].set_weight(sample_weight.loc[val_index])
-            
+
+                raise ValueError('Estimator in ("XGBClassifier","LGBMClassifier","CatBoostClassifier")')  
+                                               
         else:
             
-            raise ValueError('Estimator in (XGBClassifier,LGBMClassifier,CatBoostClassifier)')
-        
-            
-        return fit_params
+            if self.Estimator.__module__ == 'catboost.core':
+                
+                if self.method=='h_grid':
+                
+                    hgrid=HalvingGridSearchCV(self.Estimator(random_state=self.random_state,thread_count=1),
+                                             param_grid=self.para_space,
+                                             cv=cv,
+                                             factor=self.factor,
+                                             n_jobs=n_jobs,
+                                             refit=False,
+                                             verbose=self.verbose,
+                                             scoring=scorer,error_score=0)   
+                    
+                elif self.method=='h_random':
+                    
+                    hgrid=HalvingRandomSearchCV(self.Estimator(random_state=self.random_state,thread_count=1),
+                                                param_distributions=self.para_space,
+                                                n_candidates=self.n_candidates,
+                                                factor=self.factor,
+                                                cv=cv,
+                                                n_jobs=n_jobs,
+                                                verbose=self.verbose,
+                                                refit=True,
+                                                random_state=self.random_state,
+                                                scoring=scorer,
+                                                error_score=0)           
+                    
+                else:
+                    
+                    raise ValueError('method in ("h_grid","h_random")')  
+                    
+                self.hgrid_res=hgrid.fit(X,y,**{'sample_weight':sample_weight,'cat_features':self.cat_features})      
+                
+            elif self.Estimator.__module__ in ('lightgbm.sklearn','xgboost.sklearn'):
+                
+                if self.method=='h_grid':
+                
+                    hgrid=HalvingGridSearchCV(self.Estimator(random_state=self.random_state,n_jobs=1),
+                                              param_grid=self.para_space,
+                                              cv=cv,
+                                              refit=False,
+                                              factor=self.factor,
+                                              scoring=scorer,
+                                              random_state=self.random_state,
+                                              verbose=self.verbose,
+                                              n_jobs=n_jobs)
+                    
+                    self.h_grid_res=hgrid.fit(X,y,sample_weight=sample_weight) 
+                        
+                elif self.method=='h_random':
+                    
+                    hgrid=HalvingRandomSearchCV(self.Estimator(random_state=self.random_state,n_jobs=1),
+                                                 param_distributions=self.para_space,
+                                                 n_candidates=self.n_candidates,
+                                                 factor=self.factor,
+                                                 cv=cv,
+                                                 n_jobs=n_jobs,
+                                                 verbose=self.verbose,
+                                                 refit=True,
+                                                 random_state=self.random_state,
+                                                 scoring=scorer,
+                                                 error_score=0)                               
+                    
+                else:
+                    
+                    raise ValueError('method in ("grid","random_grid")')  
+                    
+                self.hgrid_res=hgrid.fit(X,y,sample_weight=sample_weight)
+                
+            else:               
+
+                raise ValueError('Estimator in ("XGBClassifier","LGBMClassifier","CatBoostClassifier")') 
+      
+        return self 

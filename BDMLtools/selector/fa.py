@@ -390,7 +390,7 @@ class faSelector(Base,TransformerMixin):
                     'explained_ratio':[1] #前两个主成分累计解释方差比例
                 })   
 
-                label_components[label]=pd.Series(X[cluster_features[0]].ravel())           
+                label_components[label]=pd.Series(X[cluster_features[0]].to_numpy())           
                 components_infos=pd.concat([components_infos,components_info],ignore_index=True)
         
         self.label_components=label_components #所有类变量集合的第一主成分
@@ -411,7 +411,7 @@ class faSelector(Base,TransformerMixin):
                 label_components[label]=pd.Series(PCA(n_components=None).fit_transform(X[cluster_features])[:,0],name=label)
            
             else:
-                label_components[label]=pd.Series(X[cluster_features[0]].ravel())        
+                label_components[label]=pd.Series(X[cluster_features[0]].to_numpy())        
         
         label_components_df=pd.concat(label_components,axis=1,ignore_index=True)
         

@@ -32,7 +32,7 @@ def python_ver():
     return str(sys.version_info.major) + "." + str(sys.version_info.minor)
 
 
-base_pkgs=[       'numpy==1.24.4' if python_ver() == "3.8" else 'numpy==1.26.4',#https://github.com/numpy/numpy
+base_pkgs=[       'numpy==1.24.4' if python_ver() == "3.8" else 'numpy<1.27,>=1.24',#https://github.com/numpy/numpy
                   #'matplotlib>=3.5.0,<=3.5.3',
                   #'lofo-importance>=0.3.1',#https://github.com/aerdem4/lofo-importance                 
                   'fastparquet>=0.7.1',#https://github.com/dask/fastparquet
@@ -44,7 +44,7 @@ base_pkgs=[       'numpy==1.24.4' if python_ver() == "3.8" else 'numpy==1.26.4',
                   'lightgbm>=3.3.0',#https://github.com/microsoft/LightGBM 
                   'probatus>=2.0.0',#https://github.com/ing-bank/probatus
                   'mlxtend>=0.19.0',#https://github.com/rasbt/mlxtend
-                  'scikit-optimize>=0.9.0',#https://github.com/scikit-optimize/scikit-optimize
+                  'optuna',
                   'shap==0.43.0' if python_ver() == "3.8" else 'shap<=0.44.1',
                   "IPython",
                   'openpyxl'

@@ -32,11 +32,15 @@ pip uninstall BDMLtools
 
 更新
 ```
-v0.4.4
-1.varGroupReport的report_brief中加入woe
-2.加入WOE绘图功能，可在binAdjust、varReport等中选择y的二轴显示为badrate或woe
-3.在模型评估中新增sloping、calibration图
-4.修复了诸多绘图bug
-5.更新单元测试脚本，更新部分代码说明
+v0.4.5
+1.移除tunner中有关模型校准(calibration)内容
+2.修复varGroupsPlot的bug
+3.修改binSelector中参数iv_limit默认值
+4.全面替换贝叶斯优化基础库由scikit-optimize为optuna
+5.LgbmShapRFECVSelector中替换贝叶斯优化的scikit-optimize为随机网格搜索
+6.移除tunner中的评估函数ks与lift，auc与logloss修改为sklearn.metrics默认
+7.重构gridsearch、FLgridTuner、halvingcv代码，使其更加合理
+8.更新单元测试脚本，更新部分代码说明
+9.更新example
 ```
 

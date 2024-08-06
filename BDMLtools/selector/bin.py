@@ -85,7 +85,7 @@ class binSelector(Base,TransformerMixin):
     """
     
     def __init__(self,method='freq',max_bin=50,distr_limit=0.05,bin_num_limit=8,special_values=None,
-                 iv_limit=0.02,keep=None,sample_weight=None,coerce_monotonic=False,levels=10,n_jobs=-1,verbose=0):
+                 iv_limit=0.0,keep=None,sample_weight=None,coerce_monotonic=False,levels=10,n_jobs=-1,verbose=0):
         
         self.method=method
         self.max_bin=max_bin

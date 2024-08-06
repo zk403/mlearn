@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from sklearn import metrics
+from sklearn import metrics,__version__
 import numpy as np
 import pandas as pd
 from lightgbm import LGBMClassifier
@@ -9,76 +9,42 @@ from scipy import special
 
 class BaseTunner:
     
-    @property
-    def _get_scorer(self):
+    def _get_scorer(self,name):
         
-        return {'auc':self._custom_scorer_AUC,
-                'ks':self._custom_scorer_KS,
-                'lift':self._custom_scorer_Lift,
-                'neglogloss':self._custom_scorer_neglogloss
+        scorer={'auc':self._custom_scorer_AUC,
+                'logloss':self._custom_scorer_neglogloss
                 }
+        
+        if name not in scorer:
+            
+            raise ValueError("scorer in ('auc','logloss'),if using focaloss model then scorer in ('auc','logloss','negfocalloss')")
+        
+        return scorer[name]
     
     @property    
-    def _custom_scorer_AUC(self):
-    
-        def custom_score_AUC(y_true, y_pred):        
-            '''
-            自定义验证评估指标AUC
-            '''           
-            return metrics.roc_auc_score(y_true,y_pred)  
-
-        scorer=metrics.make_scorer(custom_score_AUC,greater_is_better=True,needs_proba=True)
+    def _custom_scorer_AUC(self):   
         
-        return scorer
+        if __version__<'1.4.0':
 
-    @property        
-    def _custom_scorer_KS(self):
-        
-        def custom_score_KS(y_true, y_pred):
-            '''
-            自定义验证评估指标KS
-            '''   
-            fpr,tpr,thresholds= metrics.roc_curve(y_true,y_pred)
-            ks = max(tpr-fpr)
-            return ks  
-    
-        scorer=metrics.make_scorer(custom_score_KS,greater_is_better=True,needs_proba=True)
+            scorer=metrics.make_scorer(metrics.roc_auc_score,greater_is_better=True,needs_proba=True)
+            
+        else:
+            
+            scorer=metrics.make_scorer(metrics.roc_auc_score,greater_is_better=True,response_method="predict_proba")
         
         return scorer
     
-    @property    
-    def _custom_scorer_Lift(self):
-        
-        def custom_score_Lift(y_true,y_pred):
-            '''
-            自定义验证评估指标Lift
-            '''   
-            thrs = np.linspace(y_pred.min(), y_pred.max(),100)
-            lift=[]
-            for thr in thrs:
-                tn, fp, fn, tp = metrics.confusion_matrix(y_true,y_pred>thr).ravel()
-                #depth = (tp + fp)/(tn+fp+fn+tp)
-                ppv = tp/(tp + fp)
-                lift.append(ppv/((tp + fn)/(tn+fp+fn+tp)))
-                
-            return(np.nanmean(lift))
-        
-        scorer=metrics.make_scorer(custom_score_Lift,greater_is_better=True,needs_proba=True)
-        
-        return scorer        
     
     @property    
     def _custom_scorer_neglogloss(self):
-        
-        def custom_score_neglogloss(y_true,y_pred):     
-            '''
-            自定义验证评估指标logoss
-            '''           
-            logloss=y_true*np.log(y_pred)+(1-y_true)*np.log(1-y_pred)    
             
-            return logloss.sum()
-    
-        scorer=metrics.make_scorer(custom_score_neglogloss,greater_is_better=True,needs_proba=True)  
+        if __version__<'1.4.0':
+        
+            scorer=metrics.make_scorer(metrics.log_loss,greater_is_better=False,needs_proba=True)  
+            
+        else:
+            
+            scorer=metrics.make_scorer(metrics.log_loss,greater_is_better=False,response_method="predict_proba")  
         
         return scorer
     

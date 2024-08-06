@@ -1,26 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Oct 14 17:26:03 2021
+Created on Tue Jul 30 09:14:47 2024
 
 @author: zengke
 """
+
 from BDMLtools.base import Base
 from BDMLtools.tuner.base import BaseTunner,FLLGBMSklearn,FocalLoss
-#from sklearn.model_selection import GridSearchCV
-#from bayes_opt import BayesianOptimization
-from sklearn.calibration import CalibratedClassifierCV
-from sklearn.model_selection import RepeatedStratifiedKFold,train_test_split
-from scipy import special
-#from lightgbm import early_stopping as lgbm_early_stopping
-#from time import time
-#import pandas as pd
-from joblib import effective_n_jobs
-#import numpy as np
-from skopt import BayesSearchCV
-from sklearn import metrics
+from sklearn.model_selection import RepeatedStratifiedKFold
+from lightgbm import early_stopping,log_evaluation
+import pandas as pd
+from joblib import effective_n_jobs,Parallel,delayed        
+from sklearn.metrics import roc_auc_score,log_loss
 import numpy as np
-np.int=int
+import optuna
 
 
 class BayesianCVTuner(Base,BaseTunner):
@@ -35,72 +29,59 @@ class BayesianCVTuner(Base,BaseTunner):
     --
         Estimator:拟合器,XGBClassifier、LGBMClassifier或CatBoostClassifier
         para_space:dict,lgb的参数空间
-        n_iter:贝叶斯优化搜索迭代次数
+        n_trials:贝叶斯优化搜索迭代次数
         init_points:int,贝叶斯优化起始搜索点的个数
-        scoring:str,寻优准则,可选'auc','ks','lift','neglogloss'
-        early_stopping_rounds=10,int,训练数据中validation_fraction比例的数据被作为验证数据进行early_stopping,
-        validation_fraction=0.1,float,进行early_stopping的验证集比例
+        scoring:str,寻优准则,可选'auc','logloss',同sklearn.metrics中的roc_auc_score与log_loss
+        early_stopping_rounds=10,int,交叉验证时早停轮数
         eval_metric=‘auc’,early_stopping的评价指标,为可被Estimator识别的格式,参考Estimator.fit中的eval_metric参数
         cv:int,RepeatedStratifiedKFold交叉验证的折数
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
         n_jobs,int,运行交叉验证和提升算法并行数,默认-1
         verbose,int,并行信息输出等级
         random_state,随机种子
-        calibration:使用sklearn的CalibratedClassifierCV对refit模型进行概率校准
-        cv_calibration:CalibratedClassifierCV的交叉验证数
         
         """参数空间写法 
-        
-            #XGBClassifier
-            from skopt.space import Categorical,Real,Integer
-            
-            para_space = {
-                'n_estimators': Integer(30, 120),
-                'max_depth':Integer(2, 4),
-                'learning_rate': Real(0.05, 0.2,prior='uniform'),
-                
-                'gamma': Real(0,10,prior='uniform'),
-                'subsample':Real(0.5,1.0,prior='uniform'),
-                'colsample_bytree':Real(0.5,1.0,prior='uniform'),
-                'reg_lambda':Real(0,10,prior='uniform'),
-                
-                'use_label_encoder':Categorical([False])
-            
-            }         
-        
-            #LGBMClassifier
-            from space.utils import Categorical,Real,Integer
+        #XGBClassifier
+        param="""{"n_estimators":trial.suggest_int('n_estimators', 30, 120),
+            "verbosity": trial.suggest_int("verbosity",0,0),
+            "objective": "binary:logistic",
+            "max_depth":trial.suggest_int("max_depth", 1, 3, step=1),
+            "min_child_weight":trial.suggest_int("min_child_weight", 2, 10),
+            "eta":trial.suggest_float("eta", 0.01, 0.3, log=False),
+            "gamma":trial.suggest_float("gamma", 0, 1.0, log=False),
+            "grow_policy":trial.suggest_categorical("grow_policy", ["depthwise", "lossguide"]),
+            "lambda": trial.suggest_float("lambda", 1e-8, 1.0, log=True),
+            "alpha": trial.suggest_float("alpha", 1e-8, 1.0, log=True),
+            "subsample": trial.suggest_float("subsample", 0.4, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.2, 1.0),
+            }"""    
     
-            para_space = {
-                'boosting_type':Categorical(['gbdt','goss']),
-                'n_estimators': Integer(30, 120),
-                'max_depth':Integer(2, 4),
-                'learning_rate': Real(0.05, 0.2,prior='uniform'),
+        #LGBMClassifier
+        param= """{'n_estimators':trial.suggest_int('n_estimators', 30, 120),
+                'boosting_type':trial.suggest_categorical("boosting_type", ["gbdt", "goss"]),
+                'learning_rate': trial.suggest_float('learning_rate', 0.05, 0.2, log=False),
+                'max_depth': trial.suggest_int('max_depth', 1, 3),
+                'min_child_samples': trial.suggest_int('min_child_samples', 1, 100, log=False),                 
+                'subsample': trial.suggest_float('subsample', 0.5, 1.0),
+                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 1.0),
+                'reg_lambda': trial.suggest_float('reg_lambda', 0, 10.0, log=False),
+                'verbosity': trial.suggest_int("verbosity",-1,-1)
+                 }"""   
+                    
+        #Catboost
+        param= """{"iterations": trial.suggest_int("iterations",80,120),            
+           "depth": trial.suggest_int("depth", 1, 3),
+           "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.3, log=False),            
+           "subsample": trial.suggest_float("subsample", 0.05, 1.0),
+           "colsample_bylevel": trial.suggest_float("colsample_bylevel", 0.4, 1.0),
+           "min_data_in_leaf": trial.suggest_int("min_data_in_leaf", 1, 100),
+           "reg_lambda":trial.suggest_float('reg_lambda', 1e-8, 10.0, log=True),
+           "silent":trial.suggest_categorical("silent",[True]),
+           }""" 
+      """   
+        
             
-                #'min_split_gain': Real(0, 10,prior='uniform'),
-                'min_child_samples':Integer(1, 100,prior='uniform'),
-                
-                'subsample':Real(0.5,1.0,prior='uniform'),
-                'colsample_bytree':Real(0.5,1.0,prior='uniform'),
-                'reg_lambda':Real(0,10,prior='uniform'),    
-            } 
-                        
-            #Catboost
-            from skopt.space import Categorical,Real,Integer
-    
-            para_space = {
-            
-                'n_estimators': Integer(30, 120),
-                'learning_rate': Real(0.05, 0.2,prior='uniform'),
-            
-                'max_depth':Integer(2, 4),
-                'min_child_samples':Integer(1, 100,prior='uniform'),
-                
-                'subsample':Real(0.5,1.0,prior='uniform'),
-                'colsample_bylevel':Real(0.5,1.0,prior='uniform'),
-                'reg_lambda':Real(0,10,prior='uniform')               
-            }           
-          """   
+        """   
           
     Attribute:    
     --
@@ -112,24 +93,20 @@ class BayesianCVTuner(Base,BaseTunner):
 
     '''    
     
-    def __init__(self,Estimator,para_space={},n_iter=10,init_points=1,scoring='auc',eval_metric='auc',
-                 cv=5,repeats=1,n_jobs=-1,verbose=0,early_stopping_rounds=10,validation_fraction=0.1,random_state=123,calibration=False,cv_calibration=5):
+    def __init__(self,Estimator,para_space=None,n_trials=10,scoring='auc',eval_metric='auc',
+                 cv=5,repeats=1,n_jobs=-1,verbose=0,early_stopping_rounds=10,random_state=123):
         
         self.Estimator=Estimator
         self.para_space=para_space
-        self.n_iter=n_iter
-        self.init_points=init_points
+        self.n_trials=n_trials
         self.scoring=scoring
         self.cv=cv
         self.repeats=repeats
         self.early_stopping_rounds=early_stopping_rounds
         self.eval_metric=eval_metric
-        self.validation_fraction=validation_fraction
         self.n_jobs=n_jobs
         self.verbose=verbose
         self.random_state=random_state
-        self.calibration=calibration
-        self.cv_calibration=cv_calibration
         
         self._is_fitted=False
         
@@ -143,7 +120,7 @@ class BayesianCVTuner(Base,BaseTunner):
         self._check_is_fitted()
         self._check_X(X)        
         
-        pred = self.model_refit.predict_proba(self.transform(X))[:,1]        
+        pred = self.model_refit.predict_proba(X)[:,1]        
         return pred
     
     def predict_score(self,X,y=None,PDO=75,base=660,ratio=1/15):
@@ -156,29 +133,11 @@ class BayesianCVTuner(Base,BaseTunner):
         self._check_is_fitted()
         self._check_X(X)
         
-        pred = self.model_refit.predict_proba(self.transform(X))[:,1]  
+        pred = self.model_refit.predict_proba(X)[:,1]  
         pred = self._p_to_score(pred,PDO,base,ratio)
         
         return pred
     
-    def transform(self,X,y=None):   
-        
-        self._check_is_fitted()
-        self._check_X(X)
-        
-        if self.Estimator.__module__ == "catboost.core":
-            
-            out=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X
-            
-        elif self.Estimator.__module__ == 'lightgbm.sklearn':
-        
-            out=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
-            
-        else:
-            
-            out=X
-            
-        return out
           
     def fit(self,X,y,cat_features=None,sample_weight=None):
         '''
@@ -188,220 +147,172 @@ class BayesianCVTuner(Base,BaseTunner):
         X: pd.DataFrame对象
         y:目标变量,pd.Series对象
         cat_features:list,分类特征列名列表,None是数据中的object,category类列将被识别为cat_features，当Estimator为Xgboost时将忽略该参数        
-        sample_weight:pd.Series,样本权重,index必须与X,y一致,注意目前不支持样本权重应用于交叉验证寻优指标(scorer)
-        
+        sample_weight:pd.Series,样本权重,index必须与X,y一致,注意目前不支持样本权重应用于交叉验证寻优指标(scorer)        
         '''   
     
         self._check_data(X, y)
         self._check_ws(y, sample_weight)
         
-        self.cat_features=X.select_dtypes(['object','category']).columns.tolist() if cat_features is None else cat_features    
+        if self.Estimator.__module__ == "catboost.core":
         
-        para_space=self._hpsearch_default(self.Estimator) if not self.para_space else self.para_space
+            self.cat_features=X.select_dtypes(['object','category']).columns.tolist() if cat_features is None else cat_features    
+            
+            self.cat_features_idx=np.argwhere(np.isin(X.columns,self.cat_features)).reshape(len(self.cat_features),) if len(self.cat_features) else None
+
+                
+            
+        n_jobs=effective_n_jobs(self.n_jobs)       
+            
+        func = lambda trial: self.objective(trial,self.Estimator,X=np.array(X),y=np.array(y),param=self.para_space,
+                                            sample_weight=sample_weight,metrics=self.scoring,n_jobs=n_jobs)
+        
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+        sampler = optuna.samplers.TPESampler(seed=self.random_state) #reproduce result using seed
+        study = optuna.create_study(direction='maximize',sampler=sampler)
+        study.optimize(func, n_trials=self.n_trials) 
+        
+        self.cv_result=pd.DataFrame([i.params for i in study.trials]).join(
+            pd.DataFrame(
+                [i.value for i in study.trials],columns=['score_mean_cv']
+            )
+        )
+        
+        self.params_best=study.best_trial.params
         
         if self.Estimator.__module__ == "catboost.core":
             
-            X=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X
+            self.model_refit = self.Estimator(**study.best_trial.params,random_state=self.random_state).fit(X,y,sample_weight=sample_weight,cat_features=self.cat_features)   
             
-        elif self.Estimator.__module__ == 'lightgbm.sklearn':
+        else:    
+            
+            self.model_refit = self.Estimator(**study.best_trial.params,random_state=self.random_state).fit(X,y,sample_weight=sample_weight)   
         
-            X=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
-            
-        else:
-            
-            X=X 
-            
-        
-        if self.early_stopping_rounds:
- 
-            X_tr, X_val, y_tr, y_val = train_test_split(X,y,test_size=self.validation_fraction,random_state=self.random_state,stratify=y)
-        
-            sample_weight_tr=sample_weight[y_tr.index] if sample_weight is not None else None
-        
-            #BayesSearch_CV        
-            self._BayesSearch_CV(para_space,X_tr,y_tr,sample_weight_tr)
-            
-            #params_best
-            self.params_best=self.bs_res.best_params_
-     
-            #cv_result
-            self.cv_result=self._cvresult_to_df(self.bs_res.cv_results_)
-            
-            #refit with early_stopping_rounds                  
-            if self.Estimator.__module__ == "catboost.core":
-                
-                refit_Estimator=self.Estimator(random_state=self.random_state,
-                                               thread_count=effective_n_jobs(self.n_jobs),
-                                               **self.params_best)
-                
-                if self.eval_metric=='auc':
-                    
-                    self.eval_metric='AUC'
-                
-                refit_Estimator.set_params(**{"eval_metric":self.eval_metric})  
-                
-            #xgboost:eval_metric and early_stopping_rounds in `fit` method is deprecated for better compatibility with scikit-learn,version>=1.6.0
-            elif self.Estimator.__module__ == 'xgboost.sklearn':
-                    
-                    refit_Estimator=self.Estimator(random_state=self.random_state,
-                                                   thread_count=effective_n_jobs(self.n_jobs),
-                                                   **self.params_best)
-                    
-                    refit_Estimator.set_params(**{"eval_metric":self.eval_metric,'early_stopping_rounds':self.early_stopping_rounds})                                                                               
-                           
-                
-            else:
-                
-                refit_Estimator=self.Estimator(random_state=self.random_state,
-                                               n_jobs=effective_n_jobs(self.n_jobs),
-                                               **self.params_best)
-
-            self.model_refit = refit_Estimator.fit(**self._get_fit_params(self.Estimator,X_tr,y_tr,X_val,y_val,sample_weight,y_tr.index,y_val.index))   
-                                                                                                 
-            self.params_best['best_iteration']=self.model_refit.best_iteration if self.Estimator.__module__ == 'xgboost.sklearn' else self.model_refit.best_iteration_ 
-            
-            
-        else:
-            
-            #BayesSearch_CV        
-            self._BayesSearch_CV(para_space,X,y,sample_weight)
-            
-            #params_best
-            self.params_best=self.bs_res.best_params_
-     
-            #cv_result
-            self.cv_result=self._cvresult_to_df(self.bs_res.cv_results_)
-            
-            #refit model
-            if self.Estimator.__module__ == "catboost.core":
-                
-                refit_Estimator=self.Estimator(random_state=self.random_state,
-                                               thread_count=effective_n_jobs(self.n_jobs),
-                                               **self.params_best)
-                
-                refit_Estimator.set_params(**{'cat_features':self.cat_features})
-                
-            else:
-                
-                refit_Estimator=self.Estimator(random_state=self.random_state,
-                                               n_jobs=effective_n_jobs(self.n_jobs),
-                                               **self.params_best)
-
-            self.model_refit = refit_Estimator.fit(X,y,sample_weight=sample_weight)             
-
-        
-        #get calibration done
-        if self.calibration:
-
-            self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
-                                                  n_jobs=effective_n_jobs(self.n_jobs)).fit(X,y,sample_weight=sample_weight)
-
         self._is_fitted=True
         
         return self
     
     
-    def _BayesSearch_CV(self,para_space,X,y,sample_weight):        
-               
-        if self.scoring in ['ks','auc','lift','neglogloss']:
-            
-            scorer=self._get_scorer[self.scoring]
-            
+    def objective(self,trial,Estimator,X,y,param=None,sample_weight=None,metrics='auc',n_jobs=1):
+        
+    
+        if param is None:
+    
+            param=eval(self._hpsearch_default(Estimator))
+    
         else:
             
-            scorer=self.scoring
-             
-                    
-        cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)
+            param=eval(param)
         
-        n_jobs=effective_n_jobs(self.n_jobs)
+        def _cv_parallel(X,y,tr_idx,val_idx,ws):    
+    
+            if ws is None:
         
-        if self.Estimator.__module__ == "catboost.core":
-            
-            bs=BayesSearchCV(
-                self.Estimator(random_state=self.random_state,thread_count=n_jobs),para_space,cv=cv,
-                n_iter=self.n_iter,n_points=self.init_points,
-                n_jobs=-1 if self.n_jobs==-1 else 1,
-                verbose=self.verbose,refit=False,random_state=self.random_state,
-                scoring=scorer,error_score=0)    
-            
-            self.bs_res=bs.fit(X,y,**{'sample_weight':sample_weight,
-                                      'cat_features':self.cat_features})
+                ws=np.ones(len(X))
+    
+            else:
+                
+                ws=np.array(ws)
+    
+            if self.early_stopping_rounds:
+    
+                if Estimator.__module__ == "catboost.core":
                     
-        else:
+                    model=Estimator(**param,random_state=self.random_state,thread_count=1 if self.n_jobs>=0 else -1)
+                    
+                    if self.eval_metric=='auc':                       
+                        self.eval_metric='AUC'
+                    elif self.eval_metric=='logloss':
+                        self.eval_metric='Logloss'
+                    
+                    model.set_params(**{"eval_metric":self.eval_metric,"early_stopping_rounds":self.early_stopping_rounds})       
+                    
+                #xgboost:eval_metric and early_stopping_rounds in `fit` method is deprecated for better compatibility with scikit-learn,version>=1.6.0
+                elif Estimator.__module__ == 'xgboost.sklearn':
                         
-            bs=BayesSearchCV(
-                self.Estimator(random_state=self.random_state,n_jobs=n_jobs),para_space,cv=cv,
-                n_iter=self.n_iter,n_points=self.init_points,
-                n_jobs=-1 if self.n_jobs==-1 else 1,
-                verbose=self.verbose,refit=False,random_state=self.random_state,
-                scoring=scorer,error_score=0)       
-            
-            self.bs_res=bs.fit(X,y,**{'sample_weight':sample_weight})
-  
-            
-        return(self)     
+                    model=Estimator(**param,random_state=self.random_state,n_jobs=1 if self.n_jobs>=0 else -1)
+                        
+                    model.set_params(**{"eval_metric":self.eval_metric,'early_stopping_rounds':self.early_stopping_rounds})                                                                               
+                                               
+                else:
+                    
+                    model=Estimator(**param,random_state=self.random_state,n_jobs=1 if self.n_jobs>=0 else -1)
     
+                model.fit(**self._get_fit_params(model,X,y,tr_idx,val_idx,ws)) 
     
-    def _get_fit_params(self,Estimator,X_train,y_train,X_val,y_val,sample_weight=None,train_index=None,val_index=None):
+            else:
+                
+                if Estimator.__module__ == "catboost.core":
+                    
+                    model=Estimator(**param,random_state=self.random_state,thread_count=1 if self.n_jobs>=0 else -1)
+                    
+                    model.set_params(**{'cat_features':self.cat_features_idx}).fit(X[tr_idx],y[tr_idx],sample_weight=ws[tr_idx])
+                    
+                else:
+                    
+                    model=Estimator(**param,random_state=self.random_state,n_jobs=1 if self.n_jobs>=0 else -1).fit(X[tr_idx],y[tr_idx],sample_weight=ws[tr_idx])            
+            
+            pred = model.predict_proba(X[val_idx])[:,1]    
+    
+            #sample_weight=ws[val_idx]
+            if metrics=='logloss':
+                
+                score = - log_loss(y[val_idx],pred,sample_weight=ws[val_idx])
+    
+            elif metrics=='auc':
+    
+                score = roc_auc_score(y[val_idx],pred,sample_weight=ws[val_idx])
+    
+            else:
+    
+                raise ValueError("metrics in ('logloss','auc')")
+            
+            return score  
         
+        # StratifiedKFold cross validation
+        cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)
+        n_jobs=effective_n_jobs(n_jobs)
+        parallel=Parallel(n_jobs=n_jobs,verbose=self.verbose,backend='threading')
+        outlist=np.array(parallel(delayed(_cv_parallel)(X,y,tr_idx,val_idx,sample_weight)
+                        for tr_idx,val_idx in cv.split(X, y)),dtype=object)
         
+        return sum(outlist) / len(outlist)
+    
+       
+    
+    def _get_fit_params(self,Estimator,X,y,train_index,val_index,sample_weight):
+            
         if Estimator.__module__ == "xgboost.sklearn":
             
             fit_params = {
-                "X":X_train,
-                "y":y_train,
-                "eval_set": [(X_val, y_val)],
-                #"eval_metric": self.eval_metric,
-                #"early_stopping_rounds": self.early_stopping_rounds,
+                "X":X[train_index],
+                "y":y[train_index],
+                "eval_set": [(X[val_index], y[val_index])],
+                "sample_weight":sample_weight[train_index],
+                "sample_weight_eval_set":[sample_weight[val_index]],
+                "verbose":0
             }
             
-            if sample_weight is not None:
-                
-                fit_params["sample_weight"] = sample_weight.loc[train_index]
-                fit_params["sample_weight_eval_set"] = [sample_weight.loc[val_index]]
-        
-            
-        elif Estimator.__module__ == 'lightgbm.sklearn':
-            
-            from lightgbm import early_stopping, log_evaluation
-
+        elif Estimator.__module__ == 'lightgbm.sklearn':            
+    
             fit_params = {
-                "X":X_train,
-                "y":y_train,
-                "eval_set": [(X_val, y_val)],
-                "eval_metric": self.eval_metric,
-                "callbacks": [early_stopping(self.early_stopping_rounds, first_metric_only=True)],
-            }
-            
-            if self.verbose >= 100:
-                
-                fit_params["callbacks"].append(log_evaluation(1))
-                
-            else:
-                
-                fit_params["callbacks"].append(log_evaluation(0))
-                
-            if sample_weight is not None:
-                
-                fit_params["sample_weight"] = sample_weight.loc[train_index]
-                fit_params["eval_sample_weight"] = [sample_weight.loc[val_index]]
-            
+                "X":X[train_index],
+                "y":y[train_index],
+                "eval_set": [(X[val_index], y[val_index])],
+                "eval_metric":self.eval_metric,#eval_metric,
+                "callbacks": [early_stopping(self.early_stopping_rounds,first_metric_only=True,verbose=0),log_evaluation(0)],
+                "sample_weight":sample_weight[train_index],
+                "eval_sample_weight":[sample_weight[val_index]]
+            }        
         
         elif Estimator.__module__ == "catboost.core":
             
             from catboost import Pool
             
             fit_params = {
-                "X": Pool(X_train, y_train, cat_features=self.cat_features),
-                "eval_set": Pool(X_val, y_val, cat_features=self.cat_features),
-                "early_stopping_rounds": self.early_stopping_rounds,
-                # Evaluation metric should be passed during initialization
+                "X": Pool(X[train_index], y[train_index],cat_features=self.cat_features_idx).set_weight(sample_weight[train_index]), #cat_features=self.cat_features
+                "eval_set": Pool(X[val_index], y[val_index],cat_features=self.cat_features_idx).set_weight(sample_weight[val_index]), #cat_features=self.cat_features    
+                "verbose":False
             }
-            
-            if sample_weight is not None:
-                fit_params["X"].set_weight(sample_weight.loc[train_index])
-                fit_params["eval_set"].set_weight(sample_weight.loc[val_index])
             
         else:
             
@@ -414,64 +325,58 @@ class BayesianCVTuner(Base,BaseTunner):
     @staticmethod
     def _hpsearch_default(Estimator):
         
-        from skopt.space import Categorical,Real,Integer
-        
         if Estimator.__module__ == "xgboost.sklearn":
             
-            para_space = {
-                'n_estimators': Integer(30, 120),
-                'max_depth':Integer(2, 4),
-                'learning_rate': Real(0.05, 0.2,prior='uniform'),
-                
-                'gamma': Real(0,10,prior='uniform'),
-                'subsample':Real(0.5,1.0,prior='uniform'),
-                'colsample_bytree':Real(0.5,1.0,prior='uniform'),
-                'reg_lambda':Real(0,10,prior='uniform'),
-                
-                'use_label_encoder':Categorical([False])            
-            } 
+            param="""{
+                "n_estimators":trial.suggest_int('n_estimators', 30, 120),
+                "verbosity": trial.suggest_int("verbosity",0,0),
+                "objective": "binary:logistic",
+                "max_depth":trial.suggest_int("max_depth", 1, 3, step=1),
+                "min_child_weight":trial.suggest_int("min_child_weight", 2, 10),
+                "eta":trial.suggest_float("eta", 0.01, 0.3, log=False),
+                "gamma":trial.suggest_float("gamma", 0, 1.0, log=False),
+                "grow_policy":trial.suggest_categorical("grow_policy", ["depthwise", "lossguide"]),
+                "lambda": trial.suggest_float("lambda", 1e-8, 1.0, log=True),
+                "alpha": trial.suggest_float("alpha", 1e-8, 1.0, log=True),
+                "subsample": trial.suggest_float("subsample", 0.4, 1.0),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.2, 1.0),
+            }"""
+        
             
         elif Estimator.__module__ == 'lightgbm.sklearn':
-            
-            para_space = {
-                
-                'verbose':Categorical([-1]),
-                'boosting_type':Categorical(['gbdt','goss']),
-                'n_estimators': Integer(30, 120),
-                'max_depth':Integer(2, 4),
-                'learning_rate': Real(0.05, 0.2,prior='uniform'),
-            
-                'min_split_gain': Real(0, 10,prior='uniform'),
-                'min_child_samples':Integer(1, 100,prior='uniform'),
-                
-                'subsample':Real(0.5,1.0,prior='uniform'),
-                'colsample_bytree':Real(0.5,1.0,prior='uniform'),
-                'reg_lambda':Real(0,10,prior='uniform'),    
-            } 
+    
+            param= """{'n_estimators':trial.suggest_int('n_estimators', 30, 120),
+                    'boosting_type':trial.suggest_categorical("boosting_type", ["gbdt", "goss"]),
+                    'learning_rate': trial.suggest_float('learning_rate', 0.05, 0.2, log=False),
+                    'max_depth': trial.suggest_int('max_depth', 1, 3),
+                    'min_child_samples': trial.suggest_int('min_child_samples', 1, 100, log=False),                 
+                    'subsample': trial.suggest_float('subsample', 0.5, 1.0),
+                    'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 1.0),
+                    'reg_lambda': trial.suggest_float('reg_lambda', 0, 10.0, log=False),
+                    'verbosity': trial.suggest_int("verbosity",-1,-1)
+                     }"""        
             
         elif Estimator.__module__ == "catboost.core":
-            
-            para_space = {
-            
-                'n_estimators': Integer(30, 120),
-                'learning_rate': Real(0.05, 0.2,prior='uniform'),
-            
-                'max_depth':Integer(2, 4),
-                'min_child_samples':Integer(1, 100,prior='uniform'),
-                
-                'subsample':Real(0.5,1.0,prior='uniform'),
-                'colsample_bylevel':Real(0.5,1.0,prior='uniform'),
-                'reg_lambda':Real(0,10,prior='uniform')               
-            }  
-            
+    
+             param= """{"iterations": trial.suggest_int("iterations",80,120),            
+                "depth": trial.suggest_int("depth", 1, 3),
+                "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.3, log=False),            
+                "subsample": trial.suggest_float("subsample", 0.05, 1.0),
+                "colsample_bylevel": trial.suggest_float("colsample_bylevel", 0.4, 1.0),
+                "min_data_in_leaf": trial.suggest_int("min_data_in_leaf", 1, 100),
+                "reg_lambda":trial.suggest_float('reg_lambda', 1e-8, 10.0, log=True),
+                "silent":trial.suggest_categorical("silent",[True]),
+                }"""
+      
         else:
             
             raise ValueError('Estimator in (XGBClassifier,LGBMClassifier,CatBoostClassifier)')
-        
-        return para_space 
+    
+        return param
     
     
-    
+
+
 class FLBSTuner(Base,BaseTunner):
     
         '''
@@ -494,39 +399,30 @@ class FLBSTuner(Base,BaseTunner):
             para_space:dict,lgb的参数空间
             gamma:float [0,+inf),Focal loss的gamma值,设定gamma=0,alpha=None时传统交叉熵损失函数
             alpha:float (0,1),Focal loss的alpha值,设定gamma=0,alpha=None时传统交叉熵损失函数
-            n_iter:贝叶斯优化搜索迭代次数
-            init_points:int,贝叶斯优化起始搜索点的个数
-            scoring=‘negfocalloss’:str,寻优准则,可选'auc','ks','lift','neglogloss','negfocalloss'或其他可被sklearn识别的寻优准则
+            n_trials:optuna贝叶斯优化搜索迭代次数
+            scoring=‘negfocalloss’:str,寻优准则,可选'auc','logloss','focalloss'
             early_stopping_rounds=10,int,训练数据中validation_fraction比例的数据被作为验证数据进行early_stopping,
-            validation_fraction=0.1,float,进行early_stopping的验证集比例
-            eval_metric=‘negfocalloss’,early_stopping的评价指标,为可被Estimator识别的格式,默认"negfocalloss"
+            eval_metric=‘focalloss’,early_stopping的评价指标，可选auc','logloss','focalloss'
             cv:int,RepeatedStratifiedKFold交叉验证的折数
             repeats:int,RepeatedStratifiedKFold交叉验证重复次数
             n_jobs,int,运行交叉验证和提升算法并行数,默认-1
             verbose,int,并行信息输出等级
             random_state,随机种子
-            calibration:使用sklearn的CalibratedClassifierCV对refit模型进行概率校准
-            cv_calibration:CalibratedClassifierCV的交叉验证数
             
             """参数空间写法     
                         
-                #LGBMClassifier
-                from skopt.space import Categorical,Real,Integer
-        
-                para_space = {
-                    'boosting_type':Categorical(['gbdt','goss']),
-                    'n_estimators': Integer(30, 120),
-                    'max_depth':Integer(2, 4),
-                    'learning_rate': Real(0.05, 0.2,prior='uniform'),
-                
-                    'min_split_gain': Real(0, 0.02,prior='uniform'),
-                    'min_child_samples':Integer(1, 100,prior='uniform'),
-                    
-                    'subsample':Real(0.5,1.0,prior='uniform'),
-                    'colsample_bytree':Real(0.5,1.0,prior='uniform'),
-                    'reg_lambda':Real(0,0.01,prior='uniform'),    
-                }                                  
-              """   
+              #LGBMClassifier
+              param= """{'n_estimators':trial.suggest_int('n_estimators', 30, 120),
+                    'boosting_type':trial.suggest_categorical("boosting_type", ["gbdt", "goss"]),
+                    'learning_rate': trial.suggest_float('learning_rate', 0.05, 0.3, log=False),
+                    'max_depth': trial.suggest_int('max_depth', 1, 4),
+                    'min_child_samples': trial.suggest_int('min_child_samples', 1, 100, log=False),     
+                    'min_split_gain': trial.suggest_float('min_split_gain', 0, 0.02, log=False),                         
+                    'subsample': trial.suggest_float('subsample', 0.5, 1.0),
+                    'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 1.0),
+                    'reg_lambda': trial.suggest_float('reg_lambda', 0, 10.0, log=False),
+                    'verbosity': trial.suggest_int("verbosity",-1,-1)
+                     }""" 
               
         Attribute:    
         --
@@ -538,27 +434,23 @@ class FLBSTuner(Base,BaseTunner):
         
         '''
     
-        def __init__(self,para_space={},gamma=2,alpha=0.25,
-                     n_iter=10,init_points=1,scoring='negfocalloss',eval_metric='negfocalloss',
+        def __init__(self,para_space=None,gamma=2,alpha=0.25,
+                     n_trials=10,scoring='focalloss',eval_metric='focalloss',
                      cv=5,repeats=1,n_jobs=-1,verbose=0,
-                     early_stopping_rounds=10,validation_fraction=0.1,random_state=123,calibration=False,cv_calibration=5):
+                     early_stopping_rounds=10,random_state=123):
         
             self.para_space=para_space
             self.gamma=gamma
             self.alpha=alpha
-            self.n_iter=n_iter
-            self.init_points=init_points
+            self.n_trials=n_trials
             self.scoring=scoring
             self.cv=cv
             self.repeats=repeats
             self.early_stopping_rounds=early_stopping_rounds
             self.eval_metric=eval_metric
-            self.validation_fraction=validation_fraction
             self.n_jobs=n_jobs
             self.verbose=verbose
             self.random_state=random_state
-            self.calibration=calibration
-            self.cv_calibration=cv_calibration
 
             self._is_fitted=False
             
@@ -572,7 +464,7 @@ class FLBSTuner(Base,BaseTunner):
             self._check_is_fitted()
             self._check_X(X)        
 
-            pred = self.model_refit.predict_proba(self.transform(X))[:,1] 
+            pred = self.model_refit.predict_proba(X)[:,1] 
             return pred
     
         def predict_score(self,X,y=None,PDO=75,base=660,ratio=1/15):
@@ -585,297 +477,150 @@ class FLBSTuner(Base,BaseTunner):
             self._check_is_fitted()
             self._check_X(X)
 
-            pred = self.model_refit.predict_proba(self.transform(X))[:,1] 
+            pred = self.model_refit.predict_proba(X)[:,1] 
             pred = self._p_to_score(pred,PDO,base,ratio)
 
-            return pred
+            return pred 
         
-        def transform(self,X,y=None):   
-
-            self._check_is_fitted()
-            self._check_X(X)
-
-            out=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
-
-            return out  
-        
-        def fit(self,X,y,cat_features=None):
+        def fit(self,X,y):
             '''
             进行贝叶斯优化
             Parameters:
             --
             X: pd.DataFrame对象
-            y:目标变量,pd.Series对象
-            cat_features:list,分类特征列名列表,None是数据中的object,category类列将被识别为cat_features，当Estimator为Xgboost时将忽略该参数        
-
+            y:目标变量,pd.Series对象    
             '''   
 
             self._check_data(X, y)
-
-            self.cat_features=X.select_dtypes(['object','category']).columns.tolist() if cat_features is None else cat_features    
             
             self.Estimator=FLLGBMSklearn
 
-            para_space=self._hpsearch_default(self.Estimator) if not self.para_space else self.para_space
-
-            #if self.Estimator.__module__ == "catboost.core":
-
-            #    X=X.apply(lambda col:col.astype('str') if col.name in self.cat_features else col) if self.cat_features else X
-
-            #elif self.Estimator.__module__ == 'lightgbm.sklearn':
-
-            X=X.apply(lambda col:col.astype('category') if col.name in self.cat_features else col) if self.cat_features else X
-
-            #else:
-
-            #    X=X 
+            para_space=self._hpsearch_default() if not self.para_space else self.para_space
             
+            n_jobs=effective_n_jobs(self.n_jobs)
+            
+                
+            func = lambda trial: self.objective(trial,self.Estimator,X=np.array(X),y=np.array(y),param=para_space,
+                                                sample_weight=None,metrics=self.scoring,n_jobs=n_jobs)
+            
+            optuna.logging.set_verbosity(optuna.logging.WARNING)
+            sampler = optuna.samplers.TPESampler(seed=self.random_state) #reproduce result using seed
+            study = optuna.create_study(direction='maximize',sampler=sampler)
+            study.optimize(func, n_trials=self.n_trials) 
+            
+            self.cv_result=pd.DataFrame([i.params for i in study.trials]).join(
+                pd.DataFrame(
+                    [i.value for i in study.trials],columns=['score_mean_cv']
+                )
+            )
+            
+            self.params_best=study.best_trial.params
 
-
-
-            if self.early_stopping_rounds:
-
-                X_tr, X_val, y_tr, y_val = train_test_split(X,y,test_size=self.validation_fraction,random_state=self.random_state,stratify=y)
-
-                #BayesSearch_CV        
-                self._BayesSearch_CV(para_space,X_tr,y_tr)
-
-                #params_best
-                self.params_best=self.bs_res.best_params_
-
-                #cv_result
-                self.cv_result=self._cvresult_to_df(self.bs_res.cv_results_)
-
-                refit_Estimator=self.Estimator(objective=FocalLoss(alpha=self.alpha,gamma=self.gamma).lgb_obj,
-                                               boost_from_average=False,
-                                               random_state=self.random_state,
-                                               n_jobs=effective_n_jobs(self.n_jobs),
-                                               **self.params_best)
-
-                self.model_refit = refit_Estimator.fit(**self._get_fit_params(self.Estimator,X_tr,y_tr,X_val,y_val))   
-
-                self.params_best['best_iteration']=self.model_refit.best_iteration_ 
-
-
-            else:
-
-                #BayesSearch_CV        
-                self._BayesSearch_CV(para_space,X,y)
-
-                #params_best
-                self.params_best=self.bs_res.best_params_
-
-                #cv_result
-                self.cv_result=self._cvresult_to_df(self.bs_res.cv_results_)
-
-                #refit model
-                # if self.Estimator.__module__ == "catboost.core":
-
-                #     refit_Estimator=self.Estimator(random_state=self.random_state,
-                #                                    thread_count=effective_n_jobs(self.n_jobs),
-                #                                    **self.params_best)
-
-                #     refit_Estimator.set_params(**{'cat_features':self.cat_features})
-
-                # else:
-
-                refit_Estimator=self.Estimator(objective=FocalLoss(alpha=self.alpha,gamma=self.gamma).lgb_obj,
-                                               random_state=self.random_state,
-                                               boost_from_average=False,
-                                               n_jobs=effective_n_jobs(self.n_jobs),
-                                               **self.params_best)
-
-                self.model_refit = refit_Estimator.fit(X,y)             
-
-
-            #get calibration done
-            if self.calibration:
-
-                self.model_refit=CalibratedClassifierCV(self.model_refit,cv=self.cv_calibration,
-                                                      n_jobs=effective_n_jobs(self.n_jobs)).fit(X,y)
-
+            self.model_refit = self.Estimator(**study.best_trial.params,random_state=self.random_state).fit(X,y,sample_weight=None)   
+            
             self._is_fitted=True
 
             return self   
+
+    
+        def objective(self,trial,Estimator,X,y,param=None,sample_weight=None,metrics='auc',n_jobs=1):
+            
         
-        def _BayesSearch_CV(self,para_space,X,y):        
-
-            if self.scoring in ['ks','auc','lift','neglogloss']:
-
-                scorer=self._get_scorer[self.scoring]
-
-            elif self.scoring in ['negfocalloss']:
-
-                scorer=metrics.make_scorer(FocalLoss(alpha=self.alpha,gamma=self.gamma).lgb_scorer,greater_is_better=True,needs_proba=True)
-                
+            if param is None:
+        
+                param=eval(self._hpsearch_default(Estimator))
+        
             else:
                 
-                scorer=self.scoring
-
-
-            cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)
-
-            n_jobs=effective_n_jobs(self.n_jobs)
-
-            # if self.Estimator.__module__ == "catboost.core":
-
-            #     bs=BayesSearchCV(
-            #         self.Estimator(random_state=self.random_state,thread_count=n_jobs),para_space,cv=cv,
-            #         n_iter=self.n_iter,n_points=self.init_points,
-            #         n_jobs=-1 if self.n_jobs==-1 else 1,
-            #         verbose=self.verbose,refit=False,random_state=self.random_state,
-            #         scoring=scorer,error_score=0)    
-
-            #     self.bs_res=bs.fit(X,y,**{'cat_features':self.cat_features})
-
-            #else:
-
-            bs=BayesSearchCV(
-                self.Estimator(objective=FocalLoss(alpha=self.alpha,gamma=self.gamma).lgb_obj,
-                               boost_from_average=False,random_state=self.random_state,n_jobs=n_jobs),para_space,cv=cv,
-                n_iter=self.n_iter,n_points=self.init_points,
-                n_jobs=-1 if self.n_jobs==-1 else 1,
-                verbose=self.verbose,refit=False,random_state=self.random_state,
-                scoring=scorer,error_score=0)       
-
-            self.bs_res=bs.fit(X,y)
-
-
-            return(self)     
-    
-    
-        def _get_fit_params(self,Estimator,X_train,y_train,X_val,y_val):
-
-
-            # if Estimator.__module__ == "xgboost.sklearn":
-
-            #     fit_params = {
-            #         "X":X_train,
-            #         "y":y_train,
-            #         "eval_set": [(X_val, y_val)],
-            #         "eval_metric": self.eval_metric,
-            #         "early_stopping_rounds": self.early_stopping_rounds,
-            #     }
-
-            #     if sample_weight is not None:
-
-            #         fit_params["sample_weight"] = sample_weight.loc[train_index]
-            #         fit_params["sample_weight_eval_set"] = [sample_weight.loc[val_index]]
-
-
-            #if Estimator.__module__ == 'lightgbm.sklearn':
+                param=eval(param)
+            
+            def _cv_parallel(X,y,tr_idx,val_idx,ws):    
+        
+                if ws is None:
+            
+                    ws=np.ones(len(X))
+        
+                else:
+                    
+                    ws=np.array(ws)
+        
+                if self.early_stopping_rounds:
+     
+                    model=Estimator(objective=FocalLoss(alpha=self.alpha,gamma=self.gamma).lgb_obj,
+                                    boost_from_average=False,
+                                    random_state=self.random_state,
+                                    **param,
+                                    n_jobs=1 if self.n_jobs>=0 else -1)
+        
+                    model.fit(**self._get_fit_params(X,y,tr_idx,val_idx,ws)) 
+        
+                else:
+                                            
+                    model=Estimator(**param,random_state=self.random_state,n_jobs=1 if self.n_jobs>=0 else -1).fit(X[tr_idx],y[tr_idx],sample_weight=ws[tr_idx])            
                 
-            if self.eval_metric=="negfocalloss":
+                pred = model.predict_proba(X[val_idx])[:,1]    
+        
+                #sample_weight=ws[val_idx]
+                if metrics=='logloss':
+                    
+                    score = - log_loss(y[val_idx],pred,sample_weight=None)
+        
+                elif metrics=='auc':
+        
+                    score = roc_auc_score(y[val_idx],pred,sample_weight=None)
+                    
+                elif metrics=='focalloss':
+                
+                    score = FocalLoss(alpha=self.alpha,gamma=self.gamma).lgb_scorer(y[val_idx],pred)
+        
+                else:
+        
+                    raise ValueError("metrics in ('logloss','auc','focalloss')")
+                
+                return score  
+            
+            # StratifiedKFold cross validation
+            cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=1)
+            n_jobs=effective_n_jobs(n_jobs)
+            parallel=Parallel(n_jobs=n_jobs,verbose=self.verbose,backend='threading')
+            outlist=np.array(parallel(delayed(_cv_parallel)(X,y,tr_idx,val_idx,sample_weight)
+                            for tr_idx,val_idx in cv.split(X, y)),dtype=object)
+            
+            return sum(outlist) / len(outlist)
+        
+        
+        def _get_fit_params(self,X,y,train_index,val_index,sample_weight):
+
+            if self.eval_metric=="focalloss":
                 
                 self.eval_metric=FocalLoss(alpha=self.alpha,gamma=self.gamma).lgb_eval
                 
-
-            from lightgbm import early_stopping, log_evaluation
-
             fit_params = {
-                "X":X_train,
-                "y":y_train,
-                "eval_set": [(X_val, y_val)],
-                "eval_metric": self.eval_metric,
-                "callbacks": [early_stopping(self.early_stopping_rounds)],
-            }
-
-            if self.verbose >= 100:
-
-                fit_params["callbacks"].append(log_evaluation(1))
-
-            else:
-
-                fit_params["callbacks"].append(log_evaluation(0))
-
-            # if sample_weight is not None:
-
-            #     fit_params["sample_weight"] = sample_weight.loc[train_index]
-            #     fit_params["eval_sample_weight"] = [sample_weight.loc[val_index]]
-
-
-            # elif Estimator.__module__ == "catboost.core":
-
-            #     from catboost import Pool
-
-            #     fit_params = {
-            #         "X": Pool(X_train, y_train, cat_features=self.cat_features),
-            #         "eval_set": Pool(X_val, y_val, cat_features=self.cat_features),
-            #         "early_stopping_rounds": self.early_stopping_rounds,
-            #         # Evaluation metric should be passed during initialization
-            #     }
-
-            #     if sample_weight is not None:
-            #         fit_params["X"].set_weight(sample_weight.loc[train_index])
-            #         fit_params["eval_set"].set_weight(sample_weight.loc[val_index])
-
-            # else:
-
-            #     raise ValueError('Estimator in (LGBMClassifier)')
-
-
-            return fit_params
+                "X":X[train_index],
+                "y":y[train_index],
+                "eval_set": [(X[val_index], y[val_index])],
+                "eval_metric":self.eval_metric,#eval_metric,
+                "callbacks": [early_stopping(self.early_stopping_rounds,first_metric_only=True,verbose=0),log_evaluation(0)],
+                "sample_weight":sample_weight[train_index],
+                "eval_sample_weight":[sample_weight[val_index]]
+            }       
+   
+            return fit_params       
     
     
         @staticmethod
-        def _hpsearch_default(Estimator):
-
-            from skopt.space import Categorical,Real,Integer
-
-            # if Estimator.__module__ == "xgboost.sklearn":
-
-            #     para_space = {
-            #         'n_estimators': Integer(30, 120),
-            #         'max_depth':Integer(2, 4),
-            #         'learning_rate': Real(0.05, 0.2,prior='uniform'),
-
-            #         'gamma': Real(0,10,prior='uniform'),
-            #         'subsample':Real(0.5,1.0,prior='uniform'),
-            #         'colsample_bytree':Real(0.5,1.0,prior='uniform'),
-            #         'reg_lambda':Real(0,10,prior='uniform'),
-
-            #         'use_label_encoder':Categorical([False])            
-            #     } 
-
-            # elif Estimator.__module__ == 'lightgbm.sklearn':
-
-            para_space = {
-
-                'verbose':Categorical([-1]),
-                'boosting_type':Categorical(['gbdt','goss']),
-                'n_estimators': Integer(30, 120),
-                'max_depth':Integer(2, 4),
-                'learning_rate': Real(0.05, 0.2,prior='uniform'),
-
-                'min_split_gain': Real(0, 0.02,prior='uniform'),
-                'min_child_samples':Integer(1, 100,prior='uniform'),
-
-                'subsample':Real(0.5,1.0,prior='uniform'),
-                'colsample_bytree':Real(0.5,1.0,prior='uniform'),
-                'reg_lambda':Real(0,0.01,prior='uniform'),    
-            } 
-
-            # elif Estimator.__module__ == "catboost.core":
-
-            #     para_space = {
-
-            #         'n_estimators': Integer(30, 120),
-            #         'learning_rate': Real(0.05, 0.2,prior='uniform'),
-
-            #         'max_depth':Integer(2, 4),
-            #         'min_child_samples':Integer(1, 100,prior='uniform'),
-
-            #         'subsample':Real(0.5,1.0,prior='uniform'),
-            #         'colsample_bylevel':Real(0.5,1.0,prior='uniform'),
-            #         'reg_lambda':Real(0,10,prior='uniform')               
-            #     }  
-
-            # else:
-
-            #     raise ValueError('Estimator in (XGBClassifier,LGBMClassifier,CatBoostClassifier)')
-
-            return para_space     
-    
-    
-    
-    
+        def _hpsearch_default():
+            
+            param= """{'n_estimators':trial.suggest_int('n_estimators', 30, 120),
+                    'boosting_type':trial.suggest_categorical("boosting_type", ["gbdt", "goss"]),
+                    'learning_rate': trial.suggest_float('learning_rate', 0.05, 0.3, log=False),
+                    'max_depth': trial.suggest_int('max_depth', 1, 4),
+                    'min_child_samples': trial.suggest_int('min_child_samples', 1, 100, log=False),     
+                    'min_split_gain': trial.suggest_float('min_split_gain', 0, 0.02, log=False),                         
+                    'subsample': trial.suggest_float('subsample', 0.5, 1.0),
+                    'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 1.0),
+                    'reg_lambda': trial.suggest_float('reg_lambda', 0, 10.0, log=False),
+                    'verbosity': trial.suggest_int("verbosity",-1,-1)
+                     }"""        
+                        
+            return param      

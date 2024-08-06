@@ -760,7 +760,15 @@ class varGroupsReport(Base,TransformerMixin,BaseWoePlotter):
 
     def _group_parallel(self,X_g_gen,g,target,columns,breaks_list_dict,row_limit,special_values,regularization,show_metrics):
     
-        group_dt=X_g_gen.get_group(g)
+        if pd.__version__>="2.2.0":        
+            
+            group_dt=X_g_gen.get_group(g,) if isinstance(g,tuple) else X_g_gen.get_group((g,))
+        
+        else: 
+            
+            group_dt=X_g_gen.get_group(g)    
+    
+    
         X_g=group_dt.drop([target]+columns,axis=1)
         y_g=group_dt[target]      
         w_g=group_dt['sample_weight']      

@@ -10,19 +10,17 @@ import pandas as pd
 from joblib import effective_n_jobs
 from BDMLtools.base import Base
 from BDMLtools.tuner.base import BaseTunner
-from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.model_selection import RepeatedStratifiedKFold,RandomizedSearchCV
 from probatus.feature_elimination import EarlyStoppingShapRFECV,ShapRFECV
 from sklearn.model_selection import train_test_split
 from sklearn.inspection import permutation_importance
-from skopt import BayesSearchCV
+from BDMLtools.tuner import BayesianCVTuner
 from lightgbm import LGBMClassifier
 from BDMLtools.selector.bin_fun import R_pretty
 from mlxtend.feature_selection import SequentialFeatureSelector
 from sklearn.base import TransformerMixin
 import numpy as np
 np.int=int
-
-
 
 class LgbmPISelector(TransformerMixin,Base,BaseTunner):
     
@@ -39,16 +37,31 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
         method:str,基模型是否进行超参优化，可选"raw","bs",
             - “raw”,基模型不进行超参优化，使用预定超参拟合
             - “bs”，基模型进行贝叶斯超参优化(sklearn-optimize),这将会增加计算量但会得到最优超参条件下较小偏差的筛选结果            
-        clf_params:dict,默认{}(代表默认参数)
-            当method="raw"时为LGBMClassifier的超参数设置,{}代表默认参数            
+        clf_params:str,默认None(代表默认参数)
+            当method="raw"时为LGBMClassifier的超参数设置,None代表默认参数
+            写法
+                """
+                {'n_estimators':200,
+                'learning_rate':0.3,
+                'verbosity':-1
+                'max_depth':3}
+                """
             当method="bs"时为LGBMClassifier的超参数设置,LgbmPISelector._lgbm_hpsearch_default可查看默认超参设置  
+            写法
+                """
+                {'n_estimators':trial.suggest_int('n_estimators', 30, 120),                
+                'learning_rate': trial.suggest_float('learning_rate', 0.05, 0.3, log=False),
+                'max_depth': trial.suggest_int('max_depth', 1, 3),
+                'min_child_samples': trial.suggest_int('min_child_samples', 1, 100, log=False),     
+                'verbosity': trial.suggest_int("verbosity",-1,-1)}  
+                """            
+            
         pi_repeats:int,默认10,PI中特征的随机排序次数,次数越多结果越有统计意义但会增加计算量
-        n_iters:method='bs'时贝叶斯优化迭代次数
-        init_points:method='bs'时贝叶斯优化起始搜索点个数
-        scoring:str,method='bs'时超参优化目标和所有情况下的PI的评价指标,参考sklearn.metrics.SCORERS.keys(),
-        early_stopping_rounds=10,int,训练数据中validation_fraction比例的数据被作为验证数据进行LightGBM的early_stopping,
+        n_trial:method='bs'时贝叶斯优化迭代次数
+        scoring:str,默认'neg_log_loss',PI评估指标，参考sklearn.metrics中的scoring写法
+        early_stopping_rounds=None,int,训练数据中validation_fraction比例的数据被作为验证数据进行LightGBM的early_stopping,
                                 注意使用early_stopping后boosting次数将比设定值小,可能出现迭代数量不足导致某些特征的PI值为0
-        validation_fraction=0.1,float,进行early_stopping的验证集比例
+        validation_fraction=0.1,float,进行early_stopping的验证集比例,仅在method=‘raw’且early_stopping_rounds非None时有效
         eval_metric=‘auc’,early_stopping的评价指标,为可被LightGBM识别的格式,参考LGBMClassifier.fit中的eval_metric参数
         cv:int,RepeatedStratifiedKFold交叉验证的折数
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
@@ -67,8 +80,8 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
         
     '''     
 
-    def __init__(self,threshold=0,method='raw',clf_params={},pi_repeats=10,n_iter=5,init_points=5,scoring='roc_auc',
-                 eval_metric='auc',validation_fraction=0.1,early_stopping_rounds=10,
+    def __init__(self,threshold=0,method='raw',clf_params=None,pi_repeats=10,n_trials=10,scoring='neg_log_loss',
+                 eval_metric='auc',validation_fraction=0.1,early_stopping_rounds=None,
                  cv=5,repeats=1,
                  random_state=123,n_jobs=-1,verbose=0):
 
@@ -77,9 +90,7 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
         self.clf_params=clf_params
         self.pi_repeats=pi_repeats
         self.scoring=scoring
-        self.n_iter=n_iter
-        self.init_points=init_points
-        self.scoring=scoring
+        self.n_trials=n_trials
         self.early_stopping_rounds=early_stopping_rounds
         self.validation_fraction=validation_fraction
         self.eval_metric=eval_metric
@@ -106,7 +117,7 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
         return X[self.keep_col]
             
     
-    def fit(self,X,y,cat_features=None,sample_weight=None):
+    def fit(self,X,y,sample_weight=None):
         
         """
         
@@ -121,12 +132,9 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
 
         self._check_data(X, y)
         
-        cat_features=X.select_dtypes(['object','category']).columns.tolist() if cat_features is None else cat_features
-        
-        X=X.apply(lambda col:col.astype('category') if col.name in cat_features else col) if cat_features else X  
-
-        
         if self.method=='raw':
+            
+            clf_params='{}' if self.clf_params == None else self.clf_params
                         
             if self.early_stopping_rounds:
                 
@@ -134,7 +142,7 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
                 
                 estimator=LGBMClassifier(random_state=self.random_state,verbose=-1,
                                           #n_jobs=effective_n_jobs(self.n_jobs),
-                                          **self.clf_params).fit(
+                                          **eval(clf_params)).fit(
                     X_tr,y_tr,**self._get_fit_params(X_val,y_val,sample_weight,y.index,y_val.index)
                 )
                 
@@ -142,35 +150,24 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
                 
                 estimator = LGBMClassifier(random_state=self.random_state,verbose=-1,
                                             #n_jobs=effective_n_jobs(self.n_jobs),
-                                            **self.clf_params).fit(
+                                            **eval(clf_params)).fit(
                     X,y,**{'sample_weight':sample_weight})  
                                                          
+        elif self.method=='bs':
+            
+            para_space=self.clf_params if self.clf_params else self._lgbm_hpsearch_default()     
+                
+            estimator=BayesianCVTuner(LGBMClassifier,para_space=para_space,n_trials=self.n_trials,
+                            scoring='logloss',eval_metric='logloss',cv=self.cv,repeats=self.repeats,
+                            n_jobs=self.n_jobs,early_stopping_rounds=self.early_stopping_rounds,random_state=self.random_state
+                            ).fit(X,y,sample_weight=sample_weight).model_refit
+            
         else:
             
-            para_space=self.clf_params if self.clf_params else self._lgbm_hpsearch_default()
+                
+            raise ValueError("method in ('raw','bs')")
             
-            if self.early_stopping_rounds:
-                
-                X_tr, X_val, y_tr, y_val = train_test_split(X,y,test_size=self.validation_fraction,random_state=self.random_state,stratify=y)
-
-                self._BayesSearch_CV(para_space,X_tr,y_tr,None if sample_weight is None else sample_weight[y_tr.index])
-    
-                estimator=LGBMClassifier(random_state=self.random_state,verbose=-1,
-                                          #n_jobs=effective_n_jobs(self.n_jobs),
-                                          **self.bs_res.best_params_).fit(
-                    X_tr,y_tr,**self._get_fit_params(X_val,y_val,sample_weight,y.index,y_val.index)
-                )  
-            
-            else:
-                
-                self._BayesSearch_CV(para_space,X,y,sample_weight)
-                
-                estimator = LGBMClassifier(random_state=self.random_state,verbose=-1,
-                                            #n_jobs=effective_n_jobs(self.n_jobs),
-                                            **self.bs_res.best_params_).fit(
-                    X,y,**{'sample_weight':sample_weight})  
-                
-         
+        
         self.pi = permutation_importance(estimator, X, y, n_repeats=self.pi_repeats,random_state=self.random_state,
                                          scoring=self.scoring,n_jobs=effective_n_jobs(self.n_jobs))
         
@@ -207,45 +204,17 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
             fit_params["eval_sample_weight"] = [sample_weight.loc[val_index]]
             
         return fit_params
-    
-    
-    def _BayesSearch_CV(self,para_space,X,y,sample_weight):        
-               
-        if self.scoring in ['ks','auc','lift','neglogloss']:
-            
-            scorer=self._get_scorer[self.scoring]
-            
-        else:
-            
-            scorer=self.scoring             
-                    
-        cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)
-        
-        n_jobs=effective_n_jobs(self.n_jobs)
-                        
-        bs=BayesSearchCV(
-            LGBMClassifier(random_state=self.random_state,verbose=-1),#,n_jobs=n_jobs
-            para_space,cv=cv,
-            n_iter=self.n_iter,n_points=self.init_points,
-            n_jobs=n_jobs,#-1 if self.n_jobs==-1 else 1,
-            verbose=self.verbose,refit=False,random_state=self.random_state,
-            scoring=scorer,error_score=0)       
-        
-        self.bs_res=bs.fit(X,y,**{'sample_weight':sample_weight})
-            
-        return(self)      
+         
     
     @staticmethod
     def _lgbm_hpsearch_default():
 
-        from skopt.space import Categorical,Real,Integer
-
-        para_space={
-            'boosting_type':Categorical(['goss','gbdt']),
-            'n_estimators': Integer(low=200, high=300, prior='uniform', transform='identity'),
-            'learning_rate': Real(low=0.05, high=0.2, prior='uniform', transform='identity'),
-            'max_depth': Integer(low=1, high=4, prior='uniform', transform='identity')            
-        }
+        para_space="""{'n_estimators':trial.suggest_int('n_estimators', 30, 120),                
+                'learning_rate': trial.suggest_float('learning_rate', 0.05, 0.3, log=False),
+                'max_depth': trial.suggest_int('max_depth', 1, 3),
+                'min_child_samples': trial.suggest_int('min_child_samples', 1, 100, log=False),     
+                'verbosity': trial.suggest_int("verbosity",-1,-1)
+                 }"""      
         
         return para_space
     
@@ -265,7 +234,7 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
     probatus的EarlyStoppingShapRFECV源码:
     https://github.com/ing-bank/probatus/blob/main/probatus/feature_elimination/feature_elimination.py
     
-    可支持设定sample_weight,categorical_feature,early_stopping等
+    可支持设定sample_weight,early_stopping等
     
     Parameters:
     --
@@ -274,11 +243,28 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
         method:str,可选"raw","bs",
             - “raw”时,每一步消除时基模型超参设定不变,这样能够加快消除过程但得到的筛选结果并非在最优超参条件下,因此结果会产生偏差
             - “bs”时，每一步消除均进行贝叶斯超参优化(sklearn-optimize),这将会增加计算量但会得到最优超参条件下较小偏差的筛选结果            
-        clf_params:dict,默认{}(代表默认参数)
-            当method="raw"时为LGBMClassifier的超参数设置,{}代表默认参数            
-            当method="bs"时为LGBMClassifier的超参数设置,使用LgbmShapRFECVSelector._para_space_default可查看默认超参设置            
+        clf_params:str,默认None(代表默认参数)
+            当method="raw"时为LGBMClassifier的超参数设置,None代表默认参数        
+            写法
+                """
+                {'n_estimators':200,
+                'learning_rate':0.3,
+                'verbosity':-1
+                'max_depth':3}
+                """            
+            当method="random"时为LGBMClassifier的超参数设置,使用LgbmShapRFECVSelector._para_space_default可查看默认超参设置  
+            写法
+                """
+                from scipy.stats import randint as sp_randint
+                from scipy.stats import uniform as sp_uniform 
+                
+                para_space={
+                    'n_estimators':sp_randint(low=60,high=150),
+                    'learning_rate':sp_uniform(loc=0,scale=0.2),                      
+                    'max_depth':sp_randint(low=2,high=4),#[0,∞],
+                    }
+                """                     
         n_iters:method='bs'时贝叶斯优化迭代次数
-        n_points:method='bs'时贝叶斯优化起始搜索点个数
         scoring:str,method='bs'时超参优化目标或plot时的y轴指标,参考sklearn.metrics.SCORERS.keys(),
         cv:int,RepeatedStratifiedKFold交叉验证的折数
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
@@ -292,13 +278,13 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
         
     Method:    
     --        
-        fit(X,y,categorical_feature=None,sample_weight=None,check_additivity):拟合模型，
+        fit(X,y,sample_weight=None,check_additivity):拟合模型，
         transform(X):对X进行特征筛选，返回筛选后的数据
         
     '''     
 
     def __init__(self,step=1,min_features_to_select=1,method='raw',clf_params={},
-                 n_iter=5,n_points=5,
+                 n_iter=5,
                  scoring='roc_auc',
                  cv=5,repeats=1,
                  early_stopping_rounds=None,
@@ -310,7 +296,6 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
         self.clf_params=clf_params
         self.scoring=scoring
         self.n_iter=n_iter
-        self.n_points=n_points
         self.cv=cv
         self.repeats=repeats
         self.early_stopping_rounds=early_stopping_rounds
@@ -343,13 +328,11 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
         return X[keep_cols]
     
         
-    def fit(self,X,y,cat_features=None,sample_weight=None,check_additivity=True):
+    def fit(self,X,y,sample_weight=None,check_additivity=True):
          
-        return self._fit(X,y,cat_features=None,sample_weight=None,check_additivity=check_additivity)
+        return self._fit(X,y,sample_weight=sample_weight,check_additivity=check_additivity)
 
-    
-    
-    def _fit(self,X,y,cat_features=None,sample_weight=None,check_additivity=True):
+    def _fit(self,X,y,sample_weight=None,check_additivity=True):
         
         """
         Parameters:
@@ -363,42 +346,35 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
         """
         self._check_data(X, y)
         
-        X=X.copy()
-        y=y.copy()
-        
-        X=X.apply(lambda col:col.astype('category') if col.name in cat_features else col) if cat_features else X       
-    
         cv = RepeatedStratifiedKFold(n_splits=self.cv, n_repeats=self.repeats, random_state=self.random_state)       
-        
-        n_jobs=effective_n_jobs(self.n_jobs)
 
         if self.method=='raw':
             
             estimator=LGBMClassifier(random_state=self.random_state,
                                      verbose=-1,
-                                      #n_jobs=effective_n_jobs(self.n_jobs),
+                                     n_jobs=1 if self.n_jobs>=0 else -1,
                                       **self.clf_params)
-            
-        else:
+
+        elif self.method=='random':
             
             para_space=self.clf_params if self.clf_params else self._lgbm_hpsearch_default()
     
+            estimator=RandomizedSearchCV(LGBMClassifier(random_state=self.random_state,verbosity=-1,n_jobs=1 if self.n_jobs>=0 else -1),param_distributions=para_space,
+                                         n_iter=self.n_iter,random_state=self.random_state,refit=False,
+                                         verbose=self.verbose,cv=cv,scoring=self.scoring,error_score=0)
             
-            estimator=BayesSearchCV(LGBMClassifier(random_state=self.random_state,verbose=-1),para_space,
-                                    n_iter=self.n_iter,n_points=self.n_points,
-                                    random_state=self.random_state,
-                                    n_jobs=n_jobs,#-1 if self.n_jobs==-1 else 1,
-                                    verbose=self.verbose,cv=cv)
+        else:
+            
+            raise ValueError("method in ('raw','random')")
         
         if self.early_stopping_rounds:
-        
-        
+           
             self.clf=EarlyStoppingShapRFECV(estimator,
                                         min_features_to_select=self.min_features_to_select,
                                         step=self.step,
                                         random_state=self.random_state,
                                         scoring=self.scoring,
-                                        n_jobs=n_jobs,#-1 if self.n_jobs==-1 else 1,
+                                        n_jobs=effective_n_jobs(self.n_jobs),
                                         verbose=self.verbose,
                                         early_stopping_rounds=self.early_stopping_rounds,
                                         cv=cv)
@@ -412,12 +388,11 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
                                 step=self.step,
                                 random_state=self.random_state,
                                 scoring=self.scoring,
-                                n_jobs=n_jobs,#-1 if self.n_jobs==-1 else 1,
+                                n_jobs=effective_n_jobs(self.n_jobs),
                                 verbose=self.verbose,
                                 cv=cv)
-        
             self.clf.fit_compute(X,y,check_additivity=check_additivity,sample_weight=sample_weight)
-            
+
         
         self._is_fitted=True
     
@@ -426,14 +401,14 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
     @staticmethod
     def _lgbm_hpsearch_default():
 
-        from skopt.space import Categorical,Real,Integer
-
+        from scipy.stats import randint as sp_randint
+        from scipy.stats import uniform as sp_uniform 
+        
         para_space={
-            'boosting_type':Categorical(['goss','gbdt']),
-            'n_estimators': Integer(low=30, high=300, prior='uniform', transform='identity'),
-            'learning_rate': Real(low=0.05, high=0.2, prior='uniform', transform='identity'),
-            'max_depth': Integer(low=1, high=4, prior='uniform', transform='identity')
-        }
+            'n_estimators':sp_randint(low=60,high=150),
+            'learning_rate':sp_uniform(loc=0,scale=0.2),                      
+            'max_depth':sp_randint(low=2,high=4),#[0,∞],
+            }
         
         return para_space
     
