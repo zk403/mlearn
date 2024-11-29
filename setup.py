@@ -44,7 +44,7 @@ base_pkgs=[       'numpy==1.24.4' if python_ver() == "3.8" else 'numpy<1.27,>=1.
                   'lightgbm>=3.3.0',#https://github.com/microsoft/LightGBM 
                   'probatus>=2.0.0',#https://github.com/ing-bank/probatus
                   'mlxtend>=0.19.0',#https://github.com/rasbt/mlxtend
-                  'optuna',
+                  'optuna',#https://github.com/optuna/optuna?tab=readme-ov-file
                   'shap==0.43.0' if python_ver() == "3.8" else 'shap<=0.44.1',
                   "IPython",
                   'openpyxl'
