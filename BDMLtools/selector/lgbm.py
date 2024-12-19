@@ -27,8 +27,7 @@ class LgbmPISelector(TransformerMixin,Base,BaseTunner):
     '''
     使用基于LightGBM的Permutation importance进行特征筛选
     
-    Permutation importance介绍:https://scikit-learn.org/stable/modules/permutation_importance.html
-    
+    Permutation importance介绍:https://scikit-learn.org/stable/modules/permutation_importance.html    
     Permutation importance源码:https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/inspection/_permutation_importance.py
 
     Parameters:
@@ -242,7 +241,7 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
         min_features_to_select:int,最少选择的特征个数
         method:str,可选"raw","bs",
             - “raw”时,每一步消除时基模型超参设定不变,这样能够加快消除过程但得到的筛选结果并非在最优超参条件下,因此结果会产生偏差
-            - “bs”时，每一步消除均进行贝叶斯超参优化(sklearn-optimize),这将会增加计算量但会得到最优超参条件下较小偏差的筛选结果            
+            - “random”时，每一步消除均进行贝叶斯超参优化(sklearn-optimize),这将会增加计算量但会得到最优超参条件下较小偏差的筛选结果            
         clf_params:str,默认None(代表默认参数)
             当method="raw"时为LGBMClassifier的超参数设置,None代表默认参数        
             写法
@@ -264,8 +263,8 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
                     'max_depth':sp_randint(low=2,high=4),#[0,∞],
                     }
                 """                     
-        n_iters:method='bs'时贝叶斯优化迭代次数
-        scoring:str,method='bs'时超参优化目标或plot时的y轴指标,参考sklearn.metrics.SCORERS.keys(),
+        n_iters:method='random'时贝叶斯优化迭代次数
+        scoring:str,method='random'时超参优化目标或plot时的y轴指标,参考sklearn.metrics.SCORERS.keys(),
         cv:int,RepeatedStratifiedKFold交叉验证的折数
         repeats:int,RepeatedStratifiedKFold交叉验证重复次数
         random_state:int,随机种子
@@ -359,7 +358,9 @@ class LgbmShapRFECVSelector(TransformerMixin,Base,BaseTunner):
             
             para_space=self.clf_params if self.clf_params else self._lgbm_hpsearch_default()
     
-            estimator=RandomizedSearchCV(LGBMClassifier(random_state=self.random_state,verbosity=-1,n_jobs=1 if self.n_jobs>=0 else -1),param_distributions=para_space,
+            estimator=RandomizedSearchCV(LGBMClassifier(random_state=self.random_state,verbosity=-1,n_jobs=1 if self.n_jobs>=0 else -1),
+                                         param_distributions=para_space,
+                                         n_jobs=effective_n_jobs(self.n_jobs),
                                          n_iter=self.n_iter,random_state=self.random_state,refit=False,
                                          verbose=self.verbose,cv=cv,scoring=self.scoring,error_score=0)
             

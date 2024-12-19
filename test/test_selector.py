@@ -214,6 +214,8 @@ def test_preSelector():
     res=preSelector(keep=['a']).fit_transform(X,y)  
     assert 'a' in res.columns
     res=preSelector(out_path='tmp').fit_transform(X,y) 
+    
+    
 
 def test_lassologit():
     

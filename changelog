@@ -1,4 +1,12 @@
 ```
+v0.4.6
+1.修复density plot中的绘图bug
+2.新增sklearn版本要求<1.6.0
+3.更新单元测试脚本，更新部分代码说明
+```
+
+
+```
 v0.4.5
 1.移除tunner中有关模型校准(calibration)内容
 2.修复varGroupsPlot的bug

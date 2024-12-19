@@ -37,14 +37,13 @@ class perfEval(BaseEval,BaseEvalPlotter):
             + 'pr':pr曲线
             + 'lz':lorenz曲线
             + 'f1':f1曲线
-            + 'density':核密度分布曲线       
+            + 'density':核密度分布曲线(no weight)       
             + 'sloping':斜率曲线
             + 'calibration':校准曲线   
         title=None,str,评估图的title
         n_bins=10,int,绘制sloping、calibration图时等频分箱数
         pred_desc=None,是否反相排序y_pred,
-            + pred_desc=False情况下即y_pred越大代表event的概率估计越大，若y_pred越小代表event的概率估计越大时，请设定为pred_desc=True
-                
+            + pred_desc=False情况下即y_pred越大代表event的概率估计越大，若y_pred越小代表event的概率估计越大时，请设定为pred_desc=True                
             + pred_desc=None时,将自动检测y_pred，若y_pred范围在[0,1]之内时pred_desc将设定为False，y_pred范围在[0,1]之外时pred_desc将设定为True
         
     Method:
@@ -463,3 +462,6 @@ class perfEval2(BaseEval):
             print(p)
     
         return p.draw()
+    
+    
+    

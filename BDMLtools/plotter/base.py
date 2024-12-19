@@ -730,7 +730,7 @@ class BaseEvalData:
 
 
 class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):    
-        
+          
     def _plot_density(self,dt_density,figure_size,title=None):
         
         if dt_density['pred'].mean()<-1:
@@ -753,7 +753,7 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         )
         
         fig=(ggplot(data = dt_density) +
-            geom_density(aes(x='pred',linetype='label',color='factor(group)',weight='ws'),fill='gray', alpha=0.1,show_legend = True) +
+            geom_density(aes(x='pred',linetype='label',color='factor(group)'),fill='gray', alpha=0.1,show_legend = True) +
             geom_text(coord_label, aes(x='pred', y='dens', label=coord_label.index.map({0:'Neg',1:'Pos'}))) +
             guides(linetype=None, color=guide_legend(title='')) +
             ggtitle(title+' Density' if title else 'Density') +
@@ -774,13 +774,13 @@ class BaseEvalPlotter(BaseEvalData,BaseEvalFuns):
         
         if __version__!='0.12.4':
         
-            fig.show() 
+            fig.show()
             
         else:
                 
             print(fig)
             
-        return fig.draw()  
+        return fig.draw()
     
     
     def _plot_ks(self,g_dtev,figure_size,title=None):

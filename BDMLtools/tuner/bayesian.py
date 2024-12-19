@@ -20,10 +20,10 @@ import optuna
 class BayesianCVTuner(Base,BaseTunner):
     
     '''
-    使用scikit-optmize进行贝叶斯超参优化，可支持分类超参，能够提供对sklearn生态更好的兼容性且效率较高
+    使用optuna进行贝叶斯超参优化
     
-    scikit-optmize文档:https://scikit-optimize.github.io/stable/
-    scikit-optmize源码:https://github.com/scikit-optimize/scikit-optimize
+    optuna文档:https://optuna.readthedocs.io/en/stable/
+    optuna源码:https://github.com/optuna/optuna
     
     Parameters:
     --
@@ -380,7 +380,7 @@ class BayesianCVTuner(Base,BaseTunner):
 class FLBSTuner(Base,BaseTunner):
     
         '''
-        使用二分类Focal Loss、贝叶斯超参优化(scikit-optmize)的梯度提升模型(目前仅支持Sklearn接口下的LightGBM)
+        使用二分类Focal Loss、贝叶斯超参优化(optuna)的梯度提升模型(目前仅支持Sklearn接口下的LightGBM)
         
             + 为解决样本不平衡问题而被提出的Focal Loss，通过引入类权重与对减少易分类样本的损失贡献同时增加难分类样本的损失贡献来减少样本不平衡问题
             + Focal Loss是一种变种的交叉熵损失函数,存在一阶、二阶导数，因此满足lgbm、xgb的要求

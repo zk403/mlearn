@@ -44,8 +44,3 @@ def test_eval2(mock_show):
     res=perfEval2(labels=['g','b'],sort_group=['g','b']).plot(pred,true,group)
     res=perfEval2(labels=['g','b'],sort_group=['g','b']).plot(pred,true,group,sample_weight=ws)
     
-    
-    
-
-    
-    

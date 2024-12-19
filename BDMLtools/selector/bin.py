@@ -16,7 +16,7 @@ from BDMLtools.report.report import varGroupsReport,varReportSinge
 #import matplotlib.pyplot as plt
 from pandas.api.types import is_string_dtype,is_numeric_dtype
 from BDMLtools.plotter.base import BaseWoePlotter
-from IPython.core.display_functions import display
+from IPython.display import display
 
 
 class binSelector(Base,TransformerMixin):    
@@ -458,7 +458,7 @@ class binAdjuster(Base,BaseWoePlotter):
     
             fig,_=self._get_plot_single(binx,figure_size=figure_size,ptype=ptype,show_plot=True)
     
-            display(fig) #IPython.core.display_functions.display
+            display(fig) #IPython.display.display
     
             # interactive options
             option=self._menu(adj_count+1,var_sum,colname)

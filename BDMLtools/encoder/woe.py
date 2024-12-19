@@ -189,7 +189,7 @@ class woeTransformer(Base,Specials,TransformerMixin):
         self.special_values=special_values
         self.woe_missing=woe_missing
         self.woe_special=woe_special
-        self.distr_limit=distr_limit
+        self.distr_limit=distr_limit       
         
     def transform(self,X,y=None):
         """ 
